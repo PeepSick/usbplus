@@ -1,0 +1,117 @@
+# usb mcprobe — Runtime Observation Design Proposal
+
+Status: **design, pre-implementation** (Trust Layer depth stage: runtime
+observation). Companion to docs/tool-graph-sources.md, which drew the line
+this document formalizes:
+
+> Static analysis (secscan) never executes what it scans.
+> Runtime observation (mcprobe) always does — explicitly, opt-in, and
+> clearly labeled non-deterministic.
+
+---
+
+## 1. Problem
+
+Stage 2 reads what a server DECLARES; stage 3 reads what its source
+REGISTERS when the source is inside the tree. Neither answers the final
+question: **what tools does the server actually expose at runtime?** Only
+the MCP handshake can answer that. The answer is valuable enough to
+justify a dedicated tool — but it must never leak into the deterministic
+audit chain, because it cannot be reproducible.
+
+## 2. Positioning — a separate mode, not a flag
+
+| | secscan | mcprobe |
+|---|---|---|
+| executes targets | never | yes (spawn / network) |
+| network | never | yes |
+| deterministic output | byte-identical, goldens | non-deterministic by definition |
+| CI gating | exit codes gate | advisory data only |
+| default behavior | runs implicitly on paths | never implicit |
+
+mcprobe reuses secscan's DISCOVERY (config parsing, adapter identity,
+locators) but shares no execution path and writes nothing into
+`usb-contract-artifacts`. A secscan report can never contain an
+observation made by mcprobe.
+
+## 3. Safety model (the core of the design)
+
+Launching an untrusted MCP server means running untrusted code — the
+exact act secscan exists to avoid. Therefore:
+
+1. **Never implicit.** mcprobe only ever runs as its own command, per
+   target, with an explicit consent surface (interactive confirm or
+   `--yes`). Piped stdin counts as refusal.
+2. **No tool calls. Ever.** Protocol scope is exactly: `initialize` →
+   `initialized` → `tools/list` → shutdown. Registration of capabilities
+   is observed; invocation is out of scope permanently.
+3. **Bounded contact.** Hard timeout on every phase; SIGTERM then kill;
+   output size caps. A hung server is a finding, not a crash.
+4. **Environment minimization.** The server gets the env vars its config
+   entry declares — nothing inherited unless explicitly requested.
+5. **Remote entries are safer than local ones** (no process spawn); the
+   report records which contact class was used so consumers can weigh it.
+
+## 4. Protocol flow (stdio)
+
+```
+spawn(command, args, env=entry.env)      # cwd: config dir
+→ initialize (protocolVersion, capabilities, serverInfo)
+→ initialized notification
+→ tools/list (+ pagination cursor loop, capped)
+→ graceful shutdown: close stdin → wait(brief) → SIGTERM → kill
+```
+
+HTTP/SSE transports skip the spawn and reuse the same message sequence
+over the wire. Every phase transition is recorded with ok/error/timeout so
+a partial probe is still an honest report.
+
+## 5. Output contract — `usb-mcprobe-report/v1`
+
+```json
+{
+  "schema": "usb-mcprobe-report/v1",
+  "mode": "runtime-observation",
+  "deterministic": false,
+  "target": { "locator": "...", "transport": "stdio", "contact": "local-process" },
+  "handshake": { "initialize": "ok", "tools_list": "ok" },
+  "server_info": { "name": "...", "version": "..." },
+  "tools": [ { "name": "...", "description": "...", "input_schema_keys": [] } ]
+}
+```
+
+- `tools` is sorted by name; `input_schema_keys` keeps only top-level
+  property names (bounded review signal, no schema dumps).
+- No timestamps inside the structured body; wall-clock data belongs to the
+  caller's log, not to a file that might be diffed.
+
+## 6. Closing the loop — declared vs observed tools
+
+mcprobe output finally enables the tool-level comparison sketched in the
+depth order:
+
+- config-declared tools (stage 2) vs runtime `tools` list
+- undeclared runtime tools → candidate finding family (`P104`,
+  "undeclared runtime tool") — **open decision**, see §8
+- declared-but-absent tools → drift note (server shrank silently)
+
+Comparison lives OUTSIDE mcprobe (a read-only join over mcprobe report +
+secscan artifacts), keeping the observer dumb and the judge pure.
+
+## 7. Non-goals
+
+- No `tools/call`, no sampling, no resource/prompt subscription (later
+  scopes, each with their own safety note).
+- No sandboxing built-in v1 (documented guidance instead: containers,
+  throwaway users). Sandboxing integration is a follow-up feature.
+- No merging into baselines: fingerprints presuppose reproducibility.
+
+## 8. Open decisions (before implementation)
+
+1. Finding vocabulary for declared-vs-runtime deltas (P104 now? or
+   report-only first iteration?)
+2. Baseline interplay: none (recommended) vs a separate mcprobe-baseline
+   concept
+3. Consent UX: interactive prompt wording, `--yes` semantics, batch files
+4. Pagination cap for `tools/list` (proposed hard ceiling + truncation
+   marker)
