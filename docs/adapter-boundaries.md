@@ -81,6 +81,17 @@ capability declarations - a permission grant never neutralizes a P101,
 and unreadable settings files surface as standalone S101 units because
 silently dropped rules are a security fact.
 
+Excessive-authority landed (Faz 5 v3): P103 reads ONLY serialized
+authority-scope fields (credential-descriptor env keys, mounts) and flags
+breadth the declared purpose cannot explain - the vocabulary-sharing test,
+with generic tokens (KEY/TOKEN, usr/home) ignored on both sides. Advisory
+by construction: severity is always low, verdict `excessive-authority`
+sits below purpose-mismatch, exit code untouched. Remote transports are
+excluded (P101 already judges their egress); operator permissions are
+never judged; a filesystem-flavored purpose explains mounts categorically.
+Engine and independent reducer derive identical findings from the same
+artifact.
+
 ## Rules extracted for the MCP adapter
 
 1. An MCP unit needs only: identity, claim text, transport/command/env

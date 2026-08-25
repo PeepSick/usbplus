@@ -1,7 +1,7 @@
 {
   "schema": "usb-contract-artifacts/v1",
   "tool": "usb-secscan",
-  "unit_count": 19,
+  "unit_count": 20,
   "units": [
     {
       "authority_scope": {
@@ -285,6 +285,55 @@
       "structural_findings": [],
       "undeclared_categories": [],
       "verdict": "matches-declaration"
+    },
+    {
+      "authority_scope": {
+        "bundle_scripts": [],
+        "env_keys": [
+          "STRIPE_SECRET_KEY"
+        ],
+        "mounts": [],
+        "permissions": [],
+        "signals": [],
+        "transports": [
+          "stdio"
+        ]
+      },
+      "contract_findings": [
+        {
+          "fingerprint": "c65d75cad1974f13",
+          "line": 1,
+          "quote": "env STRIPE_SECRET_KEY",
+          "rule": "P103",
+          "severity": "low",
+          "title": "authority beyond declared purpose"
+        }
+      ],
+      "declared": {
+        "categories": [],
+        "description_chars": 0,
+        "text": "weather-bot",
+        "tools": [],
+        "tools_declared": false
+      },
+      "evidence_by_rule": {
+        "P103": [
+          {
+            "line": 1,
+            "quote": "env STRIPE_SECRET_KEY"
+          }
+        ]
+      },
+      "identity": {
+        "kind": "mcp-server",
+        "name": "weather-bot",
+        "source": "C:\\usbv2\\contracts\\fixtures\\trees\\skills-project/.mcp.json#mcpServers/weather-bot",
+        "source_kind": "local"
+      },
+      "observed_capabilities": [],
+      "structural_findings": [],
+      "undeclared_categories": [],
+      "verdict": "excessive-authority"
     },
     {
       "authority_scope": {

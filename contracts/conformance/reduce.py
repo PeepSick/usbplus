@@ -15,6 +15,7 @@ Explanatory prose (`detail`) and run-scoped policy state are excluded.
 
 import hashlib
 import json
+import re
 
 SCHEMA = "usb-contract-artifacts/v1"
 LADDER = ["info", "low", "medium", "high"]
@@ -27,6 +28,52 @@ CATEGORY_BASE = {
     "process-execution": "medium",
     "persistence-hooks": "high",
 }
+
+# Independent copy of P103 vocabulary tables (engine: MCP_GENERIC_*).
+_P103_CREDENTIAL_RE = re.compile(
+    r"(token|secret|password|passwd|private[_-]?key|api[_-]?key|credential)",
+    re.IGNORECASE)
+_P103_FILESYSTEM_RE = re.compile(
+    r"file|folder|director|storage|backup|sync|mount|fs", re.IGNORECASE)
+_P103_GENERIC_ITEMS = frozenset((
+    "token", "secret", "password", "passwd", "key", "api", "auth",
+    "credential", "credentials", "var", "env", "prod", "production",
+    "staging", "dev", "test", "the"))
+_P103_GENERIC_PATHS = frozenset((
+    "home", "users", "user", "opt", "usr", "local", "bin", "sbin", "tmp",
+    "etc", "var", "lib", "app", "data", "srv", "mnt", "media", "windows",
+    "program", "files", "x86", "js", "mjs", "cjs", "ts", "py", "sh",
+    "json", "yaml", "yml", "md", "exe", "dll", "com"))
+
+
+def _p103_unexplained(declared_text, authority_scope):
+    """Mirror of the engine's p103_finding item selection. Returns the
+    unexplained-item labels in the same deterministic order."""
+    claim_lower = declared_text.lower()
+
+    def tokens(item):
+        return [p.lower() for p in re.split(r"[^A-Za-z0-9]+", item)
+                if len(p) >= 3]
+
+    def explained(toks):
+        if not toks:
+            return True
+        return any(t in claim_lower for t in toks)
+
+    out = []
+    for key in authority_scope.get("env_keys") or []:
+        if not _P103_CREDENTIAL_RE.search(key):
+            continue
+        toks = [t for t in tokens(key) if t not in _P103_GENERIC_ITEMS]
+        if not explained(toks):
+            out.append(f"env {key}")
+    for mount in authority_scope.get("mounts") or []:
+        if _P103_FILESYSTEM_RE.search(claim_lower):
+            break  # a filesystem-flavored purpose explains path mounts
+        segs = [t for t in tokens(mount) if t not in _P103_GENERIC_PATHS]
+        if not explained(segs):
+            out.append(f"mount {mount}")
+    return out
 
 
 def fingerprint(rule: str, quote: str) -> str:
@@ -83,6 +130,24 @@ def reduce_unit(unit: dict):
                 "corroborated": True,
             })
 
+    # P103: unexplained authority breadth - advisory (always low), one
+    # aggregated finding, anchored at line 1 on both sides.
+    unexplained = _p103_unexplained(unit["declared"].get("text", ""),
+                                    unit.get("authority_scope", {}))
+    if unexplained:
+        # mirror of the engine's trim_quote
+        quote = " ".join(unexplained[0].split())
+        if len(quote) > 200:
+            quote = quote[:197] + "..."
+        contract.append({
+            "rule": "P103",
+            "severity": "low",
+            "title": "authority beyond declared purpose",
+            "line": 1,
+            "quote": quote,
+            "fingerprint": fingerprint("P103", quote),
+        })
+
     rules = {f["rule"] for f in structural} | {f["rule"] for f in contract}
     # S002 (broken frontmatter), S101 (broken MCP config) and S102 (unreadable
     # declared tool list) all mean: the relevant contract cannot be read.
@@ -91,6 +156,10 @@ def reduce_unit(unit: dict):
     elif any(f["rule"] == "P101" and f["severity"] in ("high", "medium")
              for f in contract):
         verdict = "purpose-mismatch"
+    elif any(f["rule"] == "P103" for f in contract):
+        # advisory by construction: P103 is always low, so this sits BELOW
+        # purpose-mismatch and never blocks
+        verdict = "excessive-authority"
     elif rules:
         verdict = "structural-issues"
     else:

@@ -27,6 +27,11 @@
       "command": "npx",
       "args": ["-y", "@example/broken"],
       "tools": "read_everything"
+    },
+    "weather-bot": {
+      "command": "npx",
+      "args": ["-y", "@example/weather"],
+      "env": { "STRIPE_SECRET_KEY": "${env:S}" }
     }
   }
 }

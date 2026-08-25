@@ -203,9 +203,20 @@ summary: 4 skill(s) verified, 1 with findings ... | authority signals: 3 across
 ```
 
 Each skill gets one deterministic verdict: `matches-declaration`,
-`purpose-mismatch`, `structural-issues`, or `unverifiable`. Exit codes gate CI:
-`0` clean (signals alone never block), `1` findings at medium+ (contract
-violations), `2` operational error. Same input tree, byte-identical report.
+`purpose-mismatch`, `excessive-authority`, `structural-issues`, or
+`unverifiable`. Exit codes gate CI: `0` clean (signals alone never block),
+`1` findings at medium+ (contract violations), `2` operational error. Same
+input tree, byte-identical report.
+
+For MCP servers, requested authority that shares no vocabulary with the
+declared purpose is flagged as **possible over-breadth** (`P103`,
+`excessive-authority`) - and it is advisory by construction: always low
+severity, so it never blocks by itself. A deploy server requesting
+`DEPLOY_TOKEN` is explained by its name; a weather bot holding
+`STRIPE_SECRET_KEY` is not. Remote transports are excluded (their egress is
+already judged as observed behavior), operator permission rules are never
+judged, and a filesystem-flavored purpose explains path mounts
+categorically.
 
 Scanning third-party collections in CI? Record a baseline once
 (`--write-baseline`) and gate with `--baseline` afterwards: known findings are
@@ -264,6 +275,7 @@ Rule catalog:
 | `S101` structural (MCP) | unparsable JSON, wrong-typed server table, unlaunchable entries | "Can a contract even be read from this config?" |
 | `S102` structural (MCP tools) | declared tool list present but unreadable | "Can the tool contract be read?" |
 | `P101-P102` purpose / contract | undeclared capability categories; unsupported purpose statement | "Does it do what it says?" |
+| `P103` purpose (MCP authority) | authority items unexplainable by the declared purpose - advisory, always low | "Is any requested reach connected to the stated job at all?" |
 | `A101-A106` authority signals | broad scope over sensitive objects, silent action, vague delegation, instruction overrides, encoded blobs, invisible characters | "Is any requested authority vague, hidden, or out of proportion?" |
 
 Requires `python3` (no grep fallback for security work). Scanning a repo via

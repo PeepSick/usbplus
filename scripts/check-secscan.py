@@ -470,6 +470,11 @@ def check_mcp_configs(tmp: Path):
       "command": "npx",
       "args": ["-y", "@example/broken"],
       "tools": "read_everything"
+    },
+    "weather-bot": {
+      "command": "npx",
+      "args": ["-y", "@example/weather"],
+      "env": { "STRIPE_SECRET_KEY": "${env:S}" }
     }
   }
 }
@@ -529,8 +534,8 @@ def check_mcp_configs(tmp: Path):
             raise KeyError(f"{marker}: {len(matches)} matches")
         return matches[0]
 
-    if len(by_path) != 6:
-        problems.append(f"expected 6 units (5 servers + broken config), "
+    if len(by_path) != 7:
+        problems.append(f"expected 7 units (6 servers + broken config), "
                         f"got {len(by_path)}: {sorted(by_path)}")
     try:
         clean = unit_for("#mcpServers/filesystem")
@@ -538,6 +543,7 @@ def check_mcp_configs(tmp: Path):
         deploy = unit_for("#mcpServers/deploy-helper")
         reporter = unit_for("#mcpServers/reporter")
         bad_tools = unit_for("#mcpServers/bad-tools")
+        weather = unit_for("#mcpServers/weather-bot")
         broken = [s for p, s in by_path.items()
                   if p.endswith(".cursor/mcp.json")][0]
     except KeyError as exc:
@@ -573,6 +579,17 @@ def check_mcp_configs(tmp: Path):
             or bad_tools["verdict"] != "unverifiable":
         problems.append(f"unreadable tool list wrong: {bad_tools['verdict']} "
                         f"{[f['rule'] for f in bad_tools['findings']]}")
+
+    # P103 excessive-authority: advisory by construction
+    w103 = [f for f in weather["findings"] if f["rule"] == "P103"]
+    if weather["verdict"] != "excessive-authority" \
+            or len(w103) != 1 or w103[0]["severity"] != "low":
+        problems.append(f"weather-bot P103 wrong: {weather['verdict']} "
+                        f"{[(f['rule'], f['severity']) for f in weather['findings']]}")
+    if deploy["findings"]:
+        # DEPLOY_TOKEN + /opt/deploy/run.js are EXPLAINED by the claim;
+        # this also guards P103 from flagging connected authority
+        problems.append(f"env-token server flagged: {deploy['findings']}")
 
     art = json.loads((tmp / "mcp-artifacts.json").read_text(encoding="utf-8"))
     art_by_src = {u["identity"]["source"]: u for u in art["units"]}
@@ -639,6 +656,25 @@ def check_mcp_configs(tmp: Path):
     d3 = json.loads(r3.stdout)
     if r3.returncode != 0:
         problems.append(f"baselined MCP rescan rc={r3.returncode}, expected 0")
+
+    # advisory proof: a tree whose ONLY finding is P103 must exit 0
+    proj3 = tmp / "only-excessive"
+    write(proj3 / ".mcp.json", """{
+  "mcpServers": {
+    "weather-bot": {
+      "command": "npx",
+      "args": ["-y", "@example/weather"],
+      "env": { "STRIPE_SECRET_KEY": "${env:S}" }
+    }
+  }
+}
+""")
+    r5 = run(["python3", ENGINE, "--json", str(proj3)])
+    d5 = json.loads(r5.stdout)
+    rules = [f["rule"] for s in d5["skills"] for f in s["findings"]]
+    if r5.returncode != 0 or rules != ["P103"]:
+        problems.append(f"advisory-only tree rc={r5.returncode} "
+                        f"(expected 0), rules={rules}")
 
     if problems:
         report(name, False, "; ".join(problems))

@@ -122,6 +122,28 @@ MAX_SCRIPTS_PER_SKILL = 20          # executable files inspected per bundle
 MAX_SCRIPT_BYTES = 256 * 1024       # larger scripts are skipped entirely
 MAX_SCRIPT_DEPTH = 3                # directory levels below the skill dir
 
+# Excessive-authority analysis (P103): an authority item is "explained" when
+# its own vocabulary appears in the declared purpose text. Generic tokens
+# carry no meaning on either side (every credential key contains KEY or
+# TOKEN; every path contains usr or home) and are ignored on both sides.
+CREDENTIAL_DESCRIPTOR_RE = re.compile(
+    r"(token|secret|password|passwd|private[_-]?key|api[_-]?key|credential)",
+    re.IGNORECASE)
+# A filesystem-flavored purpose ("filesystem", "file organizer", "backup
+# sync") explains PATH mounts categorically - the specific directory names
+# need not echo the claim.
+FILESYSTEM_PURPOSE_RE = re.compile(
+    r"file|folder|director|storage|backup|sync|mount|fs", re.IGNORECASE)
+MCP_GENERIC_ITEM_TOKENS = frozenset((
+    "token", "secret", "password", "passwd", "key", "api", "auth",
+    "credential", "credentials", "var", "env", "prod", "production",
+    "staging", "dev", "test", "the"))
+MCP_GENERIC_PATH_SEGMENTS = frozenset((
+    "home", "users", "user", "opt", "usr", "local", "bin", "sbin", "tmp",
+    "etc", "var", "lib", "app", "data", "srv", "mnt", "media", "windows",
+    "program", "files", "x86", "js", "mjs", "cjs", "ts", "py", "sh",
+    "json", "yaml", "yml", "md", "exe", "dll", "com"))
+
 # MCP config layer (contract-core depth-order stage 1): agent runtimes read
 # server entries from well-known JSON files. Discovery is filename-based and
 # deterministic - no content sniffing.
@@ -155,6 +177,7 @@ VERDICT_PRECEDENCE = [
     ("unverifiable", "S101"),
     ("unverifiable", "S102"),
     ("purpose-mismatch", "P101"),
+    ("excessive-authority", "P103"),
 ]
 
 
@@ -1128,6 +1151,74 @@ def p102_finding(art):
         "none of the description's characteristic words appear in the body "
         "- the declared purpose has no textual basis in the actual "
         "instructions")]
+
+
+def _authority_item_tokens(item: str):
+    return [p.lower() for p in re.split(r"[^A-Za-z0-9]+", item)
+            if len(p) >= 3]
+
+
+def _explained_by_claim(item_tokens, claim_lower: str) -> bool:
+    """An authority item explains itself when ANY of its meaningful tokens
+    appears in the declared purpose text. Generic tokens were removed by
+    the caller; an item reduced to nothing generic-only (e.g. a bare
+    'API_KEY') is treated as explained - absence of vocabulary is not
+    evidence of breadth."""
+    if not item_tokens:
+        return True
+    return any(t in claim_lower for t in item_tokens)
+
+
+def p103_finding(art):
+    """CORE: authority reach the declared purpose cannot explain.
+
+    Advisory by construction: severity is always 'low', so this never
+    gates the exit code on its own (spec section 4.1 - excessive-authority
+    is not malice; broad-but-explained authority is ordinary).
+
+    Consumes ONLY serialized artifact fields. v1 judges two sources:
+      - credential-descriptor env keys whose domain vocabulary shares
+        nothing with the claim (GITHUB_TOKEN on a github server is fine;
+        STRIPE_SECRET_KEY on a weather bot is not)
+      - filesystem mounts under the same vocabulary test
+    Remote transports are deliberately excluded: their egress already
+    produces observed evidence that P101 judges. Operator permission rules
+    are never judged - they describe what humans allow, not what servers
+    are.
+
+    Line anchors at 1 on purpose: the finding aggregates items rather than
+    citing one config line, and both engine and independent reducer derive
+    identical bytes from the same artifact.
+    Returns [] or exactly one finding."""
+    claim_lower = art["declared"]["text"].lower()
+    scope = art["authority_scope"]
+    unexplained = []
+    for key in scope.get("env_keys") or []:
+        if not CREDENTIAL_DESCRIPTOR_RE.search(key):
+            continue
+        toks = [t for t in _authority_item_tokens(key)
+                if t not in MCP_GENERIC_ITEM_TOKENS]
+        if not _explained_by_claim(toks, claim_lower):
+            unexplained.append(f"env {key}")
+    for mount in scope.get("mounts") or []:
+        if FILESYSTEM_PURPOSE_RE.search(claim_lower):
+            break  # a filesystem-flavored purpose explains path mounts
+        segs = [s for s in _authority_item_tokens(mount)
+                if s not in MCP_GENERIC_PATH_SEGMENTS]
+        if not _explained_by_claim(segs, claim_lower):
+            unexplained.append(f"mount {mount}")
+    if not unexplained:
+        return []
+    detail = (
+        f"{len(unexplained)} requested-authority item(s) share no "
+        "vocabulary with the declared purpose: "
+        + "; ".join(unexplained[:3])
+        + ("." if len(unexplained) <= 3 else f" (+{len(unexplained) - 3} more).")
+        + " Possible over-breadth - advisory only, this never blocks by "
+        "itself.")
+    return [make_finding(
+        "P103", "low", "authority beyond declared purpose",
+        1, trim_quote(unexplained[0]), detail)]
 
 
 def collect_authority_signals(unit: Unit):
@@ -2220,6 +2311,7 @@ def main(argv=None):
                 artifacts["undeclared_categories"] = sorted(
                     set(observed) - declared)
                 contract_findings = p101_findings(artifacts)
+                contract_findings.extend(p103_finding(artifacts))
         else:
             structural, fields_ok = analyze_structure(unit, seen_names)
             if fields_ok:
