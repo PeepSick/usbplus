@@ -311,18 +311,19 @@ shared contract core. Phased, design-first:
 3. ✅ **Scan baselines** (shipped) — `--baseline <file>` so CI gates only
    on *new* findings when scanning third-party collections;
    `--write-baseline` records (and prunes) the snapshot
-4. **Verdict fingerprints** — stable hash of a unit's report; the
-   groundwork for "USB Verified" badges
-5. **MCP contracts** — deliberately designed before built. The shared
-   `@usb/contract-core` lands here with per-format adapters (skill / mcp /
-   agent / plugin). Every adapter emits the same four artifacts —
-   **Declared Contract, Observed Capabilities, Evidence, Authority
-   Scope** — and the core reduces them to one deterministic verdict
-   (`matches-declaration`, `purpose-mismatch`, `excessive-authority`,
-   `unverifiable`). Never "safe/unsafe". Config-layer evidence first;
-   tool-graph and implementation-source adapters next. Same discipline as
-   phases 1–2: build against real repositories (OpenWork ships
-   `.opencode` configs — that corpus is the first target)
+4. **Shared contract-core** (`@usb/contract-core`) — designed before any
+   new adapter is written; full spec in `docs/contract-core.md`. One
+   deterministic decision engine, and per-format adapters each emit the
+   same four artifacts (**Declared Contract, Observed Capabilities,
+   Evidence, Authority Scope**) for the core to reduce into a single
+   verdict from a fixed vocabulary (`matches-declaration`,
+   `purpose-mismatch`, `excessive-authority`, `unverifiable`). Never
+   "safe/unsafe"
+5. **MCP contracts** — the first new adapter after the core: config-layer
+   evidence first (transport, command line, environment), tool-graph and
+   implementation-source adapters next. Same discipline as phases 1–2:
+   built against real repositories — OpenWork's `.opencode` configs are
+   the first target corpus
 6. **Agent & command contracts** — dedicated adapters on the same core
    (today they are verified through the skill adapter; this gives them
    their own declared-vs-observed contracts)
@@ -330,7 +331,7 @@ shared contract core. Phased, design-first:
    continuous trust
 
 - Skill marketplace (built on the trust layer, not before it)
-- Verified skill badges (fingerprint-signed verdicts from phase 3)
+- Verified skill badges (fingerprint-signed verdicts from phase 5)
 - CI-based skill validation (schema/lint checks for new skill submissions)
 - README-driven test harness — auto-extract and run labeled code blocks from this file in CI, instead of hand-syncing `scripts/verify-readme.sh`
 - Versioned skill contracts
