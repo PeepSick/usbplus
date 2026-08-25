@@ -281,8 +281,30 @@ and daily on a schedule.
 
 ### Roadmap
 
-- Skill marketplace
-- Verified skill badges
+**USB Trust Layer** — "does it do what it declares?" answered with one
+deterministic contract core across every AI capability format. Phased,
+design-first:
+
+1. ✅ **Skill contracts** (shipped) — S/P/A verification, bundled-script
+   evidence, deterministic verdicts: `usb secscan`
+2. **Scan baselines** — `--baseline <file>` so CI gates only on *new*
+   findings when scanning third-party collections
+3. **Verdict fingerprints** — stable hash of a skill's report; the
+   groundwork for "USB Verified" badges
+4. **MCP contracts** — deliberately designed before built. A shared
+   `@usb/contract-core` with per-format adapters (skill / mcp / agent /
+   plugin). Every adapter emits the same four artifacts — **Declared
+   Contract, Observed Capabilities, Evidence, Authority Scope** — and the
+   core reduces them to one deterministic verdict (`matches-declaration`,
+   `purpose-mismatch`, `excessive-authority`, `unverifiable`). Never
+   "safe/unsafe". Config-layer evidence first; tool-graph and
+   implementation-source adapters next; runtime observation last.
+5. **Agent & command contracts** — same core, new adapters
+6. **Runtime observation** — static verdicts plus observed execution =
+   continuous trust
+
+- Skill marketplace (built on the trust layer, not before it)
+- Verified skill badges (fingerprint-signed verdicts from phase 3)
 - CI-based skill validation (schema/lint checks for new skill submissions)
 - README-driven test harness — auto-extract and run labeled code blocks from this file in CI, instead of hand-syncing `scripts/verify-readme.sh`
 - Versioned skill contracts
