@@ -274,6 +274,18 @@ claims - an allowed tool changes nothing about an undeclared capability,
 and a settings file that cannot be parsed is reported on its own (its
 rules would silently stop applying).
 
+Depth stage 3 reads **implementation source**: when a server's launch line
+resolves to code files inside the scanned tree, exact SDK registration
+idioms are extracted - Python `@mcp.tool()` decorators and TypeScript
+`server.tool(...)` / `server.registerTool(...)` calls, nothing else (no
+AST walking, no third-party framework hunting). Every registration enters
+the report as observed behavior evidence, anchored at its file:line and
+categorized by tool name + description through the same lexicon used for
+skills. Launch lines that cannot be resolved inside the tree (`npx -y
+@scope/pkg`, absolute paths) are recorded verbatim under the server's
+authority scope as `opaque`: USB does not pretend to analyze what it
+cannot see.
+
 Rule catalog:
 
 | Group | Rules | Question |
