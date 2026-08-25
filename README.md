@@ -281,35 +281,42 @@ and daily on a schedule.
 
 ### Roadmap
 
-**USB Trust Layer** — "does it do what it declares?" answered with one
-deterministic contract core across every AI capability format. Phased,
-design-first:
+**USB Trust Layer** — one sentence: *USB discovers AI capabilities inside
+repositories and verifies whether their observed behavior matches their
+declared contract.* Skills, MCPs, agents and commands are not separate
+products — they are formats discovered within a repository and routed to a
+shared contract core. Phased, design-first:
 
-1. ✅ **Skill contracts** (shipped) — S/P/A verification, bundled-script
-   evidence, deterministic verdicts: `usb secscan`
-   ✅ **Whole-repository scanning** (shipped) — `--repo <git-or-github-url>`
-   clones any repository read-only into a temp dir and verifies every
-   capability claim inside it: skills, bundled scripts, agents, commands.
-   Already validated and calibrated against two real-world corpora —
-   Anthropic's public skills catalog and OpenWork's `.opencode` tree —
-   using the reproducible before/after harness in
+1. ✅ **Repository discovery & scan** (shipped) — USB's main job. Point it
+   at a local path or a git/GitHub URL; USB clones read-only into a temp
+   dir and discovers what is actually there: `SKILL.md` bundles, bundled
+   scripts, agent definitions, slash commands, runtime cards — each routed
+   to its adapter. Already validated and calibrated against two real-world
+   corpora — Anthropic's public skills catalog and OpenWork's `.opencode`
+   tree — using the reproducible before/after harness in
    `scripts/secscan-compare.sh`
-2. **Scan baselines** — `--baseline <file>` so CI gates only on *new*
+2. ✅ **Skill contracts** (shipped) — the first working adapter: S/P/A
+   verification with file:line evidence and deterministic verdicts,
+   including bundled-script behavior evidence (`usb secscan`,
+   `usb secscan --repo owner/repo`)
+3. **Scan baselines** — `--baseline <file>` so CI gates only on *new*
    findings when scanning third-party collections
-3. **Verdict fingerprints** — stable hash of a skill's report; the
+4. **Verdict fingerprints** — stable hash of a unit's report; the
    groundwork for "USB Verified" badges
-4. **MCP contracts** — deliberately designed before built. A shared
-   `@usb/contract-core` with per-format adapters (skill / mcp / agent /
-   plugin). Every adapter emits the same four artifacts — **Declared
-   Contract, Observed Capabilities, Evidence, Authority Scope** — and the
-   core reduces them to one deterministic verdict (`matches-declaration`,
-   `purpose-mismatch`, `excessive-authority`, `unverifiable`). Never
-   "safe/unsafe". Config-layer evidence first; tool-graph and
-   implementation-source adapters next; runtime observation last.
-   Same discipline as the skill phase: build against real repositories
-   (OpenWork ships `.opencode` configs — that corpus is the first target).
-5. **Agent & command contracts** — same core, new adapters
-6. **Runtime observation** — static verdicts plus observed execution =
+5. **MCP contracts** — deliberately designed before built. The shared
+   `@usb/contract-core` lands here with per-format adapters (skill / mcp /
+   agent / plugin). Every adapter emits the same four artifacts —
+   **Declared Contract, Observed Capabilities, Evidence, Authority
+   Scope** — and the core reduces them to one deterministic verdict
+   (`matches-declaration`, `purpose-mismatch`, `excessive-authority`,
+   `unverifiable`). Never "safe/unsafe". Config-layer evidence first;
+   tool-graph and implementation-source adapters next. Same discipline as
+   phases 1–2: build against real repositories (OpenWork ships
+   `.opencode` configs — that corpus is the first target)
+6. **Agent & command contracts** — dedicated adapters on the same core
+   (today they are verified through the skill adapter; this gives them
+   their own declared-vs-observed contracts)
+7. **Runtime observation** — static verdicts plus observed execution =
    continuous trust
 
 - Skill marketplace (built on the trust layer, not before it)
