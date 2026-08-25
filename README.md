@@ -287,6 +287,13 @@ design-first:
 
 1. ✅ **Skill contracts** (shipped) — S/P/A verification, bundled-script
    evidence, deterministic verdicts: `usb secscan`
+   ✅ **Whole-repository scanning** (shipped) — `--repo <git-or-github-url>`
+   clones any repository read-only into a temp dir and verifies every
+   capability claim inside it: skills, bundled scripts, agents, commands.
+   Already validated and calibrated against two real-world corpora —
+   Anthropic's public skills catalog and OpenWork's `.opencode` tree —
+   using the reproducible before/after harness in
+   `scripts/secscan-compare.sh`
 2. **Scan baselines** — `--baseline <file>` so CI gates only on *new*
    findings when scanning third-party collections
 3. **Verdict fingerprints** — stable hash of a skill's report; the
@@ -299,6 +306,8 @@ design-first:
    `purpose-mismatch`, `excessive-authority`, `unverifiable`). Never
    "safe/unsafe". Config-layer evidence first; tool-graph and
    implementation-source adapters next; runtime observation last.
+   Same discipline as the skill phase: build against real repositories
+   (OpenWork ships `.opencode` configs — that corpus is the first target).
 5. **Agent & command contracts** — same core, new adapters
 6. **Runtime observation** — static verdicts plus observed execution =
    continuous trust
