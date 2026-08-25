@@ -31,6 +31,13 @@ Authority Signals   linguistic patterns that grant vague or silent agency
                     attached to the report as corroborated findings.
 Structural Checks   is this a well-formed skill at all (S-rules)?
 
+MCP config layer    server entries in well-known project configs (.mcp.json,
+                    .cursor/mcp.json, .vscode/mcp.json) are scanned with the
+                    same contract model: the entry NAME is the declaration,
+                    its command/args/url/env are observed behavior and
+                    requested authority. A config that cannot be parsed is
+                    reported (S101) instead of silently skipped.
+
 Verdicts (deterministic, one per skill)
 ---------------------------------------
     unverifiable          frontmatter cannot be parsed, so no contract
@@ -83,7 +90,7 @@ import re
 import sys
 from pathlib import Path, PurePosixPath
 
-VERSION = "1.4.0"
+VERSION = "1.5.0"
 TOOL = "usb-secscan"
 
 # --- documented limits (part of the deterministic contract) ------------------
@@ -113,6 +120,17 @@ MAX_SCRIPTS_PER_SKILL = 20          # executable files inspected per bundle
 MAX_SCRIPT_BYTES = 256 * 1024       # larger scripts are skipped entirely
 MAX_SCRIPT_DEPTH = 3                # directory levels below the skill dir
 
+# MCP config layer (contract-core depth-order stage 1): agent runtimes read
+# server entries from well-known JSON files inside a project tree. Discovery
+# is filename-based and deterministic - no content sniffing. User-scope
+# locations (~/.claude.json, claude_desktop_config.json, ...) are a later
+# stage; v1 scans only the trees it is given.
+MCP_CONFIG_RELPATHS = (".mcp.json", ".cursor/mcp.json", ".vscode/mcp.json")
+MCP_CONFIG_BASENAMES = {".mcp.json", "mcp.json"}
+MCP_MAX_SERVERS_PER_CONFIG = 200    # units extracted per config file
+# args elements that look like mounted filesystem paths (authority scope)
+MCP_MOUNT_RE = re.compile(r"^(?:~|[A-Za-z]:[\\/]|[\\/])")
+
 SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2, "info": 3}
 SEVERITY_LADDER = ["info", "low", "medium", "high"]
 EXIT_CLEAN = 0
@@ -124,6 +142,7 @@ KIND_RANK = {"local": 0, "system": 1, "repo": 2}
 # Verdict precedence (first match wins).
 VERDICT_PRECEDENCE = [
     ("unverifiable", "S002"),
+    ("unverifiable", "S101"),
     ("purpose-mismatch", "P101"),
 ]
 
@@ -1165,6 +1184,281 @@ def corroborated_signal_findings(authority_signals):
     return out
 
 
+# =============================================================================
+# MCP adapter (config layer - contract-core depth-order stage 1)
+#
+# One server entry in a well-known JSON config becomes ONE unit whose four
+# artifacts follow the same schema as skills:
+#   declared   the server NAME (+ nothing else). The launch line is behavior,
+#              not promise: a command inherently contains its own vocabulary,
+#              so treating it as declaration would self-declare everything.
+#   observed   capability patterns over command/args/url strings (bundled-
+#              script tables reused verbatim - no new taxonomy), plus the
+#              bare fact that a remote url reaches the network.
+#   authority  requested reach even when never exercised: env var NAMES
+#              (requesting a token is ordinary server setup - it is recorded
+#              here, never branded behavior), transport types, mounted
+#              paths. Feeds excessive-authority reasoning in later depth
+#              stages.
+#   identity   config-key name; stable locator "<config>#mcpServers/<key>".
+#
+# All evidence anchors at the config line where the server key first appears
+# (JSON parsing loses per-field positions; the server block is the honest
+# anchor). Fingerprints hash rule+quote, never lines - unaffected.
+# =============================================================================
+
+MCP_URL_RE = re.compile(r"^https?://", re.IGNORECASE)
+
+
+class McpUnit:
+    __slots__ = ("root_kind", "display_path", "server_name", "_artifact",
+                 "_structural")
+
+    format = "mcp-server"
+
+    def __init__(self, root_kind, display_path, server_name=None,
+                 artifact=None, structural=None):
+        self.root_kind = root_kind
+        self.display_path = display_path
+        self.server_name = server_name
+        self._artifact = artifact
+        self._structural = structural or []
+
+    @property
+    def name(self):
+        return self.server_name or self.display_path
+
+    def claimed_purpose_text(self):
+        return self.name
+
+    @property
+    def description(self):
+        return ""
+
+
+def find_mcp_configs(root: Path):
+    """-> [(rel_posix, Path)] for well-known MCP config files under root.
+    Fixed tuple order keeps the walk deterministic."""
+    out = []
+    if root.is_file():
+        if root.name.lower() in MCP_CONFIG_BASENAMES:
+            out.append((root.name, root))
+        return out
+    for rel in MCP_CONFIG_RELPATHS:
+        candidate = root / rel
+        try:
+            if candidate.is_file():
+                out.append((rel, candidate))
+        except OSError:
+            continue
+    return out
+
+
+def _s101(line, quote, title, detail):
+    return make_finding(
+        "S101", "high", title, line, quote, detail)
+
+
+def parse_mcp_config(lines):
+    """-> (servers_dict_or_None, structural_findings).
+
+    servers_dict None means 'nothing usable found' (either a structural
+    finding explains why, or the file declares no servers at all, which is
+    legitimate for every supported format)."""
+    text = "\n".join(lines)
+    try:
+        doc = json.loads(text)
+    except ValueError as exc:
+        line = getattr(exc, "lineno", 1) or 1
+        quote = lines[line - 1] if 0 < line <= len(lines) else ""
+        return None, [_s101(
+            line, quote, "MCP config is not valid JSON",
+            f"{exc} - the runtime will silently load zero servers from "
+            "this file")]
+    if not isinstance(doc, dict):
+        return None, [_s101(
+            1, trim_quote(lines[0] if lines else ""),
+            "MCP config root is not a JSON object",
+            "runtimes expect an object keyed by mcpServers/servers; "
+            "anything else is ignored")]
+    servers = doc.get("mcpServers")
+    if servers is None:
+        servers = doc.get("servers")
+    if servers is None:
+        return None, []
+    if not isinstance(servers, dict):
+        return None, [_s101(
+            1, trim_quote(lines[0] if lines else ""),
+            "MCP server table is not a JSON object",
+            "'mcpServers'/'servers' must map server names to entry objects")]
+    return servers, []
+
+
+def _anchor_line(lines, server_name):
+    needle = f'"{server_name}"'
+    for lineno, ln in enumerate(lines, start=1):
+        if needle in ln:
+            return lineno
+    return 1
+
+
+def build_mcp_adapter_result(name: str, cfg, root_kind, locator, anchor):
+    """ADAPTER LAYER OUTPUT for one MCP server entry (see block comment)."""
+    strings = []
+    cmd = cfg.get("command")
+    if isinstance(cmd, str) and cmd.strip():
+        strings.append(cmd.strip())
+    args = cfg.get("args")
+    arg_strings = [a.strip() for a in args
+                   if isinstance(a, str) and a.strip()] \
+        if isinstance(args, list) else []
+    strings.extend(arg_strings)
+    url = cfg.get("url")
+    url_str = url.strip() if isinstance(url, str) else ""
+    if url_str:
+        strings.append(url_str)
+
+    env = cfg.get("env")
+    env_keys = sorted(
+        k for k, v in env.items()
+        if isinstance(k, str)) if isinstance(env, dict) else []
+
+    evidence_all = {c: [] for c in CAPABILITY_CATEGORIES}
+
+    def add(category, text, strong):
+        evidence_all[category].append(
+            {"src": None, "line": anchor, "text": text, "strong": strong})
+
+    for s in strings:
+        for category, spats in SCRIPT_CAPABILITY_PATTERNS.items():
+            strong = False
+            hit = False
+            for pat, weight in spats:
+                if pat.search(s):
+                    hit = True
+                    if weight == "strong":
+                        strong = True
+                        break
+            if hit:
+                add(category, s, strong)
+    if url_str and MCP_URL_RE.match(url_str):
+        # a remote transport reaches the network by existing - the strongest,
+        # least arguable form of egress evidence at the config layer
+        add("network-egress", url_str, True)
+
+    observed = {}
+    for category, evs in evidence_all.items():
+        if evs:
+            observed[category] = sorted(
+                evs, key=lambda e: (e["src"] or "", e["line"]))
+
+    claim = name
+    declared = declared_categories(claim.lower(), observed)
+
+    transports = set()
+    ttype = cfg.get("type")
+    if isinstance(ttype, str) and ttype.strip():
+        transports.add(ttype.strip())
+    if cmd:
+        transports.add("stdio")
+    if url_str:
+        transports.add("remote-url")
+    mounts = sorted({a for a in arg_strings if MCP_MOUNT_RE.match(a)})
+
+    return {
+        "identity": {
+            "name": name,
+            "kind": "mcp-server",
+            "source_kind": root_kind,
+            "source": locator,
+        },
+        "declared": {
+            "text": trim_quote(claim),
+            "categories": sorted(declared),
+            "description_chars": 0,
+        },
+        "observed_capabilities": [
+            {
+                "category": cat,
+                "strength": "strong" if e["strong"] else "weak",
+                "source": e["src"],
+                "line": e["line"],
+                "text": trim_quote(e["text"]),
+            }
+            for cat, evs in sorted(observed.items())
+            for e in evs
+        ],
+        "authority_scope": {
+            "signals": [],
+            "bundle_scripts": [],
+            "env_keys": env_keys,
+            "transports": sorted(transports),
+            "mounts": mounts,
+        },
+        "_observed_map": observed,
+    }
+
+
+def build_mcp_units(root_kind, display_root, rel, path: Path, stats):
+    """All units from one MCP config file, in deterministic order."""
+    try:
+        raw = path.read_bytes()
+    except OSError:
+        return []
+    if b"\x00" in raw[:8192]:
+        stats.skipped_binary += 1
+        return []
+    text = raw.decode("utf-8", errors="replace").lstrip("\ufeff")
+    lines = text.splitlines()
+    cfg_display = f"{display_root}/{rel}" if display_root != "." else rel
+
+    servers, structural = parse_mcp_config(lines)
+    if servers is None:
+        return [McpUnit(root_kind, cfg_display, artifact=None,
+                        structural=structural)]
+
+    truncated = False
+    names = sorted(servers)
+    if len(names) > MCP_MAX_SERVERS_PER_CONFIG:
+        names = names[:MCP_MAX_SERVERS_PER_CONFIG]
+        truncated = True
+
+    units = []
+    for name in names:
+        anchor = _anchor_line(lines, name)
+        locator = f"{cfg_display}#mcpServers/{name}"
+        entry = servers[name]
+        if not isinstance(entry, dict):
+            units.append(McpUnit(
+                root_kind, locator, server_name=name, artifact=None,
+                structural=[_s101(
+                    anchor, trim_quote(f'"{name}"'),
+                    "MCP server entry is not a JSON object",
+                    "each server entry must map fields like command, args, "
+                    "env or url; the runtime ignores this entry")]))
+            continue
+        has_cmd = isinstance(entry.get("command"), str) and entry["command"].strip()
+        has_url = isinstance(entry.get("url"), str) and entry["url"].strip()
+        if not has_cmd and not has_url:
+            units.append(McpUnit(
+                root_kind, locator, server_name=name, artifact=None,
+                structural=[_s101(
+                    anchor, trim_quote(f'"{name}"'),
+                    "MCP server entry has no command or url",
+                    "an entry a runtime cannot launch makes no contract "
+                    "claim and serves nobody; fix or remove it")]))
+            continue
+        artifact = build_mcp_adapter_result(
+            name, entry, root_kind, locator, anchor)
+        units.append(McpUnit(root_kind, locator, server_name=name,
+                             artifact=artifact))
+    if truncated:
+        stats.notes.append(
+            f"MCP config exceeds {MCP_MAX_SERVERS_PER_CONFIG} servers: {cfg_display}")
+        stats.truncated = True
+    return units
+
+
 def load_baseline(path: Path):
     """-> (entries dict, error string or None)."""
     try:
@@ -1550,6 +1844,20 @@ def main(argv=None):
             consumed_realpaths.add(rp)
             units.append(built)
 
+        # MCP config layer (contract-core depth-order stage 1): well-known
+        # JSON config files under this root each contribute server units.
+        for cfg_rel, cfg_path in find_mcp_configs(path):
+            if len(units) >= MAX_SKILLS:
+                stats.truncated = True
+                break
+            rp = os.path.realpath(cfg_path)
+            if rp in consumed_realpaths:
+                continue
+            consumed_realpaths.add(rp)
+            stats.candidates += 1
+            units.extend(
+                build_mcp_units(kind, display, cfg_rel, cfg_path, stats))
+
     units.sort(key=lambda u: (KIND_RANK[u.root_kind], u.display_path))
 
     seen_names = {}
@@ -1561,28 +1869,41 @@ def main(argv=None):
     by_rule = {}
 
     for unit in units:
-        structural, fields_ok = analyze_structure(unit, seen_names)
-
         signals = []
         contract_findings = []
         observed = {}
         declared = set()
         artifacts = None
-        if fields_ok:
-            # ADAPTER LAYER: everything below consumes the artifact only.
-            artifacts = build_adapter_result(unit)
-            # Rich signals (with explanatory detail) stay the public face;
-            # the serialized copies inside the artifact are for emission.
-            signals = artifacts["_signals"]
-            observed = artifacts["_observed_map"]
-            declared = set(artifacts["declared"]["categories"])
-            artifacts["undeclared_categories"] = sorted(
-                set(observed) - declared)
-            contract_findings = p101_findings(artifacts)
-            contract_findings.extend(p102_finding(artifacts))
-            if any(f["rule"] == "P101" for f in contract_findings):
-                contract_findings.extend(
-                    corroborated_signal_findings(signals))
+        if unit.format == "mcp-server":
+            # MCP adapter: the artifact is prebuilt at discovery; core rules
+            # run on it exactly as they do for skills. P102 has no
+            # description to check, and with zero authority signals nothing
+            # can corroborate - so P101 alone decides.
+            structural = list(unit._structural)
+            if unit._artifact is not None:
+                artifacts = unit._artifact
+                observed = artifacts["_observed_map"]
+                declared = set(artifacts["declared"]["categories"])
+                artifacts["undeclared_categories"] = sorted(
+                    set(observed) - declared)
+                contract_findings = p101_findings(artifacts)
+        else:
+            structural, fields_ok = analyze_structure(unit, seen_names)
+            if fields_ok:
+                # ADAPTER LAYER: everything below consumes the artifact only.
+                artifacts = build_adapter_result(unit)
+                # Rich signals (with explanatory detail) stay the public face;
+                # the serialized copies inside the artifact are for emission.
+                signals = artifacts["_signals"]
+                observed = artifacts["_observed_map"]
+                declared = set(artifacts["declared"]["categories"])
+                artifacts["undeclared_categories"] = sorted(
+                    set(observed) - declared)
+                contract_findings = p101_findings(artifacts)
+                contract_findings.extend(p102_finding(artifacts))
+                if any(f["rule"] == "P101" for f in contract_findings):
+                    contract_findings.extend(
+                        corroborated_signal_findings(signals))
 
         findings = cap_per_rule(structural + contract_findings)
         if baseline_entries is not None:

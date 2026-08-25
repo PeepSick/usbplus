@@ -437,6 +437,119 @@ def check_cli_local(proj: Path):
     report(name, True)
 
 
+def check_mcp_configs(tmp: Path):
+    name = "engine+cli: MCP config layer"
+    proj = tmp / "mcpproj"
+    write(proj / ".mcp.json", """{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem",
+               "/home/dev/projects"]
+    },
+    "issue-tracker": {
+      "type": "http",
+      "url": "https://tickets.internal.example/mcp"
+    },
+    "deploy-helper": {
+      "command": "node",
+      "args": ["/opt/deploy/run.js"],
+      "env": { "DEPLOY_TOKEN": "${env:DEPLOY_TOKEN}" }
+    }
+  }
+}
+""")
+    # trailing comma -> unparsable JSON -> S101, verdict unverifiable
+    write(proj / ".cursor" / "mcp.json", """{
+  "mcpServers": {
+    "docs": {
+      "command": "npx",
+      "args": ["-y", "@example/docs"],
+    }
+  }
+}
+""")
+
+    problems = []
+    r1 = run(["python3", ENGINE, "--json", "--emit-contracts",
+              str(tmp / "mcp-artifacts.json"), str(proj)])
+    if r1.returncode != 1:
+        report(name, False,
+               f"expected exit 1 (S101 + P101 present), got {r1.returncode}: "
+               f"{r1.stderr[-300:]}")
+        return
+    r2 = run(["python3", ENGINE, "--json", str(proj)])
+    if r1.stdout != r2.stdout:
+        problems.append("two identical runs produced different JSON")
+    data = json.loads(r1.stdout)
+    by_path = {}
+    for s in data["skills"]:
+        by_path[s["source"]["path"].replace("\\", "/")] = s
+
+    def unit_for(marker):
+        matches = [s for p, s in by_path.items() if marker in p]
+        if len(matches) != 1:
+            raise KeyError(f"{marker}: {len(matches)} matches")
+        return matches[0]
+
+    if len(by_path) != 4:
+        problems.append(f"expected 4 units (3 servers + broken config), "
+                        f"got {len(by_path)}: {sorted(by_path)}")
+    try:
+        clean = unit_for("#mcpServers/filesystem")
+        tracker = unit_for("#mcpServers/issue-tracker")
+        deploy = unit_for("#mcpServers/deploy-helper")
+        broken = [s for p, s in by_path.items()
+                  if p.endswith(".cursor/mcp.json")][0]
+    except KeyError as exc:
+        report(name, False, f"{exc}; got {sorted(by_path)}")
+        return
+
+    if clean["verdict"] != "matches-declaration" or clean["findings"]:
+        problems.append(f"plain stdio server flagged: {clean['findings']}")
+    trules = {f["rule"]: f for f in tracker["findings"]}
+    if "P101" not in trules or trules.get("P101", {}).get("severity") != "high":
+        problems.append(f"remote-url server missing high P101: {trules}")
+    if not any("network-egress" in t for t in [trules.get("P101", {}).get("title", "")]):
+        problems.append("remote-url P101 is not network-egress")
+    if tracker["verdict"] != "purpose-mismatch":
+        problems.append(f"tracker verdict={tracker['verdict']}")
+    if deploy["findings"]:
+        # requesting an env token is authority scope, never behavior evidence
+        problems.append(f"env-token server flagged: {deploy['findings']}")
+    if broken["format"] != "mcp-server" \
+            or not any(f["rule"] == "S101" and f["severity"] == "high"
+                       for f in broken["findings"]) \
+            or broken["verdict"] != "unverifiable":
+        problems.append(f"broken config unit wrong: {broken['verdict']} "
+                        f"{[f['rule'] for f in broken['findings']]}")
+
+    art = json.loads((tmp / "mcp-artifacts.json").read_text(encoding="utf-8"))
+    art_by_src = {u["identity"]["source"]: u for u in art["units"]}
+    dep_art = next(v for k, v in art_by_src.items()
+                   if k.endswith("#mcpServers/deploy-helper"))
+    scope = dep_art["authority_scope"]
+    if scope.get("env_keys") != ["DEPLOY_TOKEN"] \
+            or scope.get("transports") != ["stdio"] \
+            or scope.get("mounts") != ["/opt/deploy/run.js"]:
+        problems.append(f"deploy authority scope wrong: {scope}")
+
+    # baseline roundtrip: MCP findings acknowledge like skill findings
+    bpath = tmp / "mcp-baseline.json"
+    run(["python3", ENGINE, "--json", "--write-baseline", str(bpath),
+         str(proj)])
+    r3 = run(["python3", ENGINE, "--json", "--baseline", str(bpath),
+              str(proj)])
+    d3 = json.loads(r3.stdout)
+    if r3.returncode != 0:
+        problems.append(f"baselined MCP rescan rc={r3.returncode}, expected 0")
+
+    if problems:
+        report(name, False, "; ".join(problems))
+        return
+    report(name, True)
+
+
 def check_cli_system(tmp: Path):
     name = "cli: secscan --system (fake HOME)"
     home = tmp / "home"
@@ -658,6 +771,7 @@ def main():
         proj = build_project(tmp)
         check_engine_determinism_and_rules(proj, tmp)
         check_engine_exit_codes(proj)
+        check_mcp_configs(tmp)
         check_cli_local(proj)
         check_cli_system(tmp)
         if git_available():

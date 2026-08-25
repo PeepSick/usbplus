@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/home/dev/projects"]
+    },
+    "issue-tracker": {
+      "type": "http",
+      "url": "https://tickets.internal.example/mcp"
+    },
+    "deploy-helper": {
+      "command": "node",
+      "args": ["/opt/deploy/run.js"],
+      "env": { "DEPLOY_TOKEN": "${env:DEPLOY_TOKEN}", "REGION": "eu-west" }
+    }
+  }
+}

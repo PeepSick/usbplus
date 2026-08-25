@@ -84,7 +84,9 @@ def reduce_unit(unit: dict):
             })
 
     rules = {f["rule"] for f in structural} | {f["rule"] for f in contract}
-    if "S002" in rules:
+    # S002 (broken frontmatter) and S101 (broken MCP config) both mean: no
+    # contract can even be read.
+    if "S002" in rules or "S101" in rules:
         verdict = "unverifiable"
     elif any(f["rule"] == "P101" and f["severity"] in ("high", "medium")
              for f in contract):

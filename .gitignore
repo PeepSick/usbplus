@@ -21,6 +21,8 @@ Thumbs.db
 *.swp
 *.swo
 .vscode/
+# exception: the MCP conformance fixture IS part of the repo
+!contracts/fixtures/trees/skills-project/.vscode/
 .idea/
 
 # Logs
