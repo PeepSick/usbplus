@@ -117,7 +117,12 @@ BASELINE_DEFAULT_PATH = ".usb-secscan-baseline.json"
 # to their SKILL.md. What those files DO is behavior evidence for the owning
 # skill's contract, exactly like its prose - only harder to argue with.
 SCRIPT_EXTENSIONS = {".sh", ".bash", ".js", ".mjs", ".cjs", ".ts", ".py", ".ps1"}
-SCRIPT_SKIP_DIRS = {"node_modules", ".git", "dist", "build"}
+# ONE discovery contract for BOTH walks (project discovery AND bundled-
+# script inspection): dependency/build output directories are never
+# descended into. Vendored first-party code ("vendor/") is deliberately
+# NOT skipped - vendored capability artifacts are legitimate targets.
+DISCOVERY_SKIP_DIRS = frozenset(
+    {"node_modules", ".git", ".next", "dist", "build"})
 MAX_SCRIPTS_PER_SKILL = 20          # executable files inspected per bundle
 MAX_SCRIPT_BYTES = 256 * 1024       # larger scripts are skipped entirely
 MAX_SCRIPT_DEPTH = 3                # directory levels below the skill dir
@@ -829,6 +834,8 @@ def walk_candidates(root: Path, stats: RootStats):
                 stats.notes.append(f"skipped symlink: {'/'.join(rel_parts + [e.name])}")
                 continue
             if e.is_dir():
+                if e.name in DISCOVERY_SKIP_DIRS:
+                    continue
                 rec(e, rel_parts + [e.name], depth + 1)
                 if len(found) >= MAX_FILES_PER_ROOT:
                     stats.truncated = True
@@ -1080,7 +1087,7 @@ def collect_bundle_scripts(unit: Unit):
             if e.is_symlink():
                 continue
             if e.is_dir():
-                if e.name in SCRIPT_SKIP_DIRS:
+                if e.name in DISCOVERY_SKIP_DIRS:
                     continue
                 rec(e, rel_parts + [e.name], depth + 1)
             elif e.is_file():
