@@ -1596,23 +1596,41 @@ def gather_roots(args):
 # Reporting
 # =============================================================================
 
-COLORS = {"high": "\033[0;31m", "medium": "\033[0;33m", "low": "\033[0;36m", "info": "\033[2m"}
+COLORS = {
+    "high": "\033[0;31m",
+    "medium": "\033[0;33m",
+    "low": "\033[0;36m",
+    "info": "\033[2m",
+    "ok": "\033[0;32m",
+}
 RST = "\033[0m"
 BOLD = "\033[1m"
 DIM = "\033[2m"
+ACC = "\033[1;96m"          # accent (bright cyan): the brand mark
 
 
 def human_report(roots_stats, results, summary):
-    use_color = sys.stdout.isatty()
+    # Color and unicode glyphs only on a real terminal; NO_COLOR
+    # (https://no-color.org) always wins. Piped or CI output stays plain,
+    # grep-friendly ASCII - same tree, same stream, byte-identical report.
+    use_color = sys.stdout.isatty() and not os.environ.get("NO_COLOR")
 
     def paint(text, code):
         return f"{code}{text}{RST}" if use_color else text
 
     out = []
-    out.append(f"{TOOL} v{VERSION} - skill contract verification "
-               f"(static, nothing is executed)")
-    out.append("")
-    out.append("sources:")
+    if use_color:
+        out.append(
+            f"  {ACC}◆{RST}{BOLD} usb secscan{RST} {DIM}v{VERSION} - "
+            f"skill contract verifier (static, nothing is executed){RST}")
+        out.append("")
+        out.append(paint("  " + "─" * 70, DIM))
+        out.append(paint("  sources", DIM))
+    else:
+        out.append(f"{TOOL} v{VERSION} - skill contract verifier "
+                   "(static, nothing is executed)")
+        out.append("")
+        out.append("sources:")
     if not roots_stats:
         out.append("  (none found)")
     for st in roots_stats:
@@ -1627,8 +1645,14 @@ def human_report(roots_stats, results, summary):
         out.append(f"{paint(unit.display_path, BOLD)}  "
                    f"[{paint(unit.format, DIM)}]  contract: {vtag}")
         if not entry["findings"]:
-            out.append(paint("  ok - observed behavior is covered by the declared contract",
-                             DIM))
+            if use_color:
+                out.append(paint(
+                    "  ✓ observed behavior is covered by the declared "
+                    "contract", COLORS["ok"]))
+            else:
+                out.append(
+                    "  ok - observed behavior is covered by the declared "
+                    "contract")
         for f in entry["findings"]:
             sev = f["severity"].upper()
             corr = " (corroborated)" if f.get("corroborated") else ""
@@ -1649,7 +1673,10 @@ def human_report(roots_stats, results, summary):
                 f"  note  {s['rule']} {s['title']} (line {s['line']}) - "
                 f"{trim_quote(s['matched'])}", DIM))
         out.append("")
-    out.append(summary)
+    if summary.startswith("summary:") and use_color:
+        out.append(paint("summary:", DIM) + summary[len("summary:"):])
+    else:
+        out.append(summary)
     return "\n".join(out)
 
 

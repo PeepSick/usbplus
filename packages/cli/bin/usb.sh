@@ -33,17 +33,42 @@ USB_BASE_URL="${USB_BASE_URL:-https://usb.peepsicklabs.com}"
 USB_TARGET="${USB_TARGET:-auto}"
 
 # --- pretty output helpers ---------------------------------------------------
-RED=$'\033[0;31m'
-GRN=$'\033[0;32m'
-YEL=$'\033[0;33m'
-CYA=$'\033[0;36m'
-DIM=$'\033[2m'
-RST=$'\033[0m'
+# One visual language for every subcommand. Color and unicode glyphs turn on
+# only on a real terminal and only when NO_COLOR is unset - piped or CI
+# output stays plain, grep-friendly ASCII. Nothing here affects exit codes.
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
+  RED=$'\033[0;31m'
+  GRN=$'\033[0;32m'
+  YEL=$'\033[0;33m'
+  CYA=$'\033[0;36m'
+  ACC=$'\033[1;96m'      # accent (bright cyan): the brand mark
+  DIM=$'\033[2m'
+  BOLD=$'\033[1m'
+  RST=$'\033[0m'
+  G_INFO="●"
+  G_OK="✓"
+  G_WARN="▲"
+  G_ERR="✗"
+  G_MARK="◆"
+else
+  RED=""; GRN=""; YEL=""; CYA=""; ACC=""; DIM=""; BOLD=""; RST=""
+  G_INFO=">"
+  G_OK="ok:"
+  G_WARN="warning:"
+  G_ERR="error:"
+  G_MARK=""
+fi
 
-info() { printf '%s[%s]%s %s\n' "$CYA" "USB" "$RST" "$*"; }
-ok()   { printf '%s[%s]%s %s\n' "$GRN" "OK" "$RST" "$*"; }
-warn() { printf '%s[%s]%s %s\n' "$YEL" "!" "$RST" "$*" >&2; }
-err()  { printf '%s[%s]%s %s\n' "$RED" "x" "$RST" "$*" >&2; }
+info() { printf '%s%s%s %s\n' "$CYA" "$G_INFO" "$RST" "$*"; }
+ok()   { printf '%s%s%s %s\n' "$GRN" "$G_OK" "$RST" "$*"; }
+warn() { printf '%s%s%s %s\n' "$YEL" "$G_WARN" "$RST" "$*" >&2; }
+err()  { printf '%s%s%s %s\n' "$RED" "$G_ERR" "$RST" "$*" >&2; }
+
+# dim horizontal rule across an 80-column frame
+rule() { printf '%s%s%s\n' "$DIM" "  ──────────────────────────────────────────────────────────────────────" "$RST"; }
+
+# brand tag: "◆ usb" in the accent color (empty glyph in plain mode)
+brand() { printf '%s%s%s%susb%s' "$ACC" "$G_MARK" "$RST" "$BOLD" "$RST"; }
 
 usage() {
   # Print only the leading '#' comment block (skipping the shebang), stopping
@@ -536,9 +561,10 @@ pick_preset() {
 # --- interactive picker ------------------------------------------------------
 cmd_interactive() {
   printf '\n'
-  printf '  %sUSB — Universal Skill Bridge%s\n' "$CYA" "$RST"
-  printf '  A plug-and-play skill system for AI agents\n'
-  printf '\n'
+  printf '  %s%s%s%susb%s %s— Universal Skill Bridge%s\n' \
+    "$ACC" "$G_MARK" "$RST" "$BOLD" "$RST" "$DIM" "$RST"
+  printf '  %splug-and-play skills for AI agents%s\n' "$DIM" "$RST"
+  rule
 
   local version_json
   version_json=$(curl -fsSL "$USB_BASE_URL/api/version" 2>/dev/null) || {
