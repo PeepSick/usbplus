@@ -92,6 +92,22 @@ verify(result) → { verdict, findings[], summary }
 5. Exit mapping (CLI): 0 clean/low/info, 1 medium/high, 2 operational error.
    Baselines filter on fingerprints before gating.
 
+### 4.1 Verdict ≠ policy
+
+The core produces verdicts; enforcement is a separate policy layer.
+
+| verdict | default policy |
+|---|---|
+| `purpose-mismatch` | **BLOCKING** |
+| `excessive-authority` | **ADVISORY** |
+| `unverifiable` | **CONTEXTUAL** |
+
+Rationale: excessive authority alone is not malice — a backup agent
+legitimately requests broad file access. A CI owner may promote advisory
+to blocking through policy configuration; the vocabulary itself never
+bends to enforcement preferences. Today's CLI implements the default
+policy inline; when the core lands, policy becomes explicit input.
+
 ## 5. Canonical form & fingerprints
 
 Findings serialize to a canonical JSON shape (sorted keys, fixed field
@@ -101,39 +117,46 @@ fingerprint version bumps and old baselines are invalid by definition.
 Cross-language implementations converge by asserting byte-equality against
 shared golden fixtures (§7).
 
-## 6. Open decisions (need answers before coding)
+## 6. Resolved decisions
 
-1. **Implementation language & packaging.** Options:
-   - (a) TS-first: `packages/contract-core` (zero-dep), consumed by SDK +
-     catalog API; CLI keeps a Python port.
-   - (b) Python-first: engine module published/vendored into the CLI.
-   - (c) Spec + conformance: no shared runtime; golden-fixture suite that
-     every implementation must match byte-for-byte.
-   Recommendation: start with (c) plus a single reference implementation
-   in the CLI, promote to (a) when the catalog needs server-side
-   verdicts. Avoids dual-runtime drift while fingerprints stay the real
-   contract.
-2. **Is `excessive-authority` blocking?** Today authority language is
-   advisory-only. Proposal: v1 keeps it non-blocking unless corroborated
-   by strong evidence or co-occurring with a P101; revisit with real data.
-3. **MCP depth order:** config-layer evidence → inline tool manifests →
-   implementation-source adapters (Node, then Python). Sequencing affects
-   nothing else in the core.
+The three foundational questions, locked before any core code exists:
+
+1. **Spec + conformance, not a package.** The source of truth is this
+   document plus golden fixtures under `contracts/fixtures/`; every
+   implementation — the CLI engine today, a future TS core tomorrow —
+   must pass `contracts/conformance/`. No `@usb/contract-core` package
+   ships until an implementation exists that passes the suite.
+2. **Verdict ≠ policy** (see §4.1): purpose-mismatch blocks by default,
+   excessive-authority is advisory, unverifiable is contextual. Core and
+   enforcement stay separate.
+3. **MCP depth order**, each stage gated on the previous being green:
+   ```
+   config → declared server/tools → tool graph → implementation source
+          → runtime observation
+   ```
+   This matches USB's existing philosophy end to end: what it says it is,
+   what it connects to, which tools it serves.
 
 ## 7. Conformance suite
 
 Golden corpus = fixture trees (already exist for skills) + expected
-canonical JSON snapshots. CI asserts byte-equality per implementation.
+canonical JSON snapshots under `contracts/fixtures/`. The runner lives in
+`contracts/conformance/`; CI asserts byte-equality per implementation.
 Adding a rule means updating goldens deliberately — visible in review,
 never accidental.
 
 ## 8. Migration path
 
-1. Extract pure functions from `usb-secscan.py`
-   (observe / declare / reduce / fingerprint) behind the interfaces above;
-   behavior-preserving, proven by the existing suite byte-for-byte.
-2. Split adapters out of the monolith (skill first).
-3. Land MCP adapter on the core (config layer) against the OpenWork corpus.
-4. Promote agent/command to their own adapters.
-5. Fingerprints (phase 5) build on the canonical form only after step 1–3
-   stabilize.
+**Step 1 — artifact extraction (behavior-preserving):**
+
+1. Emit the four contract artifacts from the *current* engine internals
+   without changing any observable behavior.
+2. Snapshot them as golden fixtures (`contracts/fixtures/`) and diff
+   old-vs-new output until byte-identical.
+3. Only then draw the adapter boundaries the artifacts reveal.
+4. Extract the shared core last — it must pass the conformance suite or
+   it does not ship.
+
+Then: MCP adapter on the core (config layer) → agent/command adapters →
+fingerprints on the stabilized canonical form.
+
