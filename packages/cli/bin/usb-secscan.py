@@ -71,7 +71,9 @@ Usage
     --system           scan installed-system skill locations (~/.claude/
                        skills, ~/.leosis/skills, ~/.hermes/skills,
                        $AI_SKILL_HOME or ~/.ai-skills, honoring the matching
-                       *_DIR env overrides used by the installer)
+                       *_DIR env overrides used by the installer) plus
+                       user-scope MCP server configs (~/.claude.json,
+                       ~/.cursor/mcp.json, Windsurf, Claude Desktop)
     --json             machine-readable report on stdout
 
 With no sources at all, project-local defaults are scanned (.claude/skills,
@@ -121,12 +123,19 @@ MAX_SCRIPT_BYTES = 256 * 1024       # larger scripts are skipped entirely
 MAX_SCRIPT_DEPTH = 3                # directory levels below the skill dir
 
 # MCP config layer (contract-core depth-order stage 1): agent runtimes read
-# server entries from well-known JSON files inside a project tree. Discovery
-# is filename-based and deterministic - no content sniffing. User-scope
-# locations (~/.claude.json, claude_desktop_config.json, ...) are a later
-# stage; v1 scans only the trees it is given.
+# server entries from well-known JSON files. Discovery is filename-based and
+# deterministic - no content sniffing.
+#
+# Project scope: the three relpaths below are probed under every scanned
+# root directory. User scope (--system): mcp_system_sources() lists the
+# per-runtime config FILES in the user's home; ~/.claude.json is tolerated
+# as a state dump - its top-level mcpServers key may be absent, which means
+# zero servers rather than a finding.
 MCP_CONFIG_RELPATHS = (".mcp.json", ".cursor/mcp.json", ".vscode/mcp.json")
-MCP_CONFIG_BASENAMES = {".mcp.json", "mcp.json"}
+MCP_CONFIG_BASENAMES = {
+    ".mcp.json", "mcp.json", ".claude.json", "mcp_config.json",
+    "claude_desktop_config.json",
+}
 MCP_MAX_SERVERS_PER_CONFIG = 200    # units extracted per config file
 # args elements that look like mounted filesystem paths (authority scope)
 MCP_MOUNT_RE = re.compile(r"^(?:~|[A-Za-z]:[\\/]|[\\/])")
@@ -1410,7 +1419,10 @@ def build_mcp_units(root_kind, display_root, rel, path: Path, stats):
         return []
     text = raw.decode("utf-8", errors="replace").lstrip("\ufeff")
     lines = text.splitlines()
-    cfg_display = f"{display_root}/{rel}" if display_root != "." else rel
+    # File roots (user-scope configs) pass rel="" so the config's own
+    # display label is used verbatim - no doubled basename.
+    parts = [p for p in (display_root, rel) if p and p != "."]
+    cfg_display = "/".join(parts) if parts else "."
 
     servers, structural = parse_mcp_config(lines)
     if servers is None:
@@ -1562,6 +1574,35 @@ def system_sources():
     return out
 
 
+def mcp_system_sources():
+    """Well-known USER-SCOPE MCP config files, deterministic order.
+    -> [(display_label, Path)]. Claude Desktop has no fixed cross-platform
+    location, so every conventional one is listed; absent paths are skipped
+    cheaply by the scan loop. Per-project server tables inside
+    ~/.claude.json ('projects.<path>.mcpServers') are deliberately out of
+    scope here - they belong to the scanned project tree, not to the
+    machine."""
+    home = Path.home()
+    out = [
+        ("~/.claude.json", home / ".claude.json"),
+        ("~/.cursor/mcp.json", home / ".cursor" / "mcp.json"),
+        ("~/.codeium/windsurf/mcp_config.json",
+         home / ".codeium" / "windsurf" / "mcp_config.json"),
+    ]
+    appdata = os.environ.get("APPDATA")
+    if appdata:
+        out.append(("$APPDATA/Claude/claude_desktop_config.json",
+                    Path(appdata) / "Claude" / "claude_desktop_config.json"))
+    out.append((
+        "~/Library/Application Support/Claude/claude_desktop_config.json",
+        home / "Library" / "Application Support" / "Claude"
+        / "claude_desktop_config.json"))
+    out.append(("~/.config/Claude/claude_desktop_config.json",
+                home / ".config" / "Claude"
+                / "claude_desktop_config.json"))
+    return out
+
+
 PROJECT_DEFAULT_ROOTS = [".claude/skills", "skills", ".cursor/rules"]
 
 
@@ -1585,6 +1626,10 @@ def gather_roots(args):
         roots.append(("local", raw, Path(raw).expanduser()))
     if args.system:
         for display, target in system_sources():
+            roots.append(("system", display, target))
+        # user-scope MCP configs are first-class system sources: each is a
+        # FILE root that the MCP layer parses directly
+        for display, target in mcp_system_sources():
             roots.append(("system", display, target))
     if not roots:
         for raw in PROJECT_DEFAULT_ROOTS:
@@ -1844,12 +1889,17 @@ def main(argv=None):
         candidates = [(path.name, path)] if path.is_file() \
             else walk_candidates(path, stats)
 
+        # MCP configs under this root are parsed by the MCP layer below;
+        # the markdown pipeline must never see them as skill files.
+        mcp_here = find_mcp_configs(path)
+        mcp_rps = {os.path.realpath(p) for _, p in mcp_here}
+
         for rel, abspath in candidates:
             if len(units) >= MAX_SKILLS:
                 stats.truncated = True
                 break
             rp = os.path.realpath(abspath)
-            if rp in consumed_realpaths:
+            if rp in consumed_realpaths or rp in mcp_rps:
                 continue
             built = build_unit(kind, display, rel, abspath)
             if built == "binary" or built is None:
@@ -1873,7 +1923,8 @@ def main(argv=None):
 
         # MCP config layer (contract-core depth-order stage 1): well-known
         # JSON config files under this root each contribute server units.
-        for cfg_rel, cfg_path in find_mcp_configs(path):
+        root_is_file = path.is_file()
+        for cfg_rel, cfg_path in mcp_here:
             if len(units) >= MAX_SKILLS:
                 stats.truncated = True
                 break
@@ -1882,8 +1933,9 @@ def main(argv=None):
                 continue
             consumed_realpaths.add(rp)
             stats.candidates += 1
-            units.extend(
-                build_mcp_units(kind, display, cfg_rel, cfg_path, stats))
+            units.extend(build_mcp_units(
+                kind, display, "" if root_is_file else cfg_rel,
+                cfg_path, stats))
 
     units.sort(key=lambda u: (KIND_RANK[u.root_kind], u.display_path))
 

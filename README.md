@@ -168,7 +168,7 @@ and without executing anything it scans:
 ```bash
 usb secscan                       # project-local skills (.claude/skills, skills, .cursor/rules)
 usb secscan ./vendor-skills       # any local path
-usb secscan --system              # installed skills (~/.claude/skills, ~/.ai-skills, ...)
+usb secscan --system              # installed skills + your own user-scope MCP configs
 usb secscan --repo owner/repo     # fetch a git/GitHub repo read-only and scan it
 usb secscan --repo https://github.com/who/skills/tree/main/claude
 usb secscan --json .              # machine-readable report (CI-friendly)
@@ -229,6 +229,12 @@ egress by existing; a `curl … | sh` bootstrap is undeclared process control;
 requesting an env token is recorded as authority scope and never branded
 behavior. A config that cannot be parsed is reported (`S101`) instead of
 being silently skipped - the runtime would launch zero servers from it.
+
+`--system` extends the same treatment to **user-scope** configs:
+`~/.claude.json` (only its top-level `mcpServers` table - the rest of that
+state file is ignored), `~/.cursor/mcp.json`, Windsurf's
+`mcp_config.json`, and Claude Desktop's config across its platform
+locations.
 
 Rule catalog:
 

@@ -570,6 +570,91 @@ def check_cli_system(tmp: Path):
     report(name, ok, f"exit {r.returncode}\nstdout:\n{r.stdout[-800:]}" if not ok else "")
 
 
+def check_mcp_system(tmp: Path):
+    name = "cli: secscan --system (user-scope MCP configs)"
+    home = tmp / "syshome"
+    write(home / ".cursor" / "mcp.json", """{
+  "mcpServers": {
+    "fs": { "command": "npx",
+            "args": ["-y", "@modelcontextprotocol/server-filesystem",
+                     "/data"] }
+  }
+}
+""")
+    # ~/.claude.json is a state dump that MAY carry mcpServers; unrelated
+    # top-level keys must never become units.
+    write(home / ".claude.json", """{
+  "numStartups": 42,
+  "mcpServers": {
+    "ticket-bridge": { "type": "http",
+                       "url": "https://tickets.example.test/mcp" },
+    "local-tools": { "command": "npx", "args": ["-y", "@x/tools"] }
+  }
+}
+""")
+    appdata = home / "appdata"
+    write(appdata / "Claude" / "claude_desktop_config.json",
+          '{"mcpServers": {,}')  # unparsable -> S101
+
+    env = dict(os.environ)
+    env["HOME"] = str(home)
+    env["USERPROFILE"] = str(home)
+    env["APPDATA"] = str(appdata)
+    r = run(["python3", ENGINE, "--json", "--system"], env=env)
+
+    problems = []
+    if r.returncode != 1:
+        problems.append(f"exit {r.returncode}, expected 1")
+        report(name, False, "; ".join(problems) or r.stderr[-300:])
+        return
+    data = json.loads(r.stdout)
+    by_path = {}
+    for s in data["skills"]:
+        by_path[s["source"]["path"].replace("\\", "/")] = s
+
+    def unit_for(marker):
+        matches = [s for p, s in by_path.items() if marker in p]
+        if len(matches) != 1:
+            raise KeyError(f"{marker}: {len(matches)} matches")
+        return matches[0]
+
+    if len(by_path) != 4:
+        problems.append(f"expected 4 units, got {len(by_path)}: "
+                        f"{sorted(by_path)}")
+    try:
+        bridge = unit_for("~/.claude.json#mcpServers/ticket-bridge")
+        tools = unit_for("local-tools")
+        fs = unit_for(".cursor/mcp.json#mcpServers/fs")
+        desk_key = [p for p in by_path
+                    if p.endswith("$APPDATA/Claude/"
+                                  "claude_desktop_config.json")]
+        desk = by_path[desk_key[0]] if desk_key else None
+    except KeyError as exc:
+        report(name, False, f"{exc}; got {sorted(by_path)}")
+        return
+
+    for u in (bridge, tools, fs):
+        if u["source"]["kind"] != "system":
+            problems.append(f"{u['name']}: kind={u['source']['kind']}")
+    trules = {f["rule"]: f for f in bridge["findings"]}
+    if bridge["verdict"] != "purpose-mismatch" \
+            or trules.get("P101", {}).get("severity") != "high":
+        problems.append(f"user-scope remote url not flagged: "
+                        f"{bridge['verdict']} {trules}")
+    if tools["findings"] or fs["findings"]:
+        problems.append("clean user-scope servers flagged")
+    if desk is None or desk["verdict"] != "unverifiable" \
+            or not any(f["rule"] == "S101" for f in desk["findings"]):
+        problems.append("broken desktop config not S101/unverifiable")
+    if any(s["format"] != "mcp-server" for s in data["skills"]):
+        problems.append("non-MCP unit leaked into a pure-config home")
+
+    if problems:
+        report(name, False, "; ".join(problems))
+        return
+    report(name, True)
+
+
 def git_available():
     return shutil.which("git") is not None
 
@@ -772,7 +857,7 @@ def main():
         check_engine_determinism_and_rules(proj, tmp)
         check_engine_exit_codes(proj)
         check_mcp_configs(tmp)
-        check_cli_local(proj)
+        check_mcp_system(tmp)
         check_cli_system(tmp)
         if git_available():
             check_cli_repo(tmp)
