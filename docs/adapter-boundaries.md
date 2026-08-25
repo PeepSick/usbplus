@@ -65,6 +65,15 @@ url observe, env keys + transports + mounts record authority scope. New
 S101 marks configs no contract can be read from; verdict mapping and the
 independent reducer were extended in lockstep (S101 → unverifiable).
 
+Depth stage 2 landed (Faz 5 v2): explicit declared tool lists are read
+faithfully - an optional `tools` array on the entry, plus Cursor's
+permission-layer `mcpAllowlist` (`server:tool`, wildcards) matched by
+server name. Declared tool names/descriptions join the claim text so the
+existing lexicon decides coverage; absence records `tools_declared: false`
+and touches nothing (nothing invented); a present-but-unreadable list is
+S102 → unverifiable. Claude Code's settings-layer `mcp__server__tool`
+permissions are the next surface, not yet read.
+
 ## Rules extracted for the MCP adapter
 
 1. An MCP unit needs only: identity, claim text, transport/command/env

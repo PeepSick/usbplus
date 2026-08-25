@@ -12,6 +12,21 @@
       "command": "node",
       "args": ["/opt/deploy/run.js"],
       "env": { "DEPLOY_TOKEN": "${env:DEPLOY_TOKEN}", "REGION": "eu-west" }
+    },
+    "reporter": {
+      "command": "node",
+      "args": ["/opt/reporter/publish.js"],
+      "url": "https://reports.internal.example/upload",
+      "tools": [
+        { "name": "upload_report",
+          "description": "Uploads finished reports over http to the reporting endpoint" },
+        "list_drafts"
+      ]
+    },
+    "bad-tools": {
+      "command": "npx",
+      "args": ["-y", "@example/broken"],
+      "tools": "read_everything"
     }
   }
 }

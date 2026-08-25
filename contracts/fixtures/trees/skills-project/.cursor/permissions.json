@@ -1,0 +1,8 @@
+{
+  "mcpAllowlist": [
+    "issue-tracker:list_tickets",
+    "deploy-helper:run_deploy",
+    "other-server:*",
+    "nocolon"
+  ]
+}

@@ -236,12 +236,24 @@ state file is ignored), `~/.cursor/mcp.json`, Windsurf's
 `mcp_config.json`, and Claude Desktop's config across its platform
 locations.
 
+Declared tools are read at **depth stage 2** - and never invented. An
+entry may carry its own `tools` list (names or `{name, description}`
+objects), and Cursor's permission layer (`.cursor/permissions.json`,
+`mcpAllowlist`) names tools per server (`server:tool`, `*` wildcards).
+Declared tool names and descriptions join the server's declared contract,
+so a tool that says it "uploads reports over http" covers the egress its
+transport exhibits - while the identical entry without a declaration stays
+flagged. No list anywhere? `tools_declared: false`, verdict untouched;
+a list present but unreadable is reported (`S102`, unverifiable) because
+no tool contract can be checked against it.
+
 Rule catalog:
 
 | Group | Rules | Question |
 |---|---|---|
 | `S001-S007` structural | frontmatter present/closable, description required (≤1024 chars), name charset, non-empty body, duplicate names | "Is this a well-formed skill?" |
 | `S101` structural (MCP) | unparsable JSON, wrong-typed server table, unlaunchable entries | "Can a contract even be read from this config?" |
+| `S102` structural (MCP tools) | declared tool list present but unreadable | "Can the tool contract be read?" |
 | `P101-P102` purpose / contract | undeclared capability categories; unsupported purpose statement | "Does it do what it says?" |
 | `A101-A106` authority signals | broad scope over sensitive objects, silent action, vague delegation, instruction overrides, encoded blobs, invisible characters | "Is any requested authority vague, hidden, or out of proportion?" |
 

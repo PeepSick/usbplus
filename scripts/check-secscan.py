@@ -455,8 +455,32 @@ def check_mcp_configs(tmp: Path):
       "command": "node",
       "args": ["/opt/deploy/run.js"],
       "env": { "DEPLOY_TOKEN": "${env:DEPLOY_TOKEN}" }
+    },
+    "reporter": {
+      "command": "node",
+      "args": ["/opt/reporter/publish.js"],
+      "url": "https://reports.internal.example/upload",
+      "tools": [
+        { "name": "upload_report",
+          "description": "Uploads finished reports over http to the reporting endpoint" },
+        "list_drafts"
+      ]
+    },
+    "bad-tools": {
+      "command": "npx",
+      "args": ["-y", "@example/broken"],
+      "tools": "read_everything"
     }
   }
+}
+""")
+    # depth stage 2: the permission layer names tools per server
+    write(proj / ".cursor" / "permissions.json", """{
+  "mcpAllowlist": [
+    "filesystem:write_file",
+    "other-server:*",
+    "nocolon"
+  ]
 }
 """)
     # trailing comma -> unparsable JSON -> S101, verdict unverifiable
@@ -475,8 +499,8 @@ def check_mcp_configs(tmp: Path):
               str(tmp / "mcp-artifacts.json"), str(proj)])
     if r1.returncode != 1:
         report(name, False,
-               f"expected exit 1 (S101 + P101 present), got {r1.returncode}: "
-               f"{r1.stderr[-300:]}")
+               f"expected exit 1 (S101/S102/P101 present), got "
+               f"{r1.returncode}: {r1.stderr[-300:]}")
         return
     r2 = run(["python3", ENGINE, "--json", str(proj)])
     if r1.stdout != r2.stdout:
@@ -492,13 +516,15 @@ def check_mcp_configs(tmp: Path):
             raise KeyError(f"{marker}: {len(matches)} matches")
         return matches[0]
 
-    if len(by_path) != 4:
-        problems.append(f"expected 4 units (3 servers + broken config), "
+    if len(by_path) != 6:
+        problems.append(f"expected 6 units (5 servers + broken config), "
                         f"got {len(by_path)}: {sorted(by_path)}")
     try:
         clean = unit_for("#mcpServers/filesystem")
         tracker = unit_for("#mcpServers/issue-tracker")
         deploy = unit_for("#mcpServers/deploy-helper")
+        reporter = unit_for("#mcpServers/reporter")
+        bad_tools = unit_for("#mcpServers/bad-tools")
         broken = [s for p, s in by_path.items()
                   if p.endswith(".cursor/mcp.json")][0]
     except KeyError as exc:
@@ -524,6 +550,17 @@ def check_mcp_configs(tmp: Path):
         problems.append(f"broken config unit wrong: {broken['verdict']} "
                         f"{[f['rule'] for f in broken['findings']]}")
 
+    # stage 2: an explicit tool declaration covers what the same url would
+    # otherwise be flagged for - declared vs observed finally has both sides
+    if reporter["verdict"] != "matches-declaration":
+        problems.append(
+            f"tool-declared url server verdict={reporter['verdict']} "
+            "(tool description should declare network egress)")
+    if not any(f["rule"] == "S102" for f in bad_tools["findings"]) \
+            or bad_tools["verdict"] != "unverifiable":
+        problems.append(f"unreadable tool list wrong: {bad_tools['verdict']} "
+                        f"{[f['rule'] for f in bad_tools['findings']]}")
+
     art = json.loads((tmp / "mcp-artifacts.json").read_text(encoding="utf-8"))
     art_by_src = {u["identity"]["source"]: u for u in art["units"]}
     dep_art = next(v for k, v in art_by_src.items()
@@ -533,6 +570,21 @@ def check_mcp_configs(tmp: Path):
             or scope.get("transports") != ["stdio"] \
             or scope.get("mounts") != ["/opt/deploy/run.js"]:
         problems.append(f"deploy authority scope wrong: {scope}")
+    fs_art = next(v for k, v in art_by_src.items()
+                  if k.endswith("#mcpServers/filesystem"))
+    fs_tools = [t["name"] for t in fs_art["declared"].get("tools", [])]
+    if fs_art["declared"].get("tools_declared") is not True \
+            or fs_tools != ["write_file"]:
+        # permission-layer allowlist must reach the declared contract;
+        # other-server/nocolon patterns must not leak in
+        problems.append(f"filesystem declared tools wrong: {fs_tools} "
+                        f"declared={fs_art['declared'].get('tools_declared')}")
+    tr_art = next(v for k, v in art_by_src.items()
+                  if k.endswith("#mcpServers/issue-tracker"))
+    if tr_art["declared"].get("tools_declared") is not False \
+            or tr_art["declared"].get("tools"):
+        problems.append("absent tool declarations must stay absent "
+                        "(nothing invented)")
 
     # baseline roundtrip: MCP findings acknowledge like skill findings
     bpath = tmp / "mcp-baseline.json"

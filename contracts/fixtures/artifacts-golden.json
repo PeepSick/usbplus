@@ -1,7 +1,7 @@
 {
   "schema": "usb-contract-artifacts/v1",
   "tool": "usb-secscan",
-  "unit_count": 17,
+  "unit_count": 19,
   "units": [
     {
       "authority_scope": {
@@ -45,6 +45,45 @@
     {
       "authority_scope": {
         "bundle_scripts": [],
+        "signals": []
+      },
+      "contract_findings": [],
+      "declared": {
+        "categories": [],
+        "description_chars": 0,
+        "text": "bad-tools"
+      },
+      "evidence_by_rule": {
+        "S102": [
+          {
+            "line": 26,
+            "quote": "\"bad-tools\""
+          }
+        ]
+      },
+      "identity": {
+        "kind": "mcp-server",
+        "name": "bad-tools",
+        "source": "C:\\usbv2\\contracts\\fixtures\\trees\\skills-project/.mcp.json#mcpServers/bad-tools",
+        "source_kind": "local"
+      },
+      "observed_capabilities": [],
+      "structural_findings": [
+        {
+          "fingerprint": "61b34219b6943c88",
+          "line": 26,
+          "quote": "\"bad-tools\"",
+          "rule": "S102",
+          "severity": "high",
+          "title": "declared tool list cannot be read"
+        }
+      ],
+      "undeclared_categories": [],
+      "verdict": "unverifiable"
+    },
+    {
+      "authority_scope": {
+        "bundle_scripts": [],
         "env_keys": [
           "DEPLOY_TOKEN",
           "REGION"
@@ -61,7 +100,14 @@
       "declared": {
         "categories": [],
         "description_chars": 0,
-        "text": "deploy-helper"
+        "text": "deploy-helper run_deploy",
+        "tools": [
+          {
+            "description": "",
+            "name": "run_deploy"
+          }
+        ],
+        "tools_declared": true
       },
       "evidence_by_rule": {},
       "identity": {
@@ -91,7 +137,9 @@
       "declared": {
         "categories": [],
         "description_chars": 0,
-        "text": "filesystem"
+        "text": "filesystem",
+        "tools": [],
+        "tools_declared": false
       },
       "evidence_by_rule": {},
       "identity": {
@@ -129,7 +177,14 @@
       "declared": {
         "categories": [],
         "description_chars": 0,
-        "text": "issue-tracker"
+        "text": "issue-tracker list_tickets",
+        "tools": [
+          {
+            "description": "",
+            "name": "list_tickets"
+          }
+        ],
+        "tools_declared": true
       },
       "evidence_by_rule": {
         "P101": [
@@ -164,6 +219,58 @@
       "authority_scope": {
         "bundle_scripts": [],
         "env_keys": [],
+        "mounts": [
+          "/opt/reporter/publish.js"
+        ],
+        "signals": [],
+        "transports": [
+          "remote-url",
+          "stdio"
+        ]
+      },
+      "contract_findings": [],
+      "declared": {
+        "categories": [
+          "network-egress"
+        ],
+        "description_chars": 0,
+        "text": "reporter list_drafts upload_report Uploads finished reports over http to the reporting endpoint",
+        "tools": [
+          {
+            "description": "",
+            "name": "list_drafts"
+          },
+          {
+            "description": "Uploads finished reports over http to the reporting endpoint",
+            "name": "upload_report"
+          }
+        ],
+        "tools_declared": true
+      },
+      "evidence_by_rule": {},
+      "identity": {
+        "kind": "mcp-server",
+        "name": "reporter",
+        "source": "C:\\usbv2\\contracts\\fixtures\\trees\\skills-project/.mcp.json#mcpServers/reporter",
+        "source_kind": "local"
+      },
+      "observed_capabilities": [
+        {
+          "category": "network-egress",
+          "line": 16,
+          "source": null,
+          "strength": "strong",
+          "text": "https://reports.internal.example/upload"
+        }
+      ],
+      "structural_findings": [],
+      "undeclared_categories": [],
+      "verdict": "matches-declaration"
+    },
+    {
+      "authority_scope": {
+        "bundle_scripts": [],
+        "env_keys": [],
         "mounts": [],
         "signals": [],
         "transports": [
@@ -183,7 +290,9 @@
       "declared": {
         "categories": [],
         "description_chars": 0,
-        "text": "bootstrap"
+        "text": "bootstrap",
+        "tools": [],
+        "tools_declared": false
       },
       "evidence_by_rule": {
         "P101": [

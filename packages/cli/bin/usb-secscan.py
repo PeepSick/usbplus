@@ -137,6 +137,7 @@ MCP_CONFIG_BASENAMES = {
     "claude_desktop_config.json",
 }
 MCP_MAX_SERVERS_PER_CONFIG = 200    # units extracted per config file
+MCP_MAX_TOOLS_DECLARED = 200        # declared tools recorded per server
 # args elements that look like mounted filesystem paths (authority scope)
 MCP_MOUNT_RE = re.compile(r"^(?:~|[A-Za-z]:[\\/]|[\\/])")
 
@@ -152,6 +153,7 @@ KIND_RANK = {"local": 0, "system": 1, "repo": 2}
 VERDICT_PRECEDENCE = [
     ("unverifiable", "S002"),
     ("unverifiable", "S101"),
+    ("unverifiable", "S102"),
     ("purpose-mismatch", "P101"),
 ]
 
@@ -1194,13 +1196,21 @@ def corroborated_signal_findings(authority_signals):
 
 
 # =============================================================================
-# MCP adapter (config layer - contract-core depth-order stage 1)
+# MCP adapter (config layer - contract-core depth-order stages 1+2)
 #
 # One server entry in a well-known JSON config becomes ONE unit whose four
 # artifacts follow the same schema as skills:
-#   declared   the server NAME (+ nothing else). The launch line is behavior,
-#              not promise: a command inherently contains its own vocabulary,
-#              so treating it as declaration would self-declare everything.
+#   declared   the server NAME plus any EXPLICITLY declared tools. Mainstream
+#              runtimes never inline tool lists into server entries, so the
+#              only accepted sources are (a) an optional `tools` array on
+#              the entry itself and (b) permission-layer allowlists that
+#              name tools per server (Cursor's mcpAllowlist). When neither
+#              exists nothing is invented: tools_declared=false, and the
+#              verdict is untouched - the tool graph simply cannot be
+#              compared against a declaration yet (depth stage 3's job).
+#              The launch line is behavior, not promise: a command
+#              inherently contains its own vocabulary, so treating it as
+#              declaration would self-declare everything.
 #   observed   capability patterns over command/args/url strings (bundled-
 #              script tables reused verbatim - no new taxonomy), plus the
 #              bare fact that a remote url reaches the network.
@@ -1210,6 +1220,10 @@ def corroborated_signal_findings(authority_signals):
 #              paths. Feeds excessive-authority reasoning in later depth
 #              stages.
 #   identity   config-key name; stable locator "<config>#mcpServers/<key>".
+#
+# A declared-but-unreadable tool list (wrong types, non-string names) is
+# S102: the runtime will ignore or reject it, so no tool contract can be
+# read - verdict unverifiable.
 #
 # All evidence anchors at the config line where the server key first appears
 # (JSON parsing loses per-field positions; the server block is the honest
@@ -1263,6 +1277,82 @@ def find_mcp_configs(root: Path):
     return out
 
 
+def normalize_declared_tools(raw):
+    """-> (tools, declared, readable).
+
+    tools      [{"name": str, "description": str}] when readable
+    declared   True when the entry carries a tools key AT ALL
+    readable   False means present but unusable (S102 territory)
+    Strings are accepted as name-only declarations; objects must carry a
+    string 'name' and may carry a 'description'. Anything else is malformed
+    and is NEVER guessed around."""
+    if raw is None:
+        return [], False, True
+    if not isinstance(raw, list):
+        return None, True, False
+    tools = []
+    for entry in raw[:MCP_MAX_TOOLS_DECLARED]:
+        if isinstance(entry, str):
+            if not entry.strip():
+                return None, True, False
+            tools.append({"name": entry.strip(), "description": ""})
+        elif isinstance(entry, dict):
+            name = entry.get("name")
+            desc = entry.get("description", "")
+            if not isinstance(name, str) or not name.strip() \
+                    or not isinstance(desc, str):
+                return None, True, False
+            tools.append({"name": name.strip(),
+                          "description": trim_quote(desc)})
+        else:
+            return None, True, False
+    return tools, True, True
+
+
+def cursor_mcp_allowlist(root: Path):
+    """-> (patterns, structural_finding_or_None) from Cursor's permission
+    layer (.cursor/permissions.json), the one mainstream surface that names
+    MCP tools per server ('server:tool', '*' wildcards). Entries without a
+    colon are ignored by Cursor itself, so they are ignored here too.
+    patterns [] with no finding means: file absent, or present with no
+    mcpAllowlist key (both legitimate)."""
+    path = root / ".cursor" / "permissions.json"
+    try:
+        if not path.is_file():
+            return [], None
+        raw = path.read_bytes()
+    except OSError:
+        return [], None
+    if b"\x00" in raw[:8192]:
+        return [], None
+    lines = raw.decode("utf-8", errors="replace").lstrip("\ufeff") \
+        .splitlines()
+    try:
+        doc = json.loads("\n".join(lines))
+    except ValueError as exc:
+        line = getattr(exc, "lineno", 1) or 1
+        quote = lines[line - 1] if 0 < line <= len(lines) else ""
+        return [], [_s101(
+            line, quote, "permissions.json is not valid JSON",
+            f"{exc} - the runtime ignores this permission file entirely")]
+    allow = doc.get("mcpAllowlist") if isinstance(doc, dict) else None
+    if allow is None:
+        return [], None
+    if not isinstance(allow, list) \
+            or any(not isinstance(p, str) for p in allow):
+        return [], [_s101(
+            1, trim_quote(lines[0] if lines else ""),
+            "mcpAllowlist is not a list of strings",
+            "the tool allowlist cannot be read, so declared tool "
+            "identities from this file are lost")]
+    patterns = []
+    for p in allow:
+        srv, sep, tool = p.partition(":")
+        if sep and srv.strip() and tool.strip():
+            patterns.append((srv.strip(), tool.strip()))
+    return patterns, None
+
+
 def _s101(line, quote, title, detail):
     return make_finding(
         "S101", "high", title, line, quote, detail)
@@ -1311,7 +1401,8 @@ def _anchor_line(lines, server_name):
     return 1
 
 
-def build_mcp_adapter_result(name: str, cfg, root_kind, locator, anchor):
+def build_mcp_adapter_result(name: str, cfg, root_kind, locator, anchor,
+                             perm_patterns=None):
     """ADAPTER LAYER OUTPUT for one MCP server entry (see block comment)."""
     strings = []
     cmd = cfg.get("command")
@@ -1361,7 +1452,21 @@ def build_mcp_adapter_result(name: str, cfg, root_kind, locator, anchor):
             observed[category] = sorted(
                 evs, key=lambda e: (e["src"] or "", e["line"]))
 
-    claim = name
+    # Depth stage 2: explicit tool declarations merge into the claim text so
+    # the existing lexicon decides what they cover - nothing is inferred
+    # from names alone, and absence changes nothing downstream.
+    tools, tools_from_entry, _ = normalize_declared_tools(cfg.get("tools"))
+    merged = {t["name"]: t for t in tools}
+    perm_hits = [tool for srv, tool in (perm_patterns or [])
+                 if srv.lower() == name.lower() or srv == "*"]
+    for tool in perm_hits:
+        merged.setdefault(tool, {"name": tool, "description": ""})
+    tool_list = sorted(merged.values(), key=lambda t: t["name"])
+    tools_declared = bool(tools_from_entry or perm_hits)
+    tool_words = " ".join(
+        f"{t['name']} {t['description']}".strip() for t in tool_list)
+    claim = " ".join(x for x in (name, tool_words) if x)
+
     declared = declared_categories(claim.lower(), observed)
 
     transports = set()
@@ -1385,6 +1490,11 @@ def build_mcp_adapter_result(name: str, cfg, root_kind, locator, anchor):
             "text": trim_quote(claim),
             "categories": sorted(declared),
             "description_chars": 0,
+            "tools_declared": bool(tool_list),
+            "tools": [
+                {"name": t["name"], "description": t["description"]}
+                for t in tool_list
+            ],
         },
         "observed_capabilities": [
             {
@@ -1408,7 +1518,8 @@ def build_mcp_adapter_result(name: str, cfg, root_kind, locator, anchor):
     }
 
 
-def build_mcp_units(root_kind, display_root, rel, path: Path, stats):
+def build_mcp_units(root_kind, display_root, rel, path: Path, stats,
+                    perm_patterns=None):
     """All units from one MCP config file, in deterministic order."""
     try:
         raw = path.read_bytes()
@@ -1460,8 +1571,20 @@ def build_mcp_units(root_kind, display_root, rel, path: Path, stats):
                     "an entry a runtime cannot launch makes no contract "
                     "claim and serves nobody; fix or remove it")]))
             continue
+        if not normalize_declared_tools(entry.get("tools"))[2]:
+            units.append(McpUnit(
+                root_kind, locator, server_name=name, artifact=None,
+                structural=[make_finding(
+                    "S102", "high", "declared tool list cannot be read",
+                    anchor, trim_quote(f'"{name}"'),
+                    "the entry carries a tools declaration but its shape is "
+                    "unusable (expected a list of tool names or "
+                    "{name, description} objects); the runtime will ignore "
+                    "it and no tool contract can be verified against it")]))
+            continue
         artifact = build_mcp_adapter_result(
-            name, entry, root_kind, locator, anchor)
+            name, entry, root_kind, locator, anchor,
+            perm_patterns=perm_patterns)
         units.append(McpUnit(root_kind, locator, server_name=name,
                              artifact=artifact))
     if truncated:
@@ -1893,6 +2016,10 @@ def main(argv=None):
         # the markdown pipeline must never see them as skill files.
         mcp_here = find_mcp_configs(path)
         mcp_rps = {os.path.realpath(p) for _, p in mcp_here}
+        # depth stage 2: the permission layer may name tools per server
+        root_is_file = path.is_file()
+        perm_patterns, perm_bad = ([], None) if root_is_file \
+            else cursor_mcp_allowlist(path)
 
         for rel, abspath in candidates:
             if len(units) >= MAX_SKILLS:
@@ -1923,7 +2050,6 @@ def main(argv=None):
 
         # MCP config layer (contract-core depth-order stage 1): well-known
         # JSON config files under this root each contribute server units.
-        root_is_file = path.is_file()
         for cfg_rel, cfg_path in mcp_here:
             if len(units) >= MAX_SKILLS:
                 stats.truncated = True
@@ -1935,7 +2061,14 @@ def main(argv=None):
             stats.candidates += 1
             units.extend(build_mcp_units(
                 kind, display, "" if root_is_file else cfg_rel,
-                cfg_path, stats))
+                cfg_path, stats, perm_patterns=perm_patterns))
+        # a permission file no runtime can read is itself worth reporting:
+        # its allowlist silently stops applying
+        if perm_bad is not None:
+            plabel = ".cursor/permissions.json" if display == "." \
+                else f"{display}/.cursor/permissions.json"
+            units.append(McpUnit(kind, plabel, artifact=None,
+                                 structural=[perm_bad]))
 
     units.sort(key=lambda u: (KIND_RANK[u.root_kind], u.display_path))
 
