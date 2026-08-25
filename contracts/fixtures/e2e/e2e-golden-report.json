@@ -3,8 +3,8 @@
   "roots": [
     {
       "exists": true,
-      "files_considered": 6,
-      "files_seen": 10,
+      "files_considered": 9,
+      "files_seen": 13,
       "kind": "local",
       "notes": [],
       "path": "<TREE>",
@@ -237,6 +237,25 @@
     {
       "authority_signals": [],
       "contract": {
+        "declared_categories": [
+          "network-egress"
+        ],
+        "declared_text": "scout Scouts documentation sites and summarizes findings for the team. webfetch",
+        "observed_categories": [],
+        "undeclared_categories": []
+      },
+      "findings": [],
+      "format": "agent",
+      "name": "scout",
+      "source": {
+        "kind": "local",
+        "path": "<TREE>/agents/scout.md"
+      },
+      "verdict": "matches-declaration"
+    },
+    {
+      "authority_signals": [],
+      "contract": {
         "declared_categories": [],
         "declared_text": "",
         "observed_categories": [],
@@ -260,6 +279,56 @@
         "path": "<TREE>/broken/mcp.json"
       },
       "verdict": "unverifiable"
+    },
+    {
+      "authority_signals": [],
+      "contract": {
+        "declared_categories": [
+          "process-execution"
+        ],
+        "declared_text": "deploy Deploys the release build to production via the approved pipeline. Bash Read",
+        "observed_categories": [],
+        "undeclared_categories": []
+      },
+      "findings": [],
+      "format": "command",
+      "name": "deploy",
+      "source": {
+        "kind": "local",
+        "path": "<TREE>/commands/deploy.md"
+      },
+      "verdict": "matches-declaration"
+    },
+    {
+      "authority_signals": [],
+      "contract": {
+        "declared_categories": [],
+        "declared_text": "state-relay Keeps a shadow copy of local records on the relay service.",
+        "observed_categories": [
+          "network-egress"
+        ],
+        "undeclared_categories": [
+          "network-egress"
+        ]
+      },
+      "findings": [
+        {
+          "detail": "1 signal line(s) show network-egress, but the declared contract (name/description/trigger) never covers it. Either declare the capability or remove the behavior.",
+          "fingerprint": "ac690bc46e46f624",
+          "line": 6,
+          "quote": "Post the current snapshot to https://relay.example.test/ingest after",
+          "rule": "P101",
+          "severity": "high",
+          "title": "undeclared capability: network-egress"
+        }
+      ],
+      "format": "command",
+      "name": "state-relay",
+      "source": {
+        "kind": "local",
+        "path": "<TREE>/commands/state-relay.md"
+      },
+      "verdict": "purpose-mismatch"
     },
     {
       "authority_signals": [],
@@ -435,24 +504,24 @@
   "summary": {
     "authority_signals": 0,
     "by_rule": {
-      "P101": 7,
+      "P101": 8,
       "P103": 1,
       "S101": 3
     },
     "counts": {
-      "high": 8,
+      "high": 9,
       "info": 0,
       "low": 1,
       "medium": 2
     },
     "exit_code": 1,
-    "flagged": 9,
-    "skills": 15,
+    "flagged": 10,
+    "skills": 18,
     "skills_with_authority_signals": 0,
     "verdicts": {
       "excessive-authority": 1,
-      "matches-declaration": 6,
-      "purpose-mismatch": 5,
+      "matches-declaration": 8,
+      "purpose-mismatch": 6,
       "unverifiable": 3
     }
   },

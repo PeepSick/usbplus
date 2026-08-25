@@ -425,7 +425,9 @@
       "declared": {
         "categories": [],
         "description_chars": 82,
-        "text": "orchestrator Plans, delegates, and verifies work across the team without writing code directly."
+        "text": "orchestrator Plans, delegates, and verifies work across the team without writing code directly.",
+        "tools": [],
+        "tools_declared": false
       },
       "evidence_by_rule": {},
       "identity": {
@@ -448,7 +450,9 @@
       "declared": {
         "categories": [],
         "description_chars": 54,
-        "text": "release-notes Drafts release notes from merged PR titles and labels."
+        "text": "release-notes Drafts release notes from merged PR titles and labels.",
+        "tools": [],
+        "tools_declared": false
       },
       "evidence_by_rule": {},
       "identity": {
@@ -473,7 +477,9 @@
           "network-egress"
         ],
         "description_chars": 153,
-        "text": "api-health-checker Fetches HTTP health endpoints on a schedule and posts failure summaries to the team Slack webhook so APIs that respond slowly or with errors are noticed."
+        "text": "api-health-checker Fetches HTTP health endpoints on a schedule and posts failure summaries to the team Slack webhook so APIs that respond slowly or with errors are noticed.",
+        "tools": [],
+        "tools_declared": false
       },
       "evidence_by_rule": {},
       "identity": {
@@ -555,7 +561,9 @@
       "declared": {
         "categories": [],
         "description_chars": 66,
-        "text": "gallery-renderer Formats photo gallery markup for the blog from a folder of images."
+        "text": "gallery-renderer Formats photo gallery markup for the blog from a folder of images.",
+        "tools": [],
+        "tools_declared": false
       },
       "evidence_by_rule": {
         "P101": [
@@ -653,7 +661,9 @@
       "declared": {
         "categories": [],
         "description_chars": 107,
-        "text": "meeting-notes-plus Writes structured meeting-notes markdown files into the project docs folder when asked to record a meeting."
+        "text": "meeting-notes-plus Writes structured meeting-notes markdown files into the project docs folder when asked to record a meeting.",
+        "tools": [],
+        "tools_declared": false
       },
       "evidence_by_rule": {
         "A102": [
@@ -717,7 +727,9 @@
       "declared": {
         "categories": [],
         "description_chars": 107,
-        "text": "notes-writer Writes structured meeting-notes markdown files into the project docs folder when asked to record a meeting."
+        "text": "notes-writer Writes structured meeting-notes markdown files into the project docs folder when asked to record a meeting.",
+        "tools": [],
+        "tools_declared": false
       },
       "evidence_by_rule": {},
       "identity": {
@@ -742,7 +754,9 @@
       "declared": {
         "categories": [],
         "description_chars": 107,
-        "text": "notes-writer Writes structured meeting-notes markdown files into the project docs folder when asked to record a meeting."
+        "text": "notes-writer Writes structured meeting-notes markdown files into the project docs folder when asked to record a meeting.",
+        "tools": [],
+        "tools_declared": false
       },
       "evidence_by_rule": {
         "S006": [
@@ -793,7 +807,9 @@
       "declared": {
         "categories": [],
         "description_chars": 72,
-        "text": "ping-checker Tells the team whether the coffee machine's status page is up right now."
+        "text": "ping-checker Tells the team whether the coffee machine's status page is up right now.",
+        "tools": [],
+        "tools_declared": false
       },
       "evidence_by_rule": {
         "P101": [
@@ -856,7 +872,9 @@
       "declared": {
         "categories": [],
         "description_chars": 107,
-        "text": "pushy-helper Helps the team organize shared task lists and keep track of small housekeeping chores across the workspace."
+        "text": "pushy-helper Helps the team organize shared task lists and keep track of small housekeeping chores across the workspace.",
+        "tools": [],
+        "tools_declared": false
       },
       "evidence_by_rule": {},
       "identity": {
@@ -927,7 +945,9 @@
       "declared": {
         "categories": [],
         "description_chars": 85,
-        "text": "report-formatter Formats weekly status report templates and refreshes the sample numbers for the team."
+        "text": "report-formatter Formats weekly status report templates and refreshes the sample numbers for the team.",
+        "tools": [],
+        "tools_declared": false
       },
       "evidence_by_rule": {
         "P101": [

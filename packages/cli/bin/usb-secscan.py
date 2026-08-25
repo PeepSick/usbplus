@@ -965,6 +965,75 @@ class Unit:
         return " ".join(parts)
 
 
+# =============================================================================
+# Agent/command adapter: declared TOOL surface from frontmatter.
+# Claude Code commands declare `allowed-tools:`; opencode agents declare a
+# `tools:` mapping (our frontmatter flattener surfaces its entries as
+# top-level keys). A declared tool maps to a capability category through
+# this table - the agent-world sibling of MCP's mcpAllowlist handling.
+# File-operation tools (Read/Write/Edit/Grep/Glob) map to no v1 category.
+# =============================================================================
+
+DECLARED_TOOL_KINDS = {
+    "bash": "process-execution",
+    "shell": "process-execution",
+    "sh": "process-execution",
+    "exec": "process-execution",
+    "run": "process-execution",
+    "cmd": "process-execution",
+    "terminal": "process-execution",
+    "webfetch": "network-egress",
+    "websearch": "network-egress",
+    "http": "network-egress",
+    "fetch": "network-egress",
+    "curl": "network-egress",
+    "wget": "network-egress",
+}
+DECLARED_TOOL_NEUTRAL = frozenset((
+    "read", "write", "edit", "grep", "glob", "list", "view", "todo"))
+DISABLED_VALUES = frozenset(("false", "no", "off", "0", ""))
+
+
+def extract_declared_tools(unit):
+    """-> sorted unique declared tool names for agent/command units.
+
+    Sources: `allowed-tools:` value(s) and a `tools:` value, plus flattened
+    mapping keys whose names are recognizable tools. Entries explicitly
+    disabled in the source mapping (webfetch: false) are skipped."""
+    names = set()
+    for key in ("allowed-tools", "tools"):
+        field = unit.field(key)
+        if field and field["value"].strip():
+            for tok in re.split(r"[,\[\]{}]+", field["value"]):
+                if tok.strip():
+                    names.add(tok.strip())
+    for key, field in unit.fm["meta"].items():
+        base = key.split("(")[0].strip().lower()
+        if base in DECLARED_TOOL_KINDS or base in DECLARED_TOOL_NEUTRAL:
+            if str(field.get("value", "")).strip().lower() \
+                    in DISABLED_VALUES and key != key.upper():
+                continue
+            names.add(key.strip())
+    normalized = set()
+    for n in names:
+        m = re.match(r"([A-Za-z][A-Za-z0-9_-]*)", n)
+        if m:
+            candidate = m.group(1)
+            low = candidate.lower()
+            if low in DECLARED_TOOL_KINDS or low in DECLARED_TOOL_NEUTRAL:
+                normalized.add(candidate)
+    return sorted(normalized, key=str.lower)
+
+
+def declared_tool_categories(tools):
+    kinds = set()
+    for name in tools:
+        kind = DECLARED_TOOL_KINDS.get(name.lower())
+        if kind:
+            kinds.add(kind)
+    return sorted(kinds)
+
+
 def build_unit(root_kind, display_root, rel, path: Path):
     """Create a Unit for one candidate file, or None/'binary'."""
     try:
@@ -1173,7 +1242,21 @@ def build_adapter_result(unit: Unit):
     signals = collect_authority_signals(unit)
     observed = observe_capabilities(unit)
     claim = unit.claimed_purpose_text()
+
+    # agent/command adapters: explicit tool declarations join the claim
+    # text and map to declared categories via DECLARED_TOOL_KINDS - the
+    # agent-world sibling of MCP's mcpAllowlist handling
+    declared_tools = []
+    if unit.format in ("agent", "command"):
+        declared_tools = extract_declared_tools(unit)
+        tool_words = " ".join(declared_tools)
+        if tool_words:
+            claim = f"{claim} {tool_words}".strip()
+    tools_declared = bool(declared_tools)
+
     declared = declared_categories(claim.lower(), observed)
+    for kind in declared_tool_categories(declared_tools):
+        declared.add(kind)
     return {
         "identity": {
             "name": unit.name,
@@ -1185,6 +1268,9 @@ def build_adapter_result(unit: Unit):
             "text": trim_quote(claim),
             "categories": sorted(declared),
             "description_chars": len(unit.description),
+            "tools_declared": tools_declared,
+            "tools": [{"name": t, "description": ""}
+                      for t in declared_tools],
         },
         "observed_capabilities": [
             {
