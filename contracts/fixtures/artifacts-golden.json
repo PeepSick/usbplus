@@ -91,6 +91,12 @@
         "mounts": [
           "/opt/deploy/run.js"
         ],
+        "permissions": [
+          {
+            "level": "deny",
+            "pattern": "mcp__deploy-helper__run_deploy"
+          }
+        ],
         "signals": [],
         "transports": [
           "stdio"
@@ -128,6 +134,12 @@
         "mounts": [
           "/home/dev/projects"
         ],
+        "permissions": [
+          {
+            "level": "allow",
+            "pattern": "mcp__filesystem__write_file"
+          }
+        ],
         "signals": [],
         "transports": [
           "stdio"
@@ -158,6 +170,12 @@
         "bundle_scripts": [],
         "env_keys": [],
         "mounts": [],
+        "permissions": [
+          {
+            "level": "allow",
+            "pattern": "mcp__issue-tracker"
+          }
+        ],
         "signals": [],
         "transports": [
           "http",
@@ -222,6 +240,7 @@
         "mounts": [
           "/opt/reporter/publish.js"
         ],
+        "permissions": [],
         "signals": [],
         "transports": [
           "remote-url",
@@ -272,6 +291,7 @@
         "bundle_scripts": [],
         "env_keys": [],
         "mounts": [],
+        "permissions": [],
         "signals": [],
         "transports": [
           "stdio"

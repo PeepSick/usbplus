@@ -71,8 +71,15 @@ permission-layer `mcpAllowlist` (`server:tool`, wildcards) matched by
 server name. Declared tool names/descriptions join the claim text so the
 existing lexicon decides coverage; absence records `tools_declared: false`
 and touches nothing (nothing invented); a present-but-unreadable list is
-S102 → unverifiable. Claude Code's settings-layer `mcp__server__tool`
-permissions are the next surface, not yet read.
+S102 → unverifiable.
+
+Authority feed landed (Faz 5 v2.5): Claude Code settings-layer MCP rules
+(`mcp__<server>[__tool]`, allow/deny/ask) are read from project and
+user-scope settings files and recorded VERBATIM in
+`authority_scope.permissions`. They are operator-granted reach, not
+capability declarations - a permission grant never neutralizes a P101,
+and unreadable settings files surface as standalone S101 units because
+silently dropped rules are a security fact.
 
 ## Rules extracted for the MCP adapter
 

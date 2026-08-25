@@ -247,6 +247,15 @@ flagged. No list anywhere? `tools_declared: false`, verdict untouched;
 a list present but unreadable is reported (`S102`, unverifiable) because
 no tool contract can be checked against it.
 
+Claude Code's settings layer (`.claude/settings.json`,
+`.claude/settings.local.json`, user-scope under `--system`) is read as
+**authority, never declaration**: rules like `mcp__server__tool` are
+recorded verbatim in the unit's authority scope, separated by level
+(`allow`/`deny`/`ask`). What the operator permits is not what the server
+claims - an allowed tool changes nothing about an undeclared capability,
+and a settings file that cannot be parsed is reported on its own (its
+rules would silently stop applying).
+
 Rule catalog:
 
 | Group | Rules | Question |

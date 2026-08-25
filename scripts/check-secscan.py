@@ -483,6 +483,19 @@ def check_mcp_configs(tmp: Path):
   ]
 }
 """)
+    # Claude Code settings-layer rules: operator authority. They must land
+    # in authority_scope.permissions and NEVER in declared.tools.
+    write(proj / ".claude" / "settings.json", """{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build)",
+      "mcp__filesystem__write_file",
+      "mcp__issue-tracker"
+    ],
+    "deny": ["mcp__deploy-helper__run_deploy"]
+  }
+}
+""")
     # trailing comma -> unparsable JSON -> S101, verdict unverifiable
     write(proj / ".cursor" / "mcp.json", """{
   "mcpServers": {
@@ -585,6 +598,37 @@ def check_mcp_configs(tmp: Path):
             or tr_art["declared"].get("tools"):
         problems.append("absent tool declarations must stay absent "
                         "(nothing invented)")
+
+    # Claude Code permissions: verbatim authority, never declarations
+    fs_perms = fs_art["authority_scope"].get("permissions")
+    if fs_perms != [{"level": "allow",
+                     "pattern": "mcp__filesystem__write_file"}]:
+        problems.append(f"filesystem claude perms wrong: {fs_perms}")
+    tr_perms = tr_art["authority_scope"].get("permissions")
+    if tr_perms != [{"level": "allow", "pattern": "mcp__issue-tracker"}]:
+        problems.append(f"issue-tracker claude perms wrong: {tr_perms}")
+    dep_perms = dep_art["authority_scope"].get("permissions")
+    if dep_perms != [{"level": "deny",
+                      "pattern": "mcp__deploy-helper__run_deploy"}]:
+        problems.append(f"deploy claude perms wrong: {dep_perms}")
+    if fs_art["declared"]["tools"] != [{"name": "write_file",
+                                        "description": ""}]:
+        problems.append("claude permissions leaked into declared tools")
+
+    # a Claude settings file no runtime can parse is reported on its own:
+    # its permission rules silently stop applying
+    proj2 = tmp / "claudebroken"
+    write(proj2 / ".claude" / "settings.local.json", '{"permissions": {')
+    r4 = run(["python3", ENGINE, "--json", str(proj2)])
+    d4 = json.loads(r4.stdout)
+    if len(d4["skills"]) != 1 \
+            or not any(f["rule"] == "S101" for f in
+                       d4["skills"][0]["findings"]) \
+            or not d4["skills"][0]["source"]["path"].replace(
+                "\\", "/").endswith(".claude/settings.local.json"):
+        problems.append(
+            f"broken settings file unit wrong: "
+            f"{[(s['source']['path'], s['findings']) for s in d4['skills']]}")
 
     # baseline roundtrip: MCP findings acknowledge like skill findings
     bpath = tmp / "mcp-baseline.json"

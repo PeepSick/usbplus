@@ -1353,6 +1353,84 @@ def cursor_mcp_allowlist(root: Path):
     return patterns, None
 
 
+CLAUDE_PERM_PREFIX = "mcp__"
+CLAUDE_SETTINGS_RELPATHS = (".claude/settings.json",
+                            ".claude/settings.local.json")
+
+
+def claude_mcp_permissions(files):
+    """Read Claude Code's settings-layer permission rules for MCP tools.
+
+    files: [(display_label, Path)]. Rules look like 'mcp__<server>',
+    'mcp__<server>__<tool>' (tool names may contain underscores, so the
+    server is everything up to the FIRST double underscore) and live under
+    permissions.allow / deny / ask.
+
+    These are NOT capability declarations: what a permission grants is what
+    the OPERATOR lets the tool do, not what the server says it does. They
+    therefore land in the AUTHORITY scope artifact, verbatim, and never
+    touch declared.tools or observed behavior.
+
+    -> (entries, labeled_findings); entries are (server, level, pattern),
+    labeled_findings pair each structural problem with its file label so
+    callers can emit a standalone unit pointing at the right file."""
+    entries = []
+    labeled_findings = []
+    for label, path in files:
+        try:
+            if not path.is_file():
+                continue
+            raw = path.read_bytes()
+        except OSError:
+            continue
+        if b"\x00" in raw[:8192]:
+            continue
+        lines = raw.decode("utf-8", errors="replace").lstrip("\ufeff") \
+            .splitlines()
+        try:
+            doc = json.loads("\n".join(lines))
+        except ValueError as exc:
+            line = getattr(exc, "lineno", 1) or 1
+            quote = lines[line - 1] if 0 < line <= len(lines) else ""
+            labeled_findings.append((label, _s101(
+                line, quote, f"{label} is not valid JSON",
+                f"{exc} - the runtime ignores these permission rules "
+                "entirely")))
+            continue
+        if not isinstance(doc, dict):
+            continue
+        perms = doc.get("permissions")
+        if perms is None:
+            continue
+        if not isinstance(perms, dict):
+            labeled_findings.append((label, _s101(
+                1, trim_quote(lines[0] if lines else ""),
+                f"{label}: permissions object cannot be read",
+                "'permissions' must map allow/deny/ask to string lists; "
+                "the rules are silently skipped")))
+            continue
+        for level in ("allow", "deny", "ask"):
+            rules = perms.get(level)
+            if rules is None:
+                continue
+            if not isinstance(rules, list) \
+                    or any(not isinstance(r, str) for r in rules):
+                labeled_findings.append((label, _s101(
+                    1, trim_quote(lines[0] if lines else ""),
+                    f"{label}: permissions.{level} cannot be read",
+                    "expected a list of strings; this rule set is "
+                    "silently skipped")))
+                continue
+            for rule in rules:
+                if not rule.startswith(CLAUDE_PERM_PREFIX):
+                    continue  # Bash(...), WebFetch(...), plain tools, ...
+                rest = rule[len(CLAUDE_PERM_PREFIX):]
+                server = rest.partition("__")[0].strip()
+                if server:
+                    entries.append((server, level, rule))
+    return entries, labeled_findings
+
+
 def _s101(line, quote, title, detail):
     return make_finding(
         "S101", "high", title, line, quote, detail)
@@ -1402,7 +1480,7 @@ def _anchor_line(lines, server_name):
 
 
 def build_mcp_adapter_result(name: str, cfg, root_kind, locator, anchor,
-                             perm_patterns=None):
+                             perm_patterns=None, claude_perms=None):
     """ADAPTER LAYER OUTPUT for one MCP server entry (see block comment)."""
     strings = []
     cmd = cfg.get("command")
@@ -1479,6 +1557,16 @@ def build_mcp_adapter_result(name: str, cfg, root_kind, locator, anchor,
         transports.add("remote-url")
     mounts = sorted({a for a in arg_strings if MCP_MOUNT_RE.match(a)})
 
+    # Claude Code settings-layer rules: operator-granted reach, recorded
+    # VERBATIM under authority scope. They are never declarations and never
+    # behavior - what the operator allows is not what the server claims.
+    perms = [
+        {"level": level, "pattern": pattern}
+        for server, level, pattern in (claude_perms or [])
+        if server.lower() == name.lower() or server == "*"
+    ]
+    perms.sort(key=lambda p: (p["pattern"], p["level"]))
+
     return {
         "identity": {
             "name": name,
@@ -1513,13 +1601,14 @@ def build_mcp_adapter_result(name: str, cfg, root_kind, locator, anchor,
             "env_keys": env_keys,
             "transports": sorted(transports),
             "mounts": mounts,
+            "permissions": perms,
         },
         "_observed_map": observed,
     }
 
 
 def build_mcp_units(root_kind, display_root, rel, path: Path, stats,
-                    perm_patterns=None):
+                    perm_patterns=None, claude_perms=None):
     """All units from one MCP config file, in deterministic order."""
     try:
         raw = path.read_bytes()
@@ -1584,7 +1673,7 @@ def build_mcp_units(root_kind, display_root, rel, path: Path, stats,
             continue
         artifact = build_mcp_adapter_result(
             name, entry, root_kind, locator, anchor,
-            perm_patterns=perm_patterns)
+            perm_patterns=perm_patterns, claude_perms=claude_perms)
         units.append(McpUnit(root_kind, locator, server_name=name,
                              artifact=artifact))
     if truncated:
@@ -2003,6 +2092,16 @@ def main(argv=None):
     units = []
     consumed_realpaths = set()
 
+    # user-scope Claude Code permission rules travel with the machine and
+    # apply to every system-scope MCP unit; loaded once so their findings
+    # are reported exactly once
+    sys_claude_entries, sys_claude_findings = [], []
+    if args.system:
+        sys_claude_entries, sys_claude_findings = claude_mcp_permissions([
+            ("~/.claude/settings.json",
+             Path.home() / ".claude" / "settings.json"),
+        ])
+
     for kind, display, path in roots:
         exists = path.exists()
         stats = RootStats(kind, display, exists)
@@ -2016,10 +2115,22 @@ def main(argv=None):
         # the markdown pipeline must never see them as skill files.
         mcp_here = find_mcp_configs(path)
         mcp_rps = {os.path.realpath(p) for _, p in mcp_here}
-        # depth stage 2: the permission layer may name tools per server
+        # depth stage 2: the permission layer may name tools per server;
+        # Claude Code settings rules are operator authority, project-scoped
+        # for directory roots and user-scoped for system config files
         root_is_file = path.is_file()
         perm_patterns, perm_bad = ([], None) if root_is_file \
             else cursor_mcp_allowlist(path)
+        claude_files = []
+        if not root_is_file:
+            claude_files = [
+                (f"{display}/{relp}" if display != "." else relp,
+                 path / relp)
+                for relp in CLAUDE_SETTINGS_RELPATHS
+            ]
+        claude_entries, claude_findings = claude_mcp_permissions(claude_files) \
+            if not root_is_file else (sys_claude_entries if kind == "system"
+                                      else [], [])
 
         for rel, abspath in candidates:
             if len(units) >= MAX_SKILLS:
@@ -2061,7 +2172,8 @@ def main(argv=None):
             stats.candidates += 1
             units.extend(build_mcp_units(
                 kind, display, "" if root_is_file else cfg_rel,
-                cfg_path, stats, perm_patterns=perm_patterns))
+                cfg_path, stats, perm_patterns=perm_patterns,
+                claude_perms=claude_entries))
         # a permission file no runtime can read is itself worth reporting:
         # its allowlist silently stops applying
         if perm_bad is not None:
@@ -2069,6 +2181,15 @@ def main(argv=None):
                 else f"{display}/.cursor/permissions.json"
             units.append(McpUnit(kind, plabel, artifact=None,
                                  structural=[perm_bad]))
+        for clabel, cfinding in claude_findings:
+            units.append(McpUnit(kind, clabel, artifact=None,
+                                 structural=[cfinding]))
+
+    # user-scope settings problems: exactly once, regardless of how many
+    # system-scope config files were scanned
+    for clabel, cfinding in sys_claude_findings:
+        units.append(McpUnit("system", clabel, artifact=None,
+                             structural=[cfinding]))
 
     units.sort(key=lambda u: (KIND_RANK[u.root_kind], u.display_path))
 
