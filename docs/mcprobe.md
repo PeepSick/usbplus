@@ -141,3 +141,52 @@ Locked before implementation:
 With these locked, mcprobe v1 matches USB's character end to end: narrow,
 controlled, hiding nothing about what it does — and keeping observation
 strictly separated from judgment.
+
+---
+
+## 9. HTTP/SSE transport (v1.1 design)
+
+Carries the five stdio v1 principles to remote targets unchanged:
+
+**Consent.** Identical surface: no `--yes` -> plan only (url, transport
+class, contact=`remote-network`) and stop; piped stdin refuses. Remote is
+SAFER than stdio (no process spawn) but still opt-in, because it contacts
+a third-party network endpoint that a scanned config points at.
+
+**Timeout.** Same per-phase deadline model, renamed phases:
+`connect` (TCP/TLS) -> `handshake` (initialize/initialized) ->
+`tools_list` -> `close`. No spawn/grace phases; the connection simply
+closes. Overall runtime stays bounded by phase count x timeout.
+
+**Redaction.** New leak surface: HEADERS and URL query strings.
+- Header VALUES are never written; header NAMES may appear.
+- URLs are recorded as scheme://host/path only - query strings stripped.
+- env-value substitution and the generic secret pattern apply everywhere,
+  exactly like stdio.
+
+**Protocol boundary.** Scope stays tools/list ONLY; resources/prompts and
+tools/call remain out of scope permanently. Wire format: JSON-RPC over
+HTTP POST (`Accept: application/json` for streamable responses), with the
+SSE variant parsed by reading `data:` frames from a
+`text/event-stream` body - identical messages, different envelope.
+Post-handshake rule inherited: an unparseable frame during an exchange is
+protocol_error, not noise. Pagination shares ONE paginator implementation
+with stdio (page cap, tool ceiling, repeated-cursor stop). No auth flows
+in v1: 401/403 is recorded honestly as reason `auth_required`; no retries.
+
+**Report-only.** Same schema, adjusted fields: `transport:
+"remote-http" | "remote-sse"`, `contact: "remote-network"`,
+handshake keys renamed per phases above. observation semantics
+(complete/reason), exit codes and "never merges into baselines or
+usb-contract-artifacts" carry over verbatim. P104 stays untouched -
+remote probes accumulate calibration data report-only like everything
+else.
+
+Implementation note: stdio needs a background line reader because a pipe
+pushes unsolicited bytes; HTTP is request/response, so the reader thread
+disappears and each phase becomes a single bounded request. Less code,
+same contract.
+
+Open item before implementation: session handling for streamable HTTP
+(`Mcp-Session-Id` echo) - recorded opaquely in the report if present,
+never persisted elsewhere.
