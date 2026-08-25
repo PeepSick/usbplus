@@ -19,6 +19,7 @@
 #   usb secscan [paths...]         Security-scan skills (project-local dirs by default)
 #   usb secscan --system           Security-scan installed system skill locations
 #   usb secscan --repo <src>       Security-scan skills in a git/GitHub repo (read-only)
+#                                  ("usb scan" is a shorthand alias)
 #   usb version                    Show USB pack version
 #   usb --help                     Show this help
 #
@@ -628,7 +629,7 @@ case "${1:-}" in
   search)         shift; cmd_search "$@" ;;
   info)           shift; cmd_info "$@" ;;
   list)           shift; cmd_list "$@" ;;
-  secscan)        shift; cmd_secscan "$@" ;;
+  secscan|scan)   shift; cmd_secscan "$@" ;;
   version|-V|--version) cmd_version ;;
   -h|--help|help) usage ;;
   *)

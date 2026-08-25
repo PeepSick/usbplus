@@ -82,7 +82,7 @@ import re
 import sys
 from pathlib import Path, PurePosixPath
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 TOOL = "usb-secscan"
 
 # --- documented limits (part of the deterministic contract) ------------------
@@ -96,6 +96,15 @@ BODY_EMPTY_CHARS = 20               # shorter body than this counts as empty
 QUOTE_MAX_CHARS = 200               # evidence quotes are trimmed to this
 NOTE_LIST_CAP = 20                  # per-root notes lists are capped here
 CORROBORATION_DETAIL_CAP = 3        # signal lines cited inside a P101 detail
+
+# Bundled executable files: modern skill bundles ship runnable helpers next
+# to their SKILL.md. What those files DO is behavior evidence for the owning
+# skill's contract, exactly like its prose - only harder to argue with.
+SCRIPT_EXTENSIONS = {".sh", ".bash", ".js", ".mjs", ".cjs", ".ts", ".py", ".ps1"}
+SCRIPT_SKIP_DIRS = {"node_modules", ".git", "dist", "build"}
+MAX_SCRIPTS_PER_SKILL = 20          # executable files inspected per bundle
+MAX_SCRIPT_BYTES = 256 * 1024       # larger scripts are skipped entirely
+MAX_SCRIPT_DEPTH = 3                # directory levels below the skill dir
 
 SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2, "info": 3}
 SEVERITY_LADDER = ["info", "low", "medium", "high"]
@@ -219,6 +228,55 @@ CAPABILITY_CATEGORIES = {
             re.compile(r"systemd[^\n]{0,30}\.service", re.IGNORECASE),
         ],
     },
+}
+
+# =============================================================================
+# Capability evidence in BUNDLED EXECUTABLE FILES. Each pattern carries a
+# weight: 'strong' matches stand on their own at the category's full
+# severity, while a category evidenced ONLY by 'weak' matches is downgraded
+# one level - plain outbound HTTP is ordinary tooling, pipe-to-shell is not.
+# =============================================================================
+
+SCRIPT_CAPABILITY_PATTERNS = {
+    "secrets-access": [
+        (re.compile(r"(?<![\w.])\.env\b(?![-\w])"), "strong"),
+        (re.compile(r"\bid_(rsa|dsa|ecdsa|ed25519)\b", re.IGNORECASE), "strong"),
+        (re.compile(r"BEGIN [A-Z ]*PRIVATE KEY"), "strong"),
+        (re.compile(r"\.(aws[/\\]credentials|ssh/id_|gnupg/)"), "strong"),
+    ],
+    "network-egress": [
+        (re.compile(r"\b(curl|wget)\b[^\n|]*\|\s*(sudo\s+)?(ba|z|da|k)?sh\b", re.IGNORECASE), "strong"),
+        (re.compile(
+            r"hooks\.slack\.com|discord(app)?\.com/api/webhooks|pastebin\.com/raw"
+            r"|webhook\.site|ngrok(\.io|-free)\.|pipedream\.net|requestbin|interact\.sh",
+            re.IGNORECASE), "strong"),
+        (re.compile(r"/dev/tcp/|\bnc\b[^#\n]*\s-[le]\b", re.IGNORECASE), "strong"),
+        # Deliberately NO bare-URL pattern here: URLs also appear inside XML
+        # namespaces and HTML templates that scripts merely GENERATE, which
+        # is not egress. Only actual call-forms count as weak evidence.
+        (re.compile(
+            r"\b(?:await\s+)?fetch\s*\(|axios(?:\.(?:get|post|put|delete|request))?[\s(.]"
+            r"|requests\.(?:get|post|put)|urlopen\s*\(|https?\.request",
+            re.IGNORECASE), "weak"),
+    ],
+    "destructive-commands": [
+        (re.compile(r"(rmSync|rmdirSync)\([^)]*recursive\s*:\s*true", re.IGNORECASE), "strong"),
+        (re.compile(r"\brimraf\b|shutil\.rmtree\s*\("), "strong"),
+        (re.compile(r"os\.system\(\s*[\"']rm\s+-[a-zA-Z]*r", re.IGNORECASE), "strong"),
+    ],
+    "process-execution": [
+        (re.compile(r"\beval\s*\(|new Function\s*\(|Invoke-Expression\b", re.IGNORECASE), "strong"),
+        (re.compile(r"child_process\s*\.\s*exec\b|execSync\s*\("), "strong"),
+        (re.compile(r"shell\s*=\s*True|\bbash\s+-c\b|\bpowershell\b[^\n]*-Enc", re.IGNORECASE), "strong"),
+        # structured/list-form spawns are ordinary tooling -> weak
+        (re.compile(r"\bsubprocess\.(run|Popen|check_output|call)\b"), "weak"),
+        (re.compile(r"child_process\s*\.\s*(spawn|spawnSync|execFile)\b"), "weak"),
+    ],
+    "persistence-hooks": [
+        (re.compile(r"\bcrontab\b|\bschtasks\b|\blaunchctl\b", re.IGNORECASE), "strong"),
+        (re.compile(r"(?<![\w.])\.(bashrc|zshrc|profile|bash_profile)\b"), "strong"),
+        (re.compile(r"systemd[^\n]{0,30}\.service", re.IGNORECASE), "strong"),
+    ],
 }
 
 # =============================================================================
@@ -635,15 +693,19 @@ def definition_format(rel_posix: str) -> str:
 
 
 class Unit:
-    __slots__ = ("format", "root_kind", "display_path", "meta", "fm", "lines", "body_start")
+    __slots__ = ("format", "root_kind", "display_path", "meta", "fm", "lines",
+                 "body_start", "abs_dir")
 
-    def __init__(self, fmt, root_kind, display_path, fm, lines):
+    def __init__(self, fmt, root_kind, display_path, fm, lines, abs_dir=None):
         self.format = fmt
         self.root_kind = root_kind
         self.display_path = display_path
         self.fm = fm
         self.lines = lines
         self.body_start = fm["body_start"]
+        # Real directory of a SKILL.md bundle (None for standalone cards):
+        # bundled executable files are behavior evidence for THIS contract.
+        self.abs_dir = abs_dir
 
     def field(self, key):
         return self.fm["meta"].get(key)
@@ -704,7 +766,8 @@ def build_unit(root_kind, display_root, rel, path: Path):
     display = f"{display_root}/{rel}" if display_root != "." else rel
     fm = parse_frontmatter(lines)
     fmt = "claude" if path.name == "SKILL.md" else "card"
-    return Unit(fmt, root_kind, display, fm, lines)
+    abs_dir = path.parent if fmt == "claude" else None
+    return Unit(fmt, root_kind, display, fm, lines, abs_dir)
 
 
 # =============================================================================
@@ -789,17 +852,90 @@ def analyze_structure(unit: Unit, seen_names):
 # Contract analysis: observed behavior vs declared purpose
 # =============================================================================
 
+def collect_bundle_scripts(unit: Unit):
+    """Executable files inside a SKILL.md bundle, deterministic order:
+    [(rel_posix, Path)]. Bounded by depth, count and size; symlinks and
+    dependency/vendor directories are skipped."""
+    if unit.format != "claude" or unit.abs_dir is None:
+        return []
+    found = []
+
+    def rec(d: Path, rel_parts, depth):
+        if depth > MAX_SCRIPT_DEPTH or len(found) >= MAX_SCRIPTS_PER_SKILL:
+            return
+        try:
+            entries = sorted(d.iterdir(), key=lambda e: e.name)
+        except OSError:
+            return
+        for e in entries:
+            if len(found) >= MAX_SCRIPTS_PER_SKILL:
+                return
+            if e.is_symlink():
+                continue
+            if e.is_dir():
+                if e.name in SCRIPT_SKIP_DIRS:
+                    continue
+                rec(e, rel_parts + [e.name], depth + 1)
+            elif e.is_file():
+                if e.suffix.lower() not in SCRIPT_EXTENSIONS:
+                    continue
+                try:
+                    if e.stat().st_size > MAX_SCRIPT_BYTES:
+                        continue
+                except OSError:
+                    continue
+                found.append(("/".join(rel_parts + [e.name]), e))
+
+    rec(unit.abs_dir, [], 1)
+    return sorted(dict(found).items(), key=lambda t: t[0])
+
+
 def observe_capabilities(unit: Unit):
-    """{category: [(line, line_text)]} over the whole file."""
-    numbered_all = list(enumerate(unit.lines, start=1))
+    """{category: [evidence]} over the whole file AND bundled scripts.
+
+    Evidence entry: {"src": None|rel_posix, "line": int, "text": str,
+    "strong": bool}. Main-file matches keep the prose patterns' full weight;
+    script matches carry their pattern's declared weight."""
+    evidence_all = {c: [] for c in CAPABILITY_CATEGORIES}
+
+    for lineno, ln in enumerate(unit.lines, start=1):
+        for category, spec in CAPABILITY_CATEGORIES.items():
+            if any(p.search(ln) for p in spec["patterns"]):
+                evidence_all[category].append(
+                    {"src": None, "line": lineno, "text": ln, "strong": True})
+
+    script_lines = []
+    for rel, spath in collect_bundle_scripts(unit):
+        try:
+            raw = spath.read_bytes()
+        except OSError:
+            continue
+        if b"\x00" in raw[:8192]:
+            continue
+        text = raw.decode("utf-8", errors="replace")
+        script_lines.append((rel, list(enumerate(text.splitlines(), start=1))))
+
+    for rel, slines in script_lines:
+        for lineno, ln in slines:
+            for category, spats in SCRIPT_CAPABILITY_PATTERNS.items():
+                strong = False
+                hit = False
+                for pat, weight in spats:
+                    if pat.search(ln):
+                        hit = True
+                        if weight == "strong":
+                            strong = True
+                            break
+                if hit:
+                    evidence_all[category].append(
+                        {"src": rel, "line": lineno, "text": ln,
+                         "strong": strong or False})
+
     observed = {}
-    for category, spec in CAPABILITY_CATEGORIES.items():
-        evidence = []
-        for lineno, ln in numbered_all:
-            if any(pat.search(ln) for pat in spec["patterns"]):
-                evidence.append((lineno, ln))
-        if evidence:
-            observed[category] = evidence
+    for category, evs in evidence_all.items():
+        if evs:
+            observed[category] = sorted(
+                evs, key=lambda e: (e["src"] or "", e["line"]))
     return observed
 
 
@@ -814,27 +950,42 @@ def declared_categories(unit: Unit, observed):
     return declared
 
 
+def _downgrade(severity):
+    idx = SEVERITY_LADDER.index(severity)
+    return SEVERITY_LADDER[max(idx - 1, 1)]  # never below "low"
+
+
 def p101_findings(unit: Unit, observed, declared, authority_signals):
-    """Undeclared capability = the contract violation itself."""
+    """Undeclared capability = the contract violation itself. Evidence may
+    come from the skill's prose OR its bundled scripts; a category evidenced
+    only by weak script signals is downgraded one severity level."""
     findings = []
     undeclared = sorted(set(observed) - set(declared))
     for category in undeclared:
         spec = CAPABILITY_CATEGORIES[category]
         evidence = observed[category]
-        first_line, first_text = evidence[0]
+        any_strong = any(e["strong"] for e in evidence)
+        severity = spec["severity"] if any_strong else _downgrade(spec["severity"])
+        first = evidence[0]
         detail = (
             f"{len(evidence)} signal line(s) show {category}, but the "
             "declared contract (name/description/trigger) never covers it. "
             "Either declare the capability or remove the behavior."
         )
-        corrob = [s for s in authority_signals if s["line"] <= first_line + 40]
+        if not any_strong:
+            detail += " Weak script-level signals only - severity downgraded."
+        corrob = [s for s in authority_signals if s["line"] <= first["line"] + 40]
         if corrob:
-            cites = "; ".join(f"{s['rule']}@{s['line']}" for s in corrob[:CORROBORATION_DETAIL_CAP])
+            cites = "; ".join(
+                f"{s['rule']}@{s['line']}" for s in corrob[:CORROBORATION_DETAIL_CAP])
             detail += f" Corroborating authority signals: {cites}."
+        extra = {}
+        if first["src"]:
+            extra["evidence_path"] = first["src"]
         findings.append(make_finding(
-            "P101", spec["severity"],
+            "P101", severity,
             f"undeclared capability: {category}",
-            first_line, first_text, detail))
+            first["line"], first["text"], detail, **extra))
     return findings
 
 
@@ -929,9 +1080,19 @@ def corroborated_signal_findings(authority_signals):
 
 
 def compute_verdict(structural, contract_findings):
+    """purpose-mismatch requires a P101 at medium/high: a weak-only script
+    signal (severity low) is recorded, but it does not condemn the contract
+    by itself."""
     rules = {f["rule"] for f in structural + contract_findings}
     for verdict, trigger in VERDICT_PRECEDENCE:
-        if trigger in rules:
+        if verdict != "purpose-mismatch":
+            if trigger in rules:
+                return verdict
+            continue
+        mismatch = any(
+            f["rule"] == "P101" and f["severity"] in ("high", "medium")
+            for f in contract_findings)
+        if mismatch:
             return verdict
     if rules:
         return "structural-issues"
@@ -1046,7 +1207,9 @@ def human_report(roots_stats, results, summary):
             out.append("  " + paint(
                 f"{sev:<6} {f['rule']} {f['title']} (line {f['line']}){corr}",
                 COLORS[f["severity"]]))
-            if f["quote"]:
+            if f.get("evidence_path"):
+                out.append(f"          {f['evidence_path']}:{f['line']}: {f['quote']}")
+            elif f["quote"]:
                 out.append(f"          {f['quote']}")
             out.append(f"          why: {f['detail']}")
         for s in entry["authority_signals"]:

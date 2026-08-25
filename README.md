@@ -178,11 +178,16 @@ For every skill it reads the **declared contract** (name/description), observes
 the **actual capabilities** in the body (credential access, piping network
 responses into a shell, destructive deletion, process execution, persistence
 hooks), and flags every capability that is **observed but never declared** -
-that gap is the whole attack surface of a skill. Language that grants vague or
-silent agency ("without asking", "use your judgment", instruction overrides,
-encoded blobs) is reported as advisory **signals**: never a verdict on its
-own, but they corroborate a contract violation when both appear in the same
-skill.
+that gap is the whole attack surface of a skill. Bundled executable files
+(`scripts/*.mjs`, `*.sh`, ...) are behavior evidence too: a helper that phones
+home is a capability, whether or not the prose admits it. Evidence is weighted:
+a category backed only by ordinary tooling (an outbound `fetch`, a structured
+`subprocess.run`) is downgraded one severity level, while pipe-to-shell,
+encoded commands and known exfil endpoints stay at full strength. Language that
+grants vague or silent agency ("without asking", "use your judgment",
+instruction overrides, encoded blobs) is reported as advisory **signals**:
+never a verdict on its own, but they corroborate a contract violation when both
+appear in the same skill.
 
 ```text
 skills/meeting-notes-plus/SKILL.md  [claude]  contract: PURPOSE-MISMATCH
