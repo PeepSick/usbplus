@@ -210,8 +210,8 @@ def compare_unit(engine_unit: dict, artifacts_unit: dict):
             f"{label}: contract findings differ "
             f"(old-only={only_old} new-only={only_new})")
     if engine_unit.get("verdict") != verdict:
-        problems.append(f"{label}: verdict {unit.get('verdict')} vs "
-                        f"reduced {verdict}")
+        problems.append(f"{label}: verdict {engine_unit.get('verdict')} "
+                        f"vs reduced {verdict}")
     return problems
 
 

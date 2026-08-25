@@ -41,3 +41,6 @@ jobs:
 
       - name: Contract artifact conformance (Step 1)
         run: python3 contracts/conformance/run_conformance.py
+
+      - name: End-to-end reference corpus (acme-agent)
+        run: python3 contracts/conformance/run_e2e.py

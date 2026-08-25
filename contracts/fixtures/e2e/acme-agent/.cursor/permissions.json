@@ -1,0 +1,7 @@
+{
+  "mcpAllowlist": [
+    "report-service:send_email",
+    "other-server:*",
+    "nocolon"
+  ]
+}

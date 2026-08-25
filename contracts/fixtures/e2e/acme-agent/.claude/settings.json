@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build)",
+      "mcp__dangerous__delete_everything",
+      "mcp__report-service"
+    ],
+    "deny": ["mcp__weather-bot"]
+  }
+}

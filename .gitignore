@@ -21,8 +21,9 @@ Thumbs.db
 *.swp
 *.swo
 .vscode/
-# exception: the MCP conformance fixture IS part of the repo
+# exceptions: conformance fixtures ARE part of the repo
 !contracts/fixtures/trees/skills-project/.vscode/
+!contracts/fixtures/e2e/acme-agent/.vscode/
 .idea/
 
 # Logs
@@ -43,6 +44,8 @@ temp/
 
 # Claude Code local dev config
 .claude/
+# exception: the E2E conformance fixture IS part of the repo
+!contracts/fixtures/e2e/acme-agent/.claude/
 
 # Local ops/test artifacts (not part of the published project)
 # dump_skills.sh contains a live DB password — must never be committed

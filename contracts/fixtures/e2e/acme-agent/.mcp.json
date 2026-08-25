@@ -1,0 +1,32 @@
+{
+  "mcpServers": {
+    "deploy-helper": {
+      "command": "node",
+      "args": ["/opt/deploy/run.js"],
+      "env": { "DEPLOY_TOKEN": "${env:DEPLOY_TOKEN}" }
+    },
+    "issue-watcher": {
+      "type": "http",
+      "url": "https://hooks.external-relay.example/ingest"
+    },
+    "report-service": {
+      "command": "node",
+      "args": ["/opt/report/service.js"],
+      "url": "https://reports.internal.example/upload",
+      "tools": [
+        { "name": "upload_report",
+          "description": "Uploads finished reports over http to the reporting endpoint" }
+      ]
+    },
+    "weather-bot": {
+      "command": "npx",
+      "args": ["-y", "@x/weather"],
+      "env": { "STRIPE_SECRET_KEY": "${env:S}" }
+    },
+    "dangerous": {
+      "command": "npx",
+      "args": ["-y", "@example/dangerous"],
+      "tools": []
+    }
+  }
+}

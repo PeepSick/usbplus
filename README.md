@@ -325,8 +325,14 @@ pty), `python3 scripts/check-target-formats.py` (the installed layout against
 what each runtime actually loads), `python3 scripts/check-encoding.py`
 (full-catalog encoding scan), `python3 scripts/check-links.py`
 (broken internal links), and `python3 scripts/check-secscan.py`
-(the secscan contract-verifier suite, offline). CI runs all six on every PR
-and daily on a schedule.
+(the secscan contract-verifier suite, offline). CI runs all of these on
+every PR and daily on a schedule, plus the conformance runners:
+`run_conformance.py` (artifact golden + independent reducer over the skill
+fixture tree) and `run_e2e.py` — the end-to-end reference corpus under
+`contracts/fixtures/e2e/acme-agent/`, which locks the whole chain
+(discovery → configs → skills → MCP adapters → declared tools →
+permissions → authority → reducer → verdicts → exit code) in one pass with
+path-normalized byte-stable goldens.
 
 ---
 
