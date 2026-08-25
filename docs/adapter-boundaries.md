@@ -54,6 +54,10 @@ engine semantically on the fixture corpus (12 units, byte-deterministic).
 | baseline load/write/filter | **core** (policy-adjacent, format-free) |
 | `human_report`, JSON rendering | presentation |
 
+Step 2 landed: the core consumes AdapterResult directly
+(`build_adapter_result` is the single adapter→core seam; P-rules read
+artifacts, not files).
+
 ## Rules extracted for the MCP adapter
 
 1. An MCP unit needs only: identity, claim text, transport/command/env
