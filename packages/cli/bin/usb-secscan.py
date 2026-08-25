@@ -957,15 +957,75 @@ def observe_capabilities(unit: Unit):
     return observed
 
 
-def declared_categories(unit: Unit, observed):
+def declared_categories(claim_lower: str, observed):
     """Categories whose vocabulary appears in the claimed purpose text."""
-    claim = unit.claimed_purpose_text().lower()
     declared = set()
     for category in observed:
         lexicon = CAPABILITY_CATEGORIES[category]["lexicon"]
-        if any(word in claim for word in lexicon):
+        if any(word in claim_lower for word in lexicon):
             declared.add(category)
     return declared
+
+
+def build_adapter_result(unit: Unit):
+    """ADAPTER LAYER OUTPUT - everything the core may consume, already in
+    artifact shape (usb-contract-artifacts/v1).
+
+    Keys prefixed with "_" are process-local inputs for rules whose inputs
+    are not yet part of the public schema; they are never serialized.
+    Everything else is byte-stable and covered by the golden snapshot."""
+    signals = collect_authority_signals(unit)
+    observed = observe_capabilities(unit)
+    claim = unit.claimed_purpose_text()
+    declared = declared_categories(claim.lower(), observed)
+    return {
+        "identity": {
+            "name": unit.name,
+            "kind": unit.format,
+            "source_kind": unit.root_kind,
+            "source": unit.display_path,
+        },
+        "declared": {
+            "text": trim_quote(claim),
+            "categories": sorted(declared),
+            "description_chars": len(unit.description),
+        },
+        "observed_capabilities": [
+            {
+                "category": cat,
+                "strength": "strong" if e["strong"] else "weak",
+                "source": e["src"],
+                "line": e["line"],
+                "text": trim_quote(e["text"]),
+            }
+            for cat, evs in sorted(observed.items())
+            for e in evs
+        ],
+        "authority_scope": {
+            "signals": [
+                {
+                    "rule": s["rule"],
+                    "title": s["title"],
+                    "line": s["line"],
+                    "matched": s["matched"],
+                    "quote": s["quote"],
+                }
+                for s in signals
+            ],
+            # v1 scope summary for skills: the bundle surface it can act on.
+            "bundle_scripts": sorted(
+                rel for rel, _ in collect_bundle_scripts(unit)
+            ) if unit.format == "claude" else [],
+        },
+        "_observed_map": observed,
+        "_signals": signals,
+        "_context": {
+            "lines": unit.lines,
+            "description_value": unit.description,
+            "description_line": (unit.field("description") or {})
+            .get("line", 1),
+        },
+    }
 
 
 def _downgrade(severity):
@@ -973,10 +1033,14 @@ def _downgrade(severity):
     return SEVERITY_LADDER[max(idx - 1, 1)]  # never below "low"
 
 
-def p101_findings(unit: Unit, observed, declared, authority_signals):
-    """Undeclared capability = the contract violation itself. Evidence may
-    come from the skill's prose OR its bundled scripts; a category evidenced
-    only by weak script signals is downgraded one severity level."""
+def p101_findings(art):
+    """CORE: undeclared capability = the contract violation itself. Consumes
+    ONLY the adapter artifact - evidence may come from prose OR bundled
+    scripts; a category evidenced only by weak script signals is downgraded
+    one severity level."""
+    observed = art["_observed_map"]
+    declared = set(art["declared"]["categories"])
+    authority_signals = art["authority_scope"]["signals"]
     findings = []
     undeclared = sorted(set(observed) - set(declared))
     for category in undeclared:
@@ -1007,13 +1071,17 @@ def p101_findings(unit: Unit, observed, declared, authority_signals):
     return findings
 
 
-def p102_finding(unit: Unit):
-    """Description promises words that appear nowhere in the file."""
-    desc_field = unit.field("description")
-    if not desc_field or not desc_field["value"].strip():
+def p102_finding(art):
+    """CORE: description promises words that appear nowhere in the unit.
+    Consumes the adapter's process-local context (description + body text);
+    P102 is not yet reconstructible from the public artifact schema, so it
+    stays engine-side until the spec extends."""
+    desc_value = art["_context"]["description_value"]
+    lines = art["_context"]["lines"]
+    if not desc_value or not desc_value.strip():
         return []
     words = []
-    for w in re.findall(r"[A-Za-z][A-Za-z'-]{3,}", desc_field["value"]):
+    for w in re.findall(r"[A-Za-z][A-Za-z'-]{3,}", desc_value):
         lw = w.lower().strip("'-")
         if len(lw) >= 4 and lw not in STOPWORDS and lw not in words:
             words.append(lw)
@@ -1021,12 +1089,12 @@ def p102_finding(unit: Unit):
             break
     if len(words) < 6:
         return []
-    corpus = "\n".join(unit.lines).lower()
+    corpus = "\n".join(lines).lower()
     if any(w in corpus for w in words):
         return []
     return [make_finding(
         "P102", "low", "unsupported purpose statement",
-        desc_field["line"], desc_field["value"],
+        art["_context"]["description_line"], desc_value,
         "none of the description's characteristic words appear in the body "
         "- the declared purpose has no textual basis in the actual "
         "instructions")]
@@ -1318,64 +1386,56 @@ def emit_contracts(path: Path, results):
     """
     units_out = []
     for res in results:
-        unit = res["unit"]
-        observed = [
-            {
-                "category": cat,
-                "strength": "strong" if e["strong"] else "weak",
-                "source": e["src"],
-                "line": e["line"],
-                "text": trim_quote(e["text"]),
-            }
-            for cat, evs in sorted(res["observed"].items())
-            for e in evs
-        ]
+        art = dict(res["artifacts"]) if res["artifacts"] else {
+            # Unverifiable units (malformed frontmatter) never reach the
+            # adapter; their identity/declaration are still reported, exactly
+            # as the pre-refactor emitter did.
+            "identity": {
+                "name": res["unit"].name,
+                "kind": res["unit"].format,
+                "source_kind": res["unit"].root_kind,
+                "source": res["unit"].display_path,
+            },
+            "declared": {
+                "text": trim_quote(res["unit"].claimed_purpose_text()),
+                "categories": [],
+                "description_chars": len(res["unit"].description),
+            },
+            "observed_capabilities": [],
+            "authority_scope": {"signals": [], "bundle_scripts": []},
+            "undeclared_categories": [],
+        }
+        # process-local inputs never leave the artifact boundary
+        art.pop("_context", None)
+        art.pop("_observed_map", None)
+        art.pop("_signals", None)
+
         evidence_by_rule = {}
         for f in res["findings"]:
             entry = {"line": f["line"], "quote": f["quote"]}
             if f.get("evidence_path"):
                 entry["path"] = f["evidence_path"]
             evidence_by_rule.setdefault(f["rule"], []).append(entry)
-        authority = {
-            "signals": [
-                {
-                    "rule": s["rule"],
-                    "title": s["title"],
-                    "line": s["line"],
-                    "matched": s["matched"],
-                    "quote": s["quote"],
-                }
-                for s in res["authority_signals"]
-            ],
-            # v1 scope summary for skills: the bundle surface it can act on.
-            "bundle_scripts": sorted(
-                rel for rel, _ in collect_bundle_scripts(unit)
-            ) if unit.format == "claude" else [],
-        }
-        structural = [canonical_finding(f) for f in res["findings"]
-                      if f["rule"].startswith("S")]
-        contract = [canonical_finding(f) for f in res["findings"]
-                    if not f["rule"].startswith("S")]
+        art["evidence_by_rule"] = dict(sorted(evidence_by_rule.items()))
+
+        art["structural_findings"] = [canonical_finding(f)
+                                      for f in res["findings"]
+                                      if f["rule"].startswith("S")]
+        art["contract_findings"] = [canonical_finding(f)
+                                    for f in res["findings"]
+                                    if not f["rule"].startswith("S")]
+        art["verdict"] = res["verdict"]
+
         units_out.append({
-            "identity": {
-                "name": unit.name,
-                "kind": unit.format,
-                "source_kind": unit.root_kind,
-                "source": unit.display_path,
-            },
-            "declared": {
-                "text": trim_quote(unit.claimed_purpose_text()),
-                "categories": sorted(res["declared"]),
-                "description_chars": len(unit.description),
-            },
-            "observed_capabilities": observed,
-            "evidence_by_rule": dict(sorted(evidence_by_rule.items())),
-            "authority_scope": authority,
-            "undeclared_categories": sorted(
-                set(res["observed"]) - set(res["declared"])),
-            "structural_findings": structural,
-            "contract_findings": contract,
-            "verdict": res["verdict"],
+            "identity": art["identity"],
+            "declared": art["declared"],
+            "observed_capabilities": art["observed_capabilities"],
+            "evidence_by_rule": art["evidence_by_rule"],
+            "authority_scope": art["authority_scope"],
+            "undeclared_categories": art["undeclared_categories"],
+            "structural_findings": art["structural_findings"],
+            "contract_findings": art["contract_findings"],
+            "verdict": art["verdict"],
         })
     doc = {
         "tool": TOOL,
@@ -1507,14 +1567,22 @@ def main(argv=None):
         contract_findings = []
         observed = {}
         declared = set()
+        artifacts = None
         if fields_ok:
-            signals = collect_authority_signals(unit)
-            observed = observe_capabilities(unit)
-            declared = declared_categories(unit, observed)
-            contract_findings = p101_findings(unit, observed, declared, signals)
-            contract_findings.extend(p102_finding(unit))
+            # ADAPTER LAYER: everything below consumes the artifact only.
+            artifacts = build_adapter_result(unit)
+            # Rich signals (with explanatory detail) stay the public face;
+            # the serialized copies inside the artifact are for emission.
+            signals = artifacts["_signals"]
+            observed = artifacts["_observed_map"]
+            declared = set(artifacts["declared"]["categories"])
+            artifacts["undeclared_categories"] = sorted(
+                set(observed) - declared)
+            contract_findings = p101_findings(artifacts)
+            contract_findings.extend(p102_finding(artifacts))
             if any(f["rule"] == "P101" for f in contract_findings):
-                contract_findings.extend(corroborated_signal_findings(signals))
+                contract_findings.extend(
+                    corroborated_signal_findings(signals))
 
         findings = cap_per_rule(structural + contract_findings)
         if baseline_entries is not None:
@@ -1535,6 +1603,7 @@ def main(argv=None):
 
         results.append({
             "unit": unit,
+            "artifacts": artifacts,
             "findings": findings,
             "authority_signals": signals,
             "verdict": verdict,
@@ -1603,8 +1672,10 @@ def main(argv=None):
                     "format": r["unit"].format,
                     "name": r["unit"].name,
                     "contract": {
-                        "declared_text": trim_quote(
-                            r["unit"].claimed_purpose_text()),
+                        "declared_text": (
+                            r["artifacts"]["declared"]["text"]
+                            if r.get("artifacts")
+                            else ""),
                         "observed_categories": sorted(r["observed"]),
                         "declared_categories": sorted(r["declared"]),
                         "undeclared_categories": sorted(
