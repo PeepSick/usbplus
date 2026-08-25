@@ -20,6 +20,8 @@
 #   usb secscan --system           Security-scan installed system skill locations
 #   usb secscan --repo <src>       Security-scan skills in a git/GitHub repo (read-only)
 #                                  ("usb scan" is a shorthand alias)
+#   usb mcprobe [paths...]         Runtime observation of MCP servers (LAUNCHES
+#                                  targets - opt-in via --yes; non-deterministic)
 #   usb version                    Show USB pack version
 #   usb --help                     Show this help
 #
@@ -665,6 +667,11 @@ case "${1:-}" in
   info)           shift; cmd_info "$@" ;;
   list)           shift; cmd_list "$@" ;;
   secscan|scan)   shift; cmd_secscan "$@" ;;
+  mcprobe)        shift
+    command -v python3 >/dev/null 2>&1 || {
+      err "mcprobe needs python3 in PATH"; exit 2; }
+    MCP_DIR="$(cd "$(dirname "$USB_SECSCAN_ENGINE")" && pwd)"
+    python3 "$(secscan_to_native_path "$MCP_DIR")/usb-mcprobe.py" "$@" ;;
   version|-V|--version) cmd_version ;;
   -h|--help|help) usage ;;
   *)

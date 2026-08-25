@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """usb mcprobe - runtime observation for MCP servers.
 
-NON-DETERMINISTIC by design (docs/mcprobe.md): launches a configured MCP
-server over stdio, performs the initialize/tools_list handshake, records
-the exposed tools, shuts down. Never calls tools. Separate from secscan's
+NON-DETERMINISTIC by design (docs/mcprobe.md): contacts a configured MCP
+server, performs the initialize/tools_list handshake, records the exposed
+tools, disconnects. Never calls tools. Separate from secscan's
 deterministic audit chain by construction.
+
+Transports: stdio spawn (local-process) and streamable-HTTP / SSE
+(remote-network). Remote v1 has no auth flows - 401/403 is recorded as
+`auth_required`.
 
 Consent contract (docs/mcprobe.md section 8):
     no --yes          -> prints the plan and stops; interactive prompt only
@@ -12,10 +16,7 @@ Consent contract (docs/mcprobe.md section 8):
     --yes             -> explicit machine consent, runs immediately
 
 Exit codes: 0 all probes contacted successfully, 1 at least one probe hit
-a protocol error/timeout, 2 refusal / no targets / usage error.
-
-Usage:
-    usb-mcprobe.py [--yes] [--json] [--timeout SECS] [PATH]...
+a protocol error/timeout/auth failure, 2 refusal / no targets / usage.
 """
 
 from __future__ import annotations
@@ -30,7 +31,10 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.error
+import urllib.request
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
 SCHEMA = "usb-mcprobe-report/v1"
 PROTOCOL_VERSION = "2024-11-05"
@@ -39,6 +43,7 @@ TOOL_CEILING = 1000
 PHASE_TIMEOUT_DEFAULT = 30.0
 SHUTDOWN_GRACE = 3.0
 MAX_LINE = 512 * 1024
+SESSION_HEADER = "Mcp-Session-Id"
 
 ENV_ALLOWLIST = ("PATH", "HOME", "SYSTEMROOT", "COMSPEC", "TEMP", "TMP",
                  "APPDATA", "LOCALAPPDATA", "PROGRAMFILES", "USERPROFILE")
@@ -62,26 +67,32 @@ def redact(text: str, secrets: list[tuple[str, str]]) -> str:
     for key, value in secrets:
         if value and len(value) > 3:
             out = out.replace(value, f"${{{key}}}")
-    out = SECRET_PATTERN_RE.sub("<redacted>", out)
-    return out
+    return SECRET_PATTERN_RE.sub("<redacted>", out)
+
+
+def strip_query(url: str) -> str:
+    parts = urlsplit(url.strip())
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, "", "")) \
+        or url
 
 
 class ProbeError(Exception):
-    def __init__(self, phase: str, message: str):
+    def __init__(self, phase: str, kind: str, message: str):
         super().__init__(message)
-        self.phase = phase
+        self.phase = phase          # where it happened (handshake key)
+        self.kind = kind            # observation.reason vocabulary
         self.message = message
 
 
 class LineReader(threading.Thread):
-    """Background reader: the server's stdout becomes a line queue so the
-    main thread can enforce per-phase deadlines."""
+    """Background reader for unsolicited-push streams (stdio pipes, SSE
+    bodies): raw lines become a queue so the main thread can enforce
+    deadlines."""
 
     def __init__(self, stream):
         super().__init__(daemon=True)
         self.stream = stream
         self.lines: queue.Queue = queue.Queue()
-        self.dead = False
 
     def run(self):
         try:
@@ -90,46 +101,240 @@ class LineReader(threading.Thread):
                                [:MAX_LINE])
         except Exception:
             pass
-        self.dead = True
         self.lines.put(None)
 
-    def read_line(self, deadline: float) -> str:
+    def next_raw(self, deadline: float) -> str:
         remaining = deadline - time.monotonic()
         if remaining <= 0:
-            raise ProbeError("timeout", "deadline exceeded while waiting "
-                                        "for a response")
+            raise ProbeError("timeout", "timeout",
+                             "deadline exceeded while waiting for data")
         try:
             item = self.lines.get(timeout=remaining)
         except queue.Empty:
-            raise ProbeError("timeout", "deadline exceeded while waiting "
-                                        "for a response")
+            raise ProbeError("timeout", "timeout",
+                             "deadline exceeded while waiting for data")
         if item is None:
-            raise ProbeError("protocol_error",
-                             "server closed stdout unexpectedly")
+            raise ProbeError("protocol_error", "protocol_error",
+                             "stream closed unexpectedly")
         return item
 
-    def read_message(self, deadline: float, strict: bool = False):
+
+class StdioChannel:
+    """send/recv pair over a spawned process."""
+
+    def __init__(self, proc, timeout: float):
+        self.proc = proc
+        self.next_id = 1
+        self.reader = LineReader(proc.stdout)
+        self.reader.start()
+        self.deadline = time.monotonic() + timeout
+
+    def call(self, method: str, params: dict | None, strict: bool):
+        payload: dict = {"jsonrpc": "2.0", "id": self.next_id,
+                         "method": method}
+        if params is not None:
+            payload["params"] = params
+        self.next_id += 1
+        self.send(payload)
+        return self.recv(None, strict)
+
+    def notify(self, method: str):
+        self.send({"jsonrpc": "2.0", "method": method})
+
+    def send(self, payload: dict):
+        self.proc.stdin.write(
+            (json.dumps(payload, ensure_ascii=False) + "\n")
+            .encode("utf-8"))
+        self.proc.stdin.flush()
+
+    def recv(self, msg_id: int | None, strict: bool):
+        del msg_id  # stdio frames arrive in order; id matching implicit
         while True:
-            line = self.read_line(deadline).strip()
+            line = self.reader.next_raw(self.deadline).strip()
             if not line:
                 continue
             try:
                 msg = json.loads(line)
             except ValueError:
-                # Pre-handshake banners may be non-JSON; once we are inside
-                # an exchange, an unparseable frame IS a protocol error.
                 if strict:
-                    raise ProbeError("protocol_error",
+                    raise ProbeError("tools_list", "protocol_error",
                                      "malformed JSON-RPC frame")
                 continue
             if isinstance(msg, dict) and ("result" in msg or "error" in msg):
                 return msg
 
 
-def send(writer, payload: dict):
-    writer.write((json.dumps(payload, ensure_ascii=False) + "\n")
-                 .encode("utf-8"))
-    writer.flush()
+class HttpChannel:
+    """send/recv pair over streamable-HTTP or SSE envelopes."""
+
+    def __init__(self, url: str, base_headers: dict, mode: str,
+                 timeout: float):
+        self.url = url
+        self.mode = mode              # "remote-http" | "remote-sse"
+        self.timeout = timeout
+        self.headers = dict(base_headers)
+        self.session_id = None
+        self.session_present = False
+        self.deadline = time.monotonic() + timeout
+        self.next_id = 1
+
+    def _post(self, payload: dict | None):
+        req = urllib.request.Request(self.url, method="POST")
+        for k, v in self.headers.items():
+            req.add_header(k, v)
+        req.add_header("Content-Type", "application/json")
+        req.add_header("Accept", "application/json, text/event-stream")
+        if self.session_id:
+            req.add_header(SESSION_HEADER, self.session_id)
+        body = (json.dumps(payload, ensure_ascii=False) + "\n") \
+            .encode("utf-8") if payload is not None else b""
+        return urllib.request.urlopen(req, data=body,
+                                      timeout=max(1.0, self.deadline
+                                                  - time.monotonic()))
+
+    @staticmethod
+    def _message_from_body(body: str, content_type: str):
+        if "text/event-stream" in content_type:
+            datas = []
+            for line in body.splitlines():
+                if line.startswith("data:"):
+                    datas.append(line[5:].lstrip())
+            joined = "\n".join(datas).strip()
+            if not joined:
+                return None
+            return json.loads(joined)
+        return json.loads(body) if body.strip() else None
+
+    def exchange(self, payload: dict, strict: bool):
+        try:
+            resp = self._post(payload)
+        except urllib.error.HTTPError as exc:
+            kind = ("auth_required" if exc.code in (401, 403)
+                    else "protocol_error")
+            exc.close()
+            raise ProbeError("handshake" if payload.get("method") ==
+                             "initialize" else "tools_list",
+                             kind,
+                             f"HTTP {exc.code}")
+        except urllib.error.URLError as exc:
+            raise ProbeError("connect", "protocol_error",
+                             f"connection failed: {exc.reason}")
+        with resp:
+            ctype = resp.headers.get("Content-Type", "")
+            sid = resp.headers.get(SESSION_HEADER)
+            if sid:
+                self.session_id = sid
+                self.session_present = True
+            if "text/event-stream" not in ctype:
+                body = resp.read(MAX_LINE).decode("utf-8", errors="replace")
+                msg = self._message_from_body(body, ctype)
+                if msg is None:
+                    if strict:
+                        raise ProbeError("tools_list", "protocol_error",
+                                         "empty response body")
+                    return None
+                if strict and isinstance(msg, dict) \
+                        and "result" not in msg and "error" not in msg:
+                    raise ProbeError("tools_list", "protocol_error",
+                                     "unexpected response shape")
+                return msg
+            reader = LineReader(resp)
+            reader.start()
+            datas = []
+            while True:
+                line = reader.next_raw(min(self.deadline,
+                                           time.monotonic() + self.timeout))
+                if line.startswith("data:"):
+                    datas.append(line[5:].strip())
+                elif line.strip() == "" and datas:
+                    break
+            joined = "\n".join(datas).strip()
+            try:
+                msg = json.loads(joined)
+            except ValueError:
+                if strict:
+                    raise ProbeError("tools_list", "protocol_error",
+                                     "malformed SSE frame")
+                return None
+            if strict and isinstance(msg, dict) \
+                    and "result" not in msg and "error" not in msg:
+                raise ProbeError("tools_list", "protocol_error",
+                                 "unexpected SSE message")
+            return msg
+
+    def call(self, method: str, params: dict | None, strict: bool):
+        payload: dict = {"jsonrpc": "2.0", "id": self.next_id,
+                         "method": method}
+        if params is not None:
+            payload["params"] = params
+        self.next_id += 1
+        return self.exchange(payload, strict=strict)
+
+    def notify(self, method: str):
+        self.exchange({"jsonrpc": "2.0", "method": method}, strict=False)
+
+    def close_session(self):
+        if not self.session_id:
+            return
+        try:
+            req = urllib.request.Request(self.url, method="DELETE")
+            req.add_header(SESSION_HEADER, self.session_id)
+            urllib.request.urlopen(req, timeout=SHUTDOWN_GRACE).close()
+        except Exception:
+            pass
+
+
+def _paginate(channel, deadline: float, secrets: list[tuple[str, str]]):
+    """Shared tools/list loop (page cap, tool ceiling, repeated-cursor
+    stop). Returns (sorted tools, observation dict)."""
+    cursor = None
+    seen_cursors = set()
+    pages = 0
+    tools = []
+    complete, reason = True, None
+    while True:
+        params = {} if cursor is None else {"cursor": cursor}
+        resp = channel.call("tools/list", params, strict=True)
+        if "error" in resp:
+            err = resp["error"]
+            raise ProbeError("tools_list", "protocol_error",
+                             f"server returned JSON-RPC error: "
+                             f"{err.get('message', '')}"[:200])
+        payload = resp.get("result") or {}
+        page_tools = payload.get("tools")
+        if not isinstance(page_tools, list):
+            raise ProbeError("tools_list", "protocol_error",
+                             "malformed tools page")
+        pages += 1
+        for t in page_tools[:max(0, TOOL_CEILING - len(tools))]:
+            if not isinstance(t, dict) or not isinstance(t.get("name"), str):
+                raise ProbeError("tools_list", "protocol_error",
+                                 "malformed tool entry")
+            desc = t.get("description")
+            tools.append({
+                "name": t["name"][:200],
+                "description": (redact(str(desc)[:300], secrets)
+                                if isinstance(desc, str) else ""),
+                "input_schema_keys": sorted(
+                    k for k in ((t.get("inputSchema") or {})
+                                .get("properties") or {})
+                    if isinstance(k, str))[:20],
+            })
+        cursor = payload.get("nextCursor")
+        if len(tools) >= TOOL_CEILING:
+            complete, reason = False, "pagination_limit"
+            break
+        if not cursor:
+            break
+        if cursor in seen_cursors or pages >= PAGE_LIMIT:
+            complete, reason = False, "pagination_limit"
+            break
+        seen_cursors.add(cursor)
+        if time.monotonic() > deadline:
+            raise ProbeError("tools_list", "timeout",
+                             "deadline exceeded during pagination")
+    return sorted(tools, key=lambda t: t["name"]), \
+        {"complete": complete, "reason": reason}
 
 
 def discover_targets(roots: list[Path]):
@@ -137,8 +342,7 @@ def discover_targets(roots: list[Path]):
     for root in roots:
         if not root.exists():
             continue
-        cfgs = ENGINE.find_mcp_configs(root)
-        for rel, cfg_path in cfgs:
+        for rel, cfg_path in ENGINE.find_mcp_configs(root):
             try:
                 raw = cfg_path.read_bytes()
             except OSError:
@@ -147,7 +351,7 @@ def discover_targets(roots: list[Path]):
                 continue
             lines = (raw.decode("utf-8", errors="replace")
                      .lstrip("\ufeff").splitlines())
-            servers, structural = ENGINE.parse_mcp_config(lines)
+            servers, _structural = ENGINE.parse_mcp_config(lines)
             if servers is None:
                 continue
             display = posix(cfg_path)
@@ -167,12 +371,16 @@ def posix(p) -> str:
     return str(p).replace("\\", "/")
 
 
-def contact_class(entry: dict) -> str | None:
-    if isinstance(entry.get("command"), str) and entry["command"].strip():
-        return "local-process"
-    if isinstance(entry.get("url"), str) and entry["url"].strip():
-        return "remote"
-    return None
+def transports_for(entry: dict):
+    cmd = isinstance(entry.get("command"), str) and entry["command"].strip()
+    url = isinstance(entry.get("url"), str) and entry["url"].strip()
+    etype = entry.get("type") if isinstance(entry.get("type"), str) else ""
+    if cmd:
+        return "local-process", "stdio"
+    if url:
+        mode = "remote-sse" if etype.lower() == "sse" else "remote-http"
+        return "remote-network", mode
+    return None, None
 
 
 def probe_stdio(target: dict, timeout: float) -> dict:
@@ -199,6 +407,7 @@ def probe_stdio(target: dict, timeout: float) -> dict:
         "transport": "stdio",
         "contact": "local-process",
         "launch_line_redacted": redact(" ".join(argv), secrets),
+        "session_id_present": None,
         "handshake": {"initialize": "error", "tools_list": "skipped"},
         "server_info": {},
         "observation": {"complete": False, "reason": None},
@@ -212,84 +421,37 @@ def probe_stdio(target: dict, timeout: float) -> dict:
         report["handshake"]["initialize"] = f"spawn_error: {exc}"
         return report
 
-    reader = LineReader(proc.stdout)
-    reader.start()
-    deadline = time.monotonic() + timeout
+    channel = StdioChannel(proc, timeout)
     try:
-        send(proc.stdin, {
-            "jsonrpc": "2.0", "id": 1, "method": "initialize",
-            "params": {
-                "protocolVersion": PROTOCOL_VERSION,
-                "capabilities": {},
-                "clientInfo": {"name": "usb-mcprobe", "version": "0.1.0"},
-            }})
-        init = reader.read_message(deadline)
-        result = init.get("result") or {}
-        info = result.get("serverInfo") or {}
+        channel.send({"jsonrpc": "2.0", "id": 1, "method": "initialize",
+                      "params": {
+                          "protocolVersion": PROTOCOL_VERSION,
+                          "capabilities": {},
+                          "clientInfo": {"name": "usb-mcprobe",
+                                         "version": "0.1.0"}}})
+        init = channel.recv(1, strict=False)
+        if "error" in init:
+            raise ProbeError("initialize", "protocol_error",
+                             "server returned JSON-RPC error")
+        info = (init.get("result") or {}).get("serverInfo") or {}
         report["server_info"] = {
             "name": str(info.get("name", ""))[:120],
             "version": str(info.get("version", ""))[:40],
         }
-        if "error" in init:
-            raise ProbeError("initialize", "server returned JSON-RPC error")
+        report["handshake"]["initialize"] = "ok"
+        channel.send({"jsonrpc": "2.0",
+                      "method": "notifications/initialized"})
         report["handshake"]["initialize"] = "ok"
 
-        send(proc.stdin, {"jsonrpc": "2.0", "method": "notifications"
-                          "/initialized"})
-        report["handshake"]["initialize"] = "ok"
-
-        cursor = None
-        seen_cursors = set()
-        pages = 0
-        tools = []
-        complete = True
-        reason = None
-        while True:
-            params = {} if cursor is None else {"cursor": cursor}
-            send(proc.stdin, {"jsonrpc": "2.0", "id": 2 + pages,
-                              "method": "tools/list", "params": params})
-            page_deadline = min(deadline, time.monotonic() + timeout)
-            resp = reader.read_message(page_deadline, strict=True)
-            if "error" in resp:
-                raise ProbeError("tools_list",
-                                 "server returned JSON-RPC error")
-            payload = resp.get("result") or {}
-            page_tools = payload.get("tools")
-            if not isinstance(page_tools, list):
-                raise ProbeError("tools_list", "malformed tools page")
-            pages += 1
-            for t in page_tools[:max(0, TOOL_CEILING - len(tools))]:
-                if not isinstance(t, dict) or not isinstance(t.get("name"),
-                                                             str):
-                    raise ProbeError("tools_list",
-                                     "malformed tool entry")
-                desc = t.get("description")
-                tools.append({
-                    "name": t["name"][:200],
-                    "description": (redact(str(desc)[:300], secrets)
-                                    if isinstance(desc, str) else ""),
-                    "input_schema_keys": sorted(
-                        k for k in ((t.get("inputSchema") or {})
-                                    .get("properties") or {})
-                        if isinstance(k, str))[:20],
-                })
-            cursor = payload.get("nextCursor")
-            if len(tools) >= TOOL_CEILING:
-                complete, reason = False, "pagination_limit"
-                break
-            if not cursor:
-                break
-            if cursor in seen_cursors or pages >= PAGE_LIMIT:
-                complete, reason = False, "pagination_limit"
-                break
-            seen_cursors.add(cursor)
-
-        report["observation"] = {"complete": complete, "reason": reason}
-        report["tools"] = sorted(tools, key=lambda t: t["name"])
+        tools, obs = _paginate(channel, channel.deadline,
+                               [(k, v) for k, v in declared_env.items()])
+        report["tools"] = tools
+        report["observation"] = obs
         report["handshake"]["tools_list"] = "ok"
     except ProbeError as exc:
-        report["handshake"][exc.phase] = exc.message
-        report["observation"] = {"complete": False, "reason": exc.phase}
+        report["handshake"][exc.phase] = (
+            f"{exc.kind}: {exc.message}"[:300])
+        report["observation"] = {"complete": False, "reason": exc.kind}
     finally:
         try:
             proc.stdin.close()
@@ -299,21 +461,90 @@ def probe_stdio(target: dict, timeout: float) -> dict:
             proc.wait(timeout=SHUTDOWN_GRACE)
         except Exception:
             proc.kill()
+    return report
 
+
+def probe_remote(target: dict, timeout: float) -> dict:
+    entry = target["entry"]
+    url_raw = entry["url"].strip()
+    url = strip_query(url_raw)
+    _, transport = transports_for(entry)
+    headers = {}
+    hdrs = entry.get("headers") if isinstance(entry.get("headers"), dict) \
+        else {}
+    secrets = [("headers", str(v)) for v in hdrs.values()]
+    for k, v in hdrs.items():
+        if isinstance(v, str):
+            headers[k] = v
+            secrets.append((str(k), v))
+    denv = entry.get("env") if isinstance(entry.get("env"), dict) else {}
+    secrets.extend((str(k), str(v)) for k, v in denv.items())
+
+    report = {
+        "locator": target["locator"],
+        "transport": transport,
+        "contact": "remote-network",
+        "launch_line_redacted": redact(url, secrets),
+        "session_id_present": False,
+        "handshake": {"connect": "skipped", "handshake": "skipped",
+                      "tools_list": "skipped"},
+        "server_info": {},
+        "observation": {"complete": False, "reason": None},
+        "tools": [],
+    }
+    channel = HttpChannel(url, headers, transport, timeout)
+    try:
+        init = channel.call("initialize", {
+            "protocolVersion": PROTOCOL_VERSION,
+            "capabilities": {},
+            "clientInfo": {"name": "usb-mcprobe", "version": "0.1.0"},
+        }, strict=False)
+        report["handshake"] = {"connect": "ok", "handshake": "ok",
+                               "tools_list": "pending"}
+        report["session_id_present"] = channel.session_present
+        if "error" in init:
+            raise ProbeError("handshake", "protocol_error",
+                             "server returned JSON-RPC error")
+        info = (init.get("result") or {}).get("serverInfo") or {}
+        report["server_info"] = {
+            "name": str(info.get("name", ""))[:120],
+            "version": str(info.get("version", ""))[:40],
+        }
+        channel.notify("notifications/initialized")
+
+        tools, obs = _paginate(channel, channel.deadline, secrets)
+        report["tools"] = tools
+        report["observation"] = obs
+        report["handshake"]["tools_list"] = "ok"
+    except ProbeError as exc:
+        phase = exc.phase
+        if phase == "handshake":
+            report["handshake"]["handshake"] = f"{exc.kind}: {exc.message}"
+            report["handshake"]["connect"] = report["handshake"].get(
+                "connect", "ok")
+            if "connect" not in report["handshake"]:
+                report["handshake"]["connect"] = "skipped"
+        elif phase == "connect":
+            report["handshake"]["connect"] = f"{exc.kind}: {exc.message}"
+        elif phase == "tools_list":
+            report["handshake"]["tools_list"] = f"{exc.kind}: {exc.message}"
+        report["observation"] = {"complete": False, "reason": exc.kind}
+    finally:
+        channel.close_session()
     return report
 
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         prog="usb mcprobe",
-        description="Runtime observation of MCP servers - launches the "
-                    "target, lists its tools, shuts down. NON-deterministic "
+        description="Runtime observation of MCP servers - contacts the "
+                    "target, lists its tools, disconnects. NON-deterministic "
                     "and opt-in by design.")
     parser.add_argument("targets", nargs="*",
                         help="config paths or scan roots (same discovery as "
                              "secscan)")
     parser.add_argument("--yes", action="store_true",
-                        help="explicit machine consent to launch targets")
+                        help="explicit machine consent to contact targets")
     parser.add_argument("--json", action="store_true", default=True)
     parser.add_argument("--timeout", type=float,
                         default=PHASE_TIMEOUT_DEFAULT,
@@ -324,26 +555,27 @@ def main(argv=None) -> int:
         if args.targets else [Path.cwd()]
     targets = discover_targets(roots)
 
-    def klass(t: dict) -> str:
-        e = t["entry"]
-        cmd = isinstance(e.get("command"), str) and e["command"].strip()
-        url = isinstance(e.get("url"), str) and e["url"].strip()
-        return "stdio" if cmd else ("remote" if url else "?")
+    def klass(t):
+        contact, transport = transports_for(t["entry"])
+        return transport or "?"
 
     plan_lines = [
         f"targets: {len(targets)}",
-        *[f"  would launch {klass(t)} -> {t['locator']} "
+        *[f"  would contact {klass(t)} -> {t['locator']} "
           f"({t['entry'].get('command', t['entry'].get('url', ''))})"
           for t in targets],
     ]
     if not args.yes:
         print("mcprobe plan (dry):")
         print("\n".join(plan_lines))
-        print("nothing was launched")
+        print("nothing was contacted")
         if sys.stdin.isatty():
-            answer = input("Launch these servers? [y/N] ").strip().lower()
-            if answer == "y":
-                args.yes = True
+            try:
+                answer = input("Contact these servers? [y/N] ").strip().lower()
+                if answer == "y":
+                    args.yes = True
+            except (EOFError, OSError):
+                pass  # broken/absent interactive stream counts as refusal
         if not args.yes:
             print("refused: no execution without --yes (or interactive y)")
             return 2
@@ -354,27 +586,30 @@ def main(argv=None) -> int:
     reports = []
     failures = 0
     for target in targets:
-        klass = contact_class(target["entry"])
-        if klass == "local-process":
-            rep = probe_stdio(target, args.timeout)
-            if rep["observation"]["reason"] in ("protocol_error", "timeout"):
-                failures += 1
-            reports.append(rep)
-        elif klass == "remote":
+        contact, transport = transports_for(target["entry"])
+        if contact is None:
             failures += 1
             reports.append({
-                "locator": target["locator"],
-                "transport": "remote",
-                "contact": "remote",
+                "locator": target["locator"], "transport": "?",
+                "contact": "unknown",
                 "launch_line_redacted": "",
-                "handshake": {"initialize": "skipped",
-                              "tools_list": "skipped"},
-                "server_info": {},
+                "session_id_present": None,
+                "handshake": {},
+                "server_info": {}, "tools": [],
                 "observation": {"complete": False,
-                                "reason": "remote_transport_not_supported_"
-                                          "in_v1"},
-                "tools": [],
+                                "reason": "no_command_or_url"},
             })
+            continue
+        if contact == "local-process":
+            rep = probe_stdio(target, args.timeout)
+        else:
+            rep = probe_remote(target, args.timeout)
+        reason = rep["observation"]["reason"]
+        if reason in ("protocol_error", "timeout", "auth_required") \
+                or rep["handshake"].get("initialize", "").startswith(("error",
+                                                                      "spawn")):
+            failures += 1
+        reports.append(rep)
 
     doc = {
         "schema": SCHEMA,
@@ -382,7 +617,8 @@ def main(argv=None) -> int:
         "deterministic": False,
         "reports": reports,
         "summary": {"probed": sum(1 for r in reports
-                                  if r["handshake"]["initialize"] == "ok"),
+                                  if r["handshake"].get("initialize")
+                                  in ("ok",)),
                     "failed": failures},
     }
     print(json.dumps(doc, ensure_ascii=False, indent=2, sort_keys=True))

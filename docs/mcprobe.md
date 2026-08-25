@@ -187,6 +187,13 @@ pushes unsolicited bytes; HTTP is request/response, so the reader thread
 disappears and each phase becomes a single bounded request. Less code,
 same contract.
 
-Open item before implementation: session handling for streamable HTTP
-(`Mcp-Session-Id` echo) - recorded opaquely in the report if present,
-never persisted elsewhere.
+### 9.1 Resolved: `Mcp-Session-Id` handling (streamable HTTP)
+
+- The session id received from the initialize response IS echoed verbatim
+  on every subsequent request of the same probe (spec requirement) and on
+  the closing DELETE.
+- The value is NEVER serialized: the report records only
+  `"session_id_present": true | false`. The id is a capability token -
+  holding it transiently in memory is required, publishing it is not.
+- v1 does NOT open the server-initiated GET channel; tools/list needs no
+  downstream requests, so no second connection exists to authenticate.

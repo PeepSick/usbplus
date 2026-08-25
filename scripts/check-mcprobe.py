@@ -14,6 +14,8 @@ import json
 import subprocess
 import sys
 import tempfile
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -45,6 +47,15 @@ def write_config(root: Path, mode: str, marker: Path | None,
     root.mkdir(parents=True, exist_ok=True)
     (root / ".mcp.json").write_text(json.dumps(
         {"mcpServers": {"stub": {**entry, "env": env}}}),
+        encoding="utf-8", newline="\n")
+
+
+def write_remote_config(root: Path, url: str, type_: str,
+                        headers: dict):
+    root.mkdir(parents=True, exist_ok=True)
+    (root / ".mcp.json").write_text(json.dumps(
+        {"mcpServers": {"remote": {"type": type_, "url": url,
+                                   "headers": headers}}}),
         encoding="utf-8", newline="\n")
 
 
@@ -125,6 +136,158 @@ def main():
               and unit.get("observation", {}).get("reason")
               == "protocol_error",
               f"rc={r.returncode} hs={hs}")
+
+        # ---- remote transport (streamable HTTP + SSE + auth) ----------
+        state = {"session": True, "last_session_echo": None}
+
+        def make_handler():
+            class Handler(BaseHTTPRequestHandler):
+                def log_message(self, *a):
+                    pass
+
+                def _send_json(self, code, obj, extra=None):
+                    body = json.dumps(obj).encode()
+                    self.send_response(code)
+                    self.send_header("Content-Type", "application/json")
+                    for k, v in (extra or {}).items():
+                        self.send_header(k, v)
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+
+                def do_DELETE(self):
+                    self._send_json(200, {})
+
+                def do_POST(self):
+                    length = int(self.headers.get("Content-Length", 0))
+                    try:
+                        msg = json.loads(
+                            self.rfile.read(length).decode("utf-8"))
+                    except ValueError:
+                        self._send_json(400, {"error": "bad"})
+                        return
+                    if state["session"]:
+                        state["last_session_echo"] = \
+                            self.headers.get("Mcp-Session-Id")
+                    if make_handler.auth:
+                        err = {"jsonrpc": "2.0", "id": msg.get("id"),
+                               "error": {"code": -32000,
+                                         "message": "unauthorized"}}
+                        self._send_json(401, err)
+                        return
+                    method = msg.get("method")
+                    payload_id = msg.get("id")
+                    if method == "initialize":
+                        payload = {"jsonrpc": "2.0", "id": payload_id,
+                                   "result": {
+                                       "protocolVersion": "2024-11-05",
+                                       "capabilities": {"tools": {}},
+                                       "serverInfo": {
+                                           "name": "remote-stub",
+                                           "version": "2.0"}}}
+                        extra = {"Mcp-Session-Id": "sess-123"} \
+                            if state["session"] else None
+                        if make_handler.sse:
+                            frame = "data: " + json.dumps(payload) + "\n\n"
+                            bodyb = frame.encode()
+                            self.send_response(200)
+                            self.send_header("Content-Type",
+                                             "text/event-stream")
+                            for k, v in (extra or {}).items():
+                                self.send_header(k, v)
+                            self.send_header("Content-Length",
+                                             str(len(bodyb)))
+                            self.end_headers()
+                            self.wfile.write(bodyb)
+                        else:
+                            self._send_json(200, payload, extra)
+                    elif method == "tools/list":
+                        tools = [{"name": f"remote_tool_{i}",
+                                  "description": f"remote tool {i}",
+                                  "inputSchema": {"properties": {
+                                      "path": {}}}}
+                                 for i in range(1, 4)]
+                        payload = {"jsonrpc": "2.0", "id": payload_id,
+                                   "result": {"tools": tools}}
+                        if make_handler.sse:
+                            frame = "data: " + json.dumps(payload) + "\n\n"
+                            bodyb = frame.encode()
+                            self.send_response(200)
+                            self.send_header("Content-Type",
+                                             "text/event-stream")
+                            self.send_header("Content-Length",
+                                             str(len(bodyb)))
+                            self.end_headers()
+                            self.wfile.write(bodyb)
+                        else:
+                            self._send_json(200, payload)
+                    else:
+                        self._send_json(200, {"jsonrpc": "2.0",
+                                              "id": payload_id,
+                                              "result": {}})
+
+            return Handler
+
+        handler_cls = make_handler()
+        handler_cls.auth = False
+        handler_cls.sse = False
+        server = ThreadingHTTPServer(("127.0.0.1", 0), handler_cls)
+        port = server.server_address[1]
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+
+        # E1) streamable http: session echo + secret redaction + url strip
+        make_handler.auth = False
+        make_handler.sse = False
+        rootE = tmp / "remote"
+        rootE.mkdir(parents=True)
+        url = f"http://127.0.0.1:{port}/mcp?key=topsecret123"
+        write_remote_config(rootE, url, "http",
+                            {"Authorization": "Bearer sk-abc99987654321"})
+        r = run(["--yes", "--json", str(rootE)])
+        rep = parse_report(r.stdout)
+        unit = rep["reports"][0] if rep else {}
+        blob = json.dumps(rep)
+        e1_ok = (
+            r.returncode == 0
+            and unit.get("transport") == "remote-http"
+            and unit.get("contact") == "remote-network"
+            and unit.get("session_id_present") is True
+            and state["last_session_echo"] == "sess-123"
+            and "topsecret123" not in blob
+            and "sk-abc99987654321" not in blob
+            and len(unit.get("tools", [])) == 3
+            and unit["observation"]["complete"] is True)
+        check("remote http: session echo, redaction, query stripped",
+              bool(e1_ok),
+              f"rc={r.returncode} unit={json.dumps(unit)[:300]}")
+
+        # E2) auth failure -> honest auth_required, exit 1
+        make_handler.auth = True
+        r = run(["--yes", "--json", str(rootE)])
+        rep = parse_report(r.stdout)
+        unit = rep["reports"][0] if rep else {}
+        check("remote 401: auth_required, exit 1",
+              r.returncode == 1
+              and unit.get("observation", {}).get("reason")
+              == "auth_required",
+              f"rc={r.returncode} obs={unit.get('observation')}")
+
+        # E3) sse envelope parses identically
+        make_handler.auth = False
+        make_handler.sse = True
+        write_remote_config(rootE, url, "sse",
+                            {"Authorization": "Bearer sk-abc99987654321"})
+        r = run(["--yes", "--json", str(rootE)])
+        rep = parse_report(r.stdout)
+        unit = rep["reports"][0] if rep else {}
+        check("remote sse: envelope parsed, complete report",
+              r.returncode == 0
+              and unit.get("transport") == "remote-sse"
+              and len(unit.get("tools", [])) == 3
+              and unit["observation"]["complete"] is True,
+              f"rc={r.returncode} tools={unit.get('tools')}")
+        server.shutdown()
     finally:
         import shutil
         shutil.rmtree(tmp, ignore_errors=True)
