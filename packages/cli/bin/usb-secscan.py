@@ -76,13 +76,14 @@ Rule catalog: repository README, section "Security scanning skills".
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
 import sys
 from pathlib import Path, PurePosixPath
 
-VERSION = "1.2.0"
+VERSION = "1.4.0"
 TOOL = "usb-secscan"
 
 # --- documented limits (part of the deterministic contract) ------------------
@@ -96,6 +97,12 @@ BODY_EMPTY_CHARS = 20               # shorter body than this counts as empty
 QUOTE_MAX_CHARS = 200               # evidence quotes are trimmed to this
 NOTE_LIST_CAP = 20                  # per-root notes lists are capped here
 CORROBORATION_DETAIL_CAP = 3        # signal lines cited inside a P101 detail
+
+# Baseline mode: a recorded snapshot of known findings. Findings whose
+# fingerprint exists in the baseline are "acknowledged" (never block);
+# only NEW findings gate the exit code. Fingerprints hash rule+quote, so
+# they survive line drift and temp-clone path changes.
+BASELINE_DEFAULT_PATH = ".usb-secscan-baseline.json"
 
 # Bundled executable files: modern skill bundles ship runnable helpers next
 # to their SKILL.md. What those files DO is behavior evidence for the owning
@@ -423,7 +430,18 @@ def make_finding(rule, severity, title, line, quote, detail, **extra):
         "detail": detail,
     }
     f.update(extra)
+    f["fingerprint"] = finding_fingerprint(f)
     return f
+
+
+def finding_fingerprint(finding):
+    """Stable identity of a finding across runs: rule + normalized quote.
+    Deliberately excludes path (temp clone dirs differ) and line numbers
+    (they drift when files are edited)."""
+    digest = hashlib.sha256(
+        f"{finding['rule']}\x00{finding['quote']}".encode("utf-8")
+    ).hexdigest()
+    return digest[:16]
 
 
 def sort_findings(findings):
@@ -1079,6 +1097,54 @@ def corroborated_signal_findings(authority_signals):
     return out
 
 
+def load_baseline(path: Path):
+    """-> (entries dict, error string or None)."""
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        return None, f"cannot read baseline {path}: {exc.strerror or exc}"
+    try:
+        data = json.loads(raw)
+    except ValueError as exc:
+        return None, f"baseline {path} is not valid JSON: {exc}"
+    entries = data.get("entries") if isinstance(data, dict) else None
+    if not isinstance(entries, dict):
+        return None, f"baseline {path} has no 'entries' object"
+    return entries, None
+
+
+def write_baseline(path: Path, results, stale_fps=None):
+    """Persist every current finding as the new baseline. Deterministic
+    bytes for an identical tree; previously-acknowledged-but-now-absent
+    fingerprints are pruned automatically."""
+    entries = {}
+    for res in results:
+        for f in res["findings"]:
+            fp = f["fingerprint"]
+            if fp in entries:
+                continue
+            entries[fp] = {
+                "rule": f["rule"],
+                "severity": f["severity"],
+                "title": f["title"],
+                "path": res["unit"].display_path,
+                "line": f["line"],
+                "quote": f["quote"],
+            }
+    doc = {
+        "tool": TOOL,
+        "version": VERSION,
+        "count": len(entries),
+        "pruned_stale": sorted(stale_fps or []),
+        "entries": entries,
+    }
+    path.write_text(
+        json.dumps(doc, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return len(entries)
+
+
 def compute_verdict(structural, contract_findings):
     """purpose-mismatch requires a P101 at medium/high: a weak-only script
     signal (severity low) is recorded, but it does not condemn the contract
@@ -1204,9 +1270,13 @@ def human_report(roots_stats, results, summary):
         for f in entry["findings"]:
             sev = f["severity"].upper()
             corr = " (corroborated)" if f.get("corroborated") else ""
+            base = ""
+            if f.get("baseline") == "acknowledged":
+                base = paint("  [baselined]", DIM)
             out.append("  " + paint(
                 f"{sev:<6} {f['rule']} {f['title']} (line {f['line']}){corr}",
-                COLORS[f["severity"]]))
+                COLORS[f["severity"]] if f.get("baseline") != "acknowledged" else DIM
+            ) + base)
             if f.get("evidence_path"):
                 out.append(f"          {f['evidence_path']}:{f['line']}: {f['quote']}")
             elif f["quote"]:
@@ -1240,12 +1310,30 @@ def main(argv=None):
     parser.add_argument("--system", action="store_true",
                         help="scan installed system skill locations")
     parser.add_argument("--json", action="store_true", help="JSON report on stdout")
+    parser.add_argument("--baseline", metavar="FILE",
+                        help="acknowledge findings recorded in FILE; only new "
+                             "findings gate the exit code")
+    parser.add_argument("--write-baseline", nargs="?", const=BASELINE_DEFAULT_PATH,
+                        default=None, metavar="FILE",
+                        help="record every current finding as the new baseline "
+                             f"(default: {BASELINE_DEFAULT_PATH}) and prune stale entries")
     parser.add_argument("--version", action="version", version=f"{TOOL} {VERSION}")
     args = parser.parse_args(argv)
 
     roots = gather_roots(args)
     if not roots:
         parser.error("nothing to scan: pass paths, --system, or run inside a project")
+
+    baseline_entries = None
+    if args.baseline:
+        bpath = Path(args.baseline).expanduser()
+        baseline_entries, err = load_baseline(bpath)
+        if err:
+            print(f"{TOOL}: error: {err}", file=sys.stderr)
+            return EXIT_ERROR
+    write_path = None
+    if args.write_baseline:
+        write_path = Path(args.write_baseline).expanduser()
 
     # Explicit targets must exist (typo = operational error, exit 2);
     # implicit/system roots may be absent - reported as missing instead.
@@ -1325,6 +1413,11 @@ def main(argv=None):
                 contract_findings.extend(corroborated_signal_findings(signals))
 
         findings = cap_per_rule(structural + contract_findings)
+        if baseline_entries is not None:
+            for f in findings:
+                f["baseline"] = ("acknowledged"
+                                 if f["fingerprint"] in baseline_entries
+                                 else "new")
         verdict = compute_verdict(structural, contract_findings)
 
         flagged = bool(findings)
@@ -1347,7 +1440,28 @@ def main(argv=None):
         })
 
     flagged_count = sum(1 for r in results if r["flagged"])
-    blocking = counts["high"] + counts["medium"]
+
+    # Exit gating: without a baseline, any medium/high finding blocks. With
+    # one, only findings NOT recorded in the baseline block.
+    if baseline_entries is None:
+        blocking = counts["high"] + counts["medium"]
+        new_blocking = blocking
+        acknowledged = 0
+        stale_fps = []
+    else:
+        new_counts = {"high": 0, "medium": 0, "low": 0, "info": 0}
+        acknowledged = 0
+        current_fps = set()
+        for res in results:
+            for f in res["findings"]:
+                current_fps.add(f["fingerprint"])
+                if f.get("baseline") == "acknowledged":
+                    acknowledged += 1
+                else:
+                    new_counts[f["severity"]] += 1
+        stale_fps = sorted(set(baseline_entries) - current_fps)
+        new_blocking = new_counts["high"] + new_counts["medium"]
+        blocking = new_blocking
 
     summary = (
         f"summary: {len(units)} skill(s) verified, {flagged_count} with "
@@ -1357,8 +1471,17 @@ def main(argv=None):
         f"(advisory) | verdicts: " +
         ", ".join(f"{k}:{verdict_counts[k]}" for k in sorted(verdict_counts))
     )
+    if baseline_entries is not None:
+        summary += (
+            f" | baseline: {acknowledged} acknowledged, {new_blocking} new "
+            f"blocking finding(s), {len(stale_fps)} stale"
+        )
     if blocking:
         summary += f" | exit {EXIT_FINDINGS}"
+
+    if write_path is not None:
+        written = write_baseline(write_path, results, stale_fps)
+        summary += f" | baseline written: {write_path} ({written} entries)"
 
     if args.json:
         report = {
@@ -1397,6 +1520,15 @@ def main(argv=None):
                 "exit_code": EXIT_FINDINGS if blocking else EXIT_CLEAN,
             },
         }
+        if baseline_entries is not None:
+            report["baseline"] = {
+                "file": args.baseline,
+                "acknowledged": acknowledged,
+                "new_blocking": new_blocking,
+                "stale_entries": stale_fps,
+            }
+        if write_path is not None:
+            report["baseline_written"] = str(write_path)
         sys.stdout.write(json.dumps(report, ensure_ascii=False, indent=2,
                                     sort_keys=True) + "\n")
     else:

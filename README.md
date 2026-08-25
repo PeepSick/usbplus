@@ -172,6 +172,8 @@ usb secscan --system              # installed skills (~/.claude/skills, ~/.ai-sk
 usb secscan --repo owner/repo     # fetch a git/GitHub repo read-only and scan it
 usb secscan --repo https://github.com/who/skills/tree/main/claude
 usb secscan --json .              # machine-readable report (CI-friendly)
+usb secscan --write-baseline .    # record today's findings as the baseline
+usb secscan --baseline .usb-secscan-baseline.json   # fail only on NEW findings
 ```
 
 For every skill it reads the **declared contract** (name/description), observes
@@ -204,6 +206,13 @@ Each skill gets one deterministic verdict: `matches-declaration`,
 `purpose-mismatch`, `structural-issues`, or `unverifiable`. Exit codes gate CI:
 `0` clean (signals alone never block), `1` findings at medium+ (contract
 violations), `2` operational error. Same input tree, byte-identical report.
+
+Scanning third-party collections in CI? Record a baseline once
+(`--write-baseline`) and gate with `--baseline` afterwards: known findings are
+reported but acknowledged, and only *new* contract violations block.
+Fingerprints hash rule+evidence-text, so they survive line edits and temp-clone
+path changes; entries whose finding disappeared are pruned on the next
+`--write-baseline`.
 
 Discovery knows the difference between a claim and its supporting material:
 a bundle's reference docs (`skills/<name>/references/*.md`, `cli.md`, ...)
@@ -299,8 +308,9 @@ shared contract core. Phased, design-first:
    verification with file:line evidence and deterministic verdicts,
    including bundled-script behavior evidence (`usb secscan`,
    `usb secscan --repo owner/repo`)
-3. **Scan baselines** — `--baseline <file>` so CI gates only on *new*
-   findings when scanning third-party collections
+3. ✅ **Scan baselines** (shipped) — `--baseline <file>` so CI gates only
+   on *new* findings when scanning third-party collections;
+   `--write-baseline` records (and prunes) the snapshot
 4. **Verdict fingerprints** — stable hash of a unit's report; the
    groundwork for "USB Verified" badges
 5. **MCP contracts** — deliberately designed before built. The shared

@@ -550,6 +550,98 @@ def check_bad_path():
     report(name, r.returncode == 2, f"exit {r.returncode}, expected 2")
 
 
+def check_baselines(proj: Path, tmp: Path):
+    name = "engine: baselines (acknowledge / new / stale / drift)"
+    problems = []
+    bpath = tmp / "baseline.json"
+
+    # A) record everything currently flagged
+    r1 = run(["python3", ENGINE, "--json", "--write-baseline", str(bpath),
+              str(proj)])
+    if r1.returncode != 1 or not bpath.exists():
+        report(name, False, f"initial write-baseline rc={r1.returncode}")
+        return
+    base = json.loads(bpath.read_text(encoding="utf-8"))
+    if base.get("count", 0) < 5:
+        problems.append(f"suspiciously few baseline entries: {base.get('count')}")
+    run(["python3", ENGINE, "--json", "--write-baseline",
+         str(tmp / "again.json"), str(proj)])
+    if bpath.read_bytes() != (tmp / "again.json").read_bytes():
+        problems.append("baseline bytes are not deterministic")
+
+    # B) rescan with baseline: everything acknowledged, exit 0
+    r2 = run(["python3", ENGINE, "--json", "--baseline", str(bpath), str(proj)])
+    d2 = json.loads(r2.stdout)
+    if r2.returncode != 0:
+        problems.append(f"baselined rescan rc={r2.returncode}, expected 0")
+    if d2.get("baseline", {}).get("acknowledged") != base["count"]:
+        problems.append(f"acknowledged {d2['baseline']['acknowledged']} != "
+                        f"{base['count']}")
+
+    # C) line-drift tolerance: shift body lines of a flagged skill; the
+    # quote-based fingerprints must keep acknowledging it.
+    drifted = VALID_SKILL.replace("# Notes writer\n",
+                                  "# Notes writer\n\nsome new intro paragraph.\n")
+    write(proj / "skills" / "notes-writer-copy" / "SKILL.md", drifted)
+    r3 = run(["python3", ENGINE, "--json", "--baseline", str(bpath), str(proj)])
+    if r3.returncode != 0:
+        problems.append("line drift broke acknowledgement")
+
+    # D) a genuinely NEW violation blocks even with a baseline.
+    # Fingerprints are rule+quote: the injected leak reuses the original's
+    # prose, so ONLY its unique payload line produces new fingerprints -
+    # this asserts both new-detection and content-dedupe semantics.
+    fresh = MALICIOUS_SKILL.replace(
+        "meeting-notes-plus", "brand-new-leak"
+    ).replace(
+        "https://webhook.site/abc123", "https://webhook.site/leak-2026-unique"
+    )
+    write(proj / "skills" / "brand-new-leak" / "SKILL.md", fresh)
+    r4 = run(["python3", ENGINE, "--json", "--baseline", str(bpath), str(proj)])
+    if r4.returncode != 1:
+        problems.append(f"new violation did not block: rc={r4.returncode}")
+    d4 = json.loads(r4.stdout)
+    # The unique URL lives on the SAME line as the send-instruction, so both
+    # that P101 evidence AND its corroborating A102 carry fresh fingerprints.
+    got = sorted(
+        (f["rule"], f["severity"]) for s in d4["skills"] for f in s["findings"]
+        if f.get("baseline") == "new" and f["severity"] in ("high", "medium"))
+    if got != [("A102", "medium"), ("P101", "high")]:
+        problems.append(f"unexpected new blocking set: {got}")
+
+    # E) refresh baseline, then remove the source: the leak's own
+    # fingerprints go stale and are reported; shared-with-original ones stay.
+    run(["python3", ENGINE, "--json", "--write-baseline", str(bpath), str(proj)])
+    shutil.rmtree(proj / "skills" / "brand-new-leak")
+    r5 = run(["python3", ENGINE, "--json", "--baseline", str(bpath), str(proj)])
+    d5 = json.loads(r5.stdout)
+    if r5.returncode != 0:
+        problems.append(f"post-prune rescan rc={r5.returncode}, expected 0")
+    stale = d5.get("baseline", {}).get("stale_entries") or []
+    if len(stale) != 2:
+        problems.append(f"expected exactly 2 stale entries after removal, got {len(stale)}")
+
+    # F) missing baseline file is an operational error (exit 2)
+    r6 = run(["python3", ENGINE, "--json", "--baseline",
+              str(tmp / "nope.json"), str(proj)])
+    if r6.returncode != 2:
+        problems.append(f"missing baseline rc={r6.returncode}, expected 2")
+
+    # G) CLI flag passthrough through bash
+    rb = run(["bash", USB_SH, "secscan", "--json", "--baseline", str(bpath),
+              str(proj)])
+    if rb.returncode != 0:
+        problems.append(f"cli --baseline passthrough rc={rb.returncode}")
+
+    if problems:
+        report(name, False, "; ".join(problems))
+        return
+
+    # restore the drifted duplicate so later checks see the canonical tree
+    write(proj / "skills" / "notes-writer-copy" / "SKILL.md", VALID_SKILL)
+    report(name, True)
+
+
 def main():
     if not USB_SH.exists():
         print(f"usb.sh not found at {USB_SH}")
@@ -572,6 +664,7 @@ def main():
             check_cli_repo(tmp)
         else:
             print("-- cli: secscan --repo skipped (no git)")
+        check_baselines(proj, tmp)
         check_help()
         check_bad_path()
     finally:

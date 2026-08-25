@@ -56,6 +56,8 @@ usb secscan                        # project-local skills (.claude/skills, skill
 usb secscan --system               # installed skill locations on this machine
 usb secscan --repo owner/repo      # fetch a git/GitHub repo read-only and scan it
 usb secscan ./some/skills --json   # machine-readable report
+usb secscan --write-baseline .     # snapshot findings; then gate CI:
+usb secscan --baseline .usb-secscan-baseline.json   # only NEW findings block
 ```
 
 ## Security scanning

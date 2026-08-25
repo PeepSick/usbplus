@@ -299,6 +299,15 @@ cmd_secscan() {
     case "$1" in
       --json)         py_args+=("--json") ;;
       --system|--all) py_args+=("--system") ;;
+      --baseline=*)   py_args+=("--baseline" "${1#--baseline=}") ;;
+      --baseline)
+        shift
+        [ $# -gt 0 ] || { err "--baseline needs a file recorded by --write-baseline"; exit 2; }
+        case "$1" in /*) py_args+=("--baseline" "$(secscan_to_native_path "$1")") ;; *) py_args+=("--baseline" "$1") ;; esac
+        ;;
+      --write-baseline=*) py_args+=("--write-baseline=${1#--write-baseline=}") ;;
+      --write-baseline)   py_args+=("--write-baseline") ;;
+      --system|--all) py_args+=("--system") ;;
       --repo=*)       repos+=("${1#--repo=}") ;;
       --repo)
         shift
