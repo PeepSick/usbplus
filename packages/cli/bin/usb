@@ -1,0 +1,62 @@
+#!/usr/bin/env node
+// usb — Node launcher for the bash implementation (bin/usb.sh).
+//
+// Why this exists: npm's global-install shim on Windows resolves the bin
+// entry's shebang. A bare "#!/usr/bin/env bash" shim calls "bash.exe" via
+// PATH only — but Git for Windows' default install adds Git\cmd and
+// Git\mingw64\bin to PATH, NOT Git\usr\bin, where bash.exe actually lives.
+// Result: "usb install" fails with CommandNotFoundException even though
+// Git (and bash) is installed. Node is guaranteed present (npm needs it),
+// so this launcher finds bash reliably and execs the real script.
+
+import { spawnSync } from "node:child_process";
+import path from "node:path";
+import fs from "node:fs";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+const scriptPath = path.join(__dirname, "usb.sh");
+
+function findBash() {
+  if (process.platform !== "win32") return "bash";
+
+  // 1. Already on PATH (covers WSL's bash.exe shim, custom setups).
+  const onPath = spawnSync("where", ["bash.exe"], { encoding: "utf8" });
+  if (onPath.status === 0) {
+    const first = onPath.stdout.split(/\r?\n/).find(Boolean);
+    if (first) return first.trim();
+  }
+
+  // 2. Common Git for Windows install locations.
+  const candidates = [
+    process.env.ProgramFiles && path.join(process.env.ProgramFiles, "Git", "bin", "bash.exe"),
+    process.env.ProgramFiles && path.join(process.env.ProgramFiles, "Git", "usr", "bin", "bash.exe"),
+    process.env["ProgramFiles(x86)"] && path.join(process.env["ProgramFiles(x86)"], "Git", "bin", "bash.exe"),
+    process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, "Programs", "Git", "bin", "bash.exe"),
+    process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, "Programs", "Git", "usr", "bin", "bash.exe"),
+  ].filter(Boolean);
+
+  return candidates.find((p) => fs.existsSync(p)) || null;
+}
+
+const bash = findBash();
+
+if (!bash) {
+  console.error("usb: couldn't find bash.\n");
+  console.error("usb's CLI is a bash script. On Windows, install Git for Windows");
+  console.error("(https://git-scm.com/download/win) — it ships bash.exe — or run");
+  console.error("usb from inside Git Bash / WSL.\n");
+  process.exit(1);
+}
+
+const result = spawnSync(bash, [scriptPath, ...process.argv.slice(2)], {
+  stdio: "inherit",
+});
+
+if (result.error) {
+  console.error(`usb: failed to launch bash (${bash}): ${result.error.message}`);
+  process.exit(1);
+}
+
+process.exit(result.status === null ? 1 : result.status);

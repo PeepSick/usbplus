@@ -1,0 +1,40 @@
+name: Live site checks
+
+# Five independent checks against the live production site — README
+# examples, the installer's interactive prompt, the installed layout each
+# runtime expects, catalog encoding, and internal link integrity — see the
+# corresponding scripts/ file for what each one actually does and why.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Daily, independent of any push — catches production regressions too.
+    - cron: "17 6 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run README examples against the live catalog
+        run: bash scripts/verify-readme.sh
+
+      - name: Check the installer's interactive runtime picker
+        run: python3 scripts/check-installer-prompt.py
+
+      - name: Check installed layouts match what each runtime reads
+        run: python3 scripts/check-target-formats.py
+
+      - name: Scan the full catalog for encoding corruption
+        run: python3 scripts/check-encoding.py
+
+      - name: Check for broken internal links on the live site
+        run: python3 scripts/check-links.py
+
+      - name: Verify usb secscan (offline fixture suite)
+        run: python3 scripts/check-secscan.py

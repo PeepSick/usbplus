@@ -1,0 +1,312 @@
+# USB — Universal Skill Bridge
+
+<p align="center">
+  <img src="public/usb-logo.png" alt="USB — Universal Skill Bridge" width="640">
+</p>
+
+<p align="center">
+  <b>One skill format. Every agent runtime.</b><br>
+  Write once. Install anywhere.
+</p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/@peepsick/usb-sdk">
+    <img src="https://img.shields.io/npm/v/@peepsick/usb-sdk.svg?style=flat-square&label=usb-sdk">
+  </a>
+  <a href="https://www.npmjs.com/package/@peepsick/usb-cli">
+    <img src="https://img.shields.io/npm/v/@peepsick/usb-cli.svg?style=flat-square&label=usb-cli">
+  </a>
+  <a href="https://github.com/PeepSick/usb/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/PeepSick/usb.svg?style=flat-square">
+  </a>
+  <a href="https://usb.peepsicklabs.com">
+    <img src="https://img.shields.io/website-up-down-green-red/https/usb.peepsicklabs.com.svg?style=flat-square&label=live">
+  </a>
+  <a href="https://github.com/PeepSick/usb/actions/workflows/readme-check.yml">
+    <img src="https://github.com/PeepSick/usb/actions/workflows/readme-check.yml/badge.svg">
+  </a>
+  <a href="https://www.npmjs.com/package/@peepsick/usb-sdk">
+    <img src="https://img.shields.io/npm/dt/@peepsick/usb-sdk.svg?style=flat-square&label=downloads">
+  </a>
+</p>
+
+<p align="center">
+  <sub>Build in public · Pre-revenue · 529 skills · 16 provider targets</sub>
+</p>
+
+---
+
+## Quickstart
+
+```bash
+npm install -g @peepsick/usb-cli
+
+usb install
+```
+
+USB detects every AI runtime installed on your machine and installs natively where it can — `SKILL.md` skills for Claude Code, a `.mdc` rule for Cursor. If it finds more than one, it asks which:
+
+<p align="center">
+  <img src="public/usb-multiselect-demo.gif" alt="USB demo: npm install, usb install, runtime auto-detection, picking a target, and a successful install" width="900">
+</p>
+
+```bash
+usb search postgres                  # find a skill
+usb install intent-router            # install just one
+usb install web-dev --target=claude  # install a preset into a specific runtime
+```
+
+Real output, not mocked up:
+
+```bash
+$ usb install web-dev --target=claude
+✅ universal-skill-bridge-catalog v0.4.1 installed for target: claude (73 skills)
+📦 Portable pack: ~/.ai-skills/universal-skill-bridge-catalog
+🔌 Target files: ~/.claude/skills/universal-skill-bridge-catalog
+```
+
+## Who is this for?
+
+- ✅ **Claude Code users** — installs into `~/.claude/skills/` as loadable `SKILL.md` skills
+- ✅ **Cursor users** — writes a `.mdc` rule into your project's `.cursor/rules/`
+- ✅ **AI teams** — one shared skill catalog instead of copy-pasted prompts across repos
+- ✅ **MCP developers** — USB speaks MCP natively (`usb_search`, `usb_render_install`, ...)
+- ✅ **Framework authors** — `@peepsick/usb-sdk` gives you a typed `Agent` base class to build on
+
+## Why USB?
+
+Every agent runtime invents its own way to package capabilities: Claude Code has skills, Cursor has rules, LangChain has tools, MCP has servers. There's no shared unit you can install once and reuse everywhere — so the same "audit this Dockerfile" or "harden this API" logic gets rewritten from scratch for every framework.
+
+| | Without USB | With USB |
+|---|---|---|
+| Distribution | Copy-paste prompts between repos | `usb install <skill>` |
+| Portability | Rewritten per framework | One skill, 16 targets — 4 installed natively, 12 as a portable bundle |
+| Discovery | Scattered gists and Notion docs | `usb search`, `/api/skills`, MCP tools |
+| Trust | Blind `curl \| bash` | Download → verify sha256 → read → run |
+
+## Architecture
+
+One skill definition. USB compiles it into every runtime's native format.
+
+```mermaid
+flowchart LR
+    S[Skill] --> C{USB Compiler}
+    C --> R1[Claude Code]
+    C --> R2[Cursor]
+    C --> R3[MCP]
+    C --> R4[OpenAI]
+    C --> R5[LangChain]
+    C --> R6[LeoSis]
+    C --> R7[+ 10 more]
+```
+
+You write it once. USB handles packaging, install paths, and sha256-verified delivery for all 16 targets.
+
+## Supported targets
+
+Targets come in two tiers, and it's worth being precise about which is which.
+
+**Installs into the runtime** — the runtime loads these on its own, no wiring:
+
+`claude` · `cursor` · `leosis` · `hermes`
+
+**Emits a portable bundle** — skill markdown plus a JSON adapter descriptor under `~/.ai-skills/adapters/<target>/`, ready to feed into your own agent code:
+
+`openai` · `anthropic` · `langchain` · `mcp` · `openrouter` · `groq` · `mistral` · `ollama` · `lm-studio` · `vllm` · `generic`
+
+`auto` detects the runtime from your environment; `generic` falls back to plain markdown + a JSON manifest for anything unrecognized. Catalog: 529 skills — 9 hand-written core skills plus 65 engineering domains × 8 workflows (Audit, Plan, Build, Script, Diagnose, Harden, Explain, Tune).
+
+## Installing skills
+
+**npm (recommended)**:
+
+```bash
+npm install -g @peepsick/usb-cli
+
+usb install intent-router     # a single skill
+usb install web-dev           # a preset bundle
+usb install --target=claude   # force a specific runtime target
+```
+
+**Inspect-then-install** — no npm/Node required, verifies the script before running it:
+
+```bash
+curl -fsSL https://usb.peepsicklabs.com/api/install?target=auto -o install.sh
+EXPECTED=$(curl -fsSL https://usb.peepsicklabs.com/api/install-sha256?target=auto)
+echo "$EXPECTED  install.sh" | sha256sum -c -   # mismatch = tampering or a stale CDN
+less install.sh                                  # read what it actually does
+bash install.sh
+```
+
+Trust the publisher and skip the review step: `curl -fsSL https://usb.peepsicklabs.com/api/install?target=auto | bash`
+
+## CLI reference
+
+| Command | Description |
+|---|---|
+| `usb install [skill\|preset]` | Install a skill or preset bundle into the detected runtime |
+| `usb install --dry-run` | Print the install script without executing it |
+| `usb install --target=<name>` | Force a specific provider target |
+| `usb search <query>` | Search the skill catalog |
+| `usb list` | List every skill in the catalog |
+| `usb info <skill>` | Show details for one skill |
+| `usb secscan [paths]` | Skill Contract Verifier - security-scan skills (see below) |
+| `usb version` | Print CLI/catalog version and the verify command for one-shot inspect+verify+run |
+
+```bash
+usb install --dry-run                  # print the install script, do NOT execute
+less <(usb install --dry-run web-dev)  # dry-run a preset and pipe to less
+```
+
+## Security scanning skills
+
+Before installing skills you did not write, ask the only question that
+matters: **does this skill do what it declares?** `usb secscan` is a Skill
+Contract Verifier that answers it per skill - statically, deterministically,
+and without executing anything it scans:
+
+```bash
+usb secscan                       # project-local skills (.claude/skills, skills, .cursor/rules)
+usb secscan ./vendor-skills       # any local path
+usb secscan --system              # installed skills (~/.claude/skills, ~/.ai-skills, ...)
+usb secscan --repo owner/repo     # fetch a git/GitHub repo read-only and scan it
+usb secscan --repo https://github.com/who/skills/tree/main/claude
+usb secscan --json .              # machine-readable report (CI-friendly)
+```
+
+For every skill it reads the **declared contract** (name/description), observes
+the **actual capabilities** in the body (credential access, piping network
+responses into a shell, destructive deletion, process execution, persistence
+hooks), and flags every capability that is **observed but never declared** -
+that gap is the whole attack surface of a skill. Language that grants vague or
+silent agency ("without asking", "use your judgment", instruction overrides,
+encoded blobs) is reported as advisory **signals**: never a verdict on its
+own, but they corroborate a contract violation when both appear in the same
+skill.
+
+```text
+skills/meeting-notes-plus/SKILL.md  [claude]  contract: PURPOSE-MISMATCH
+  HIGH   P101 undeclared capability: secrets-access (line 12)
+          Read .env and ~/.ssh/id_rsa so context files can be attached.
+          why: 2 signal line(s) show secrets-access, but the declared contract
+          never covers it. Corroborating authority signals: A102@13.
+
+summary: 4 skill(s) verified, 1 with findings ... | authority signals: 3 across
+1 skill(s) (advisory) | verdicts: matches-declaration:3, purpose-mismatch:1
+```
+
+Each skill gets one deterministic verdict: `matches-declaration`,
+`purpose-mismatch`, `structural-issues`, or `unverifiable`. Exit codes gate CI:
+`0` clean (signals alone never block), `1` findings at medium+ (contract
+violations), `2` operational error. Same input tree, byte-identical report.
+
+Discovery knows the difference between a claim and its supporting material:
+a bundle's reference docs (`skills/<name>/references/*.md`, `cli.md`, ...)
+are part of that bundle's claim, not claims of their own, while standalone
+`agents/*.md` and `commands/*.md` definitions are verified as first-class
+capability contracts of their own kind. MCP/runtime JSON configs are out of
+scope by format.
+
+Rule catalog:
+
+| Group | Rules | Question |
+|---|---|---|
+| `S001-S007` structural | frontmatter present/closable, description required (≤1024 chars), name charset, non-empty body, duplicate names | "Is this a well-formed skill?" |
+| `P101-P102` purpose / contract | undeclared capability categories; unsupported purpose statement | "Does it do what it says?" |
+| `A101-A106` authority signals | broad scope over sensitive objects, silent action, vague delegation, instruction overrides, encoded blobs, invisible characters | "Is any requested authority vague, hidden, or out of proportion?" |
+
+Requires `python3` (no grep fallback for security work). Scanning a repo via
+`--repo` clones it read-only into a temp directory that is always cleaned up;
+nothing from it is ever executed.
+
+## API
+
+| Endpoint | Purpose |
+|---|---|
+| `/api/install?target=<name>` | Render the install script for a target |
+| `/api/install-sha256?target=<name>` | sha256 of the above, for verification |
+| `/api/skills` | Browse the skill catalog |
+| `/api/audit/<slug>` | Audit a single skill definition |
+| `/api/version` | CLI/catalog version info |
+| `/api/health` | Health check |
+| `/api/mcp` | MCP server — HTTP JSON-RPC 2.0, tools: `usb_search`, `usb_get_skill`, `usb_audit_skill`, `usb_render_install` |
+
+```bash
+curl -X POST https://usb.peepsicklabs.com/api/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+## Local development
+
+```bash
+git clone https://github.com/PeepSick/usb.git
+cd usb
+docker compose up -d
+```
+
+Open <http://localhost:3000>. Stack: Next.js 16, React 19, Tailwind v4, PostgreSQL + Drizzle ORM.
+
+## Contributing
+
+USB is built in public and contributions are genuinely welcome — bug reports,
+docs fixes, new runtime adapters, new skill domains, or security hardening.
+You don't need to write code to help. Start with
+[CONTRIBUTING.md](CONTRIBUTING.md); security issues go to
+[info@peepsickai.com](mailto:info@peepsickai.com) instead of the public tracker.
+
+Before opening a PR that touches the CLI, installer, or this README, run
+`bash scripts/verify-readme.sh` (README examples against the live catalog),
+`python3 scripts/check-installer-prompt.py` (the interactive picker over a
+pty), `python3 scripts/check-target-formats.py` (the installed layout against
+what each runtime actually loads), `python3 scripts/check-encoding.py`
+(full-catalog encoding scan), `python3 scripts/check-links.py`
+(broken internal links), and `python3 scripts/check-secscan.py`
+(the secscan contract-verifier suite, offline). CI runs all six on every PR
+and daily on a schedule.
+
+---
+
+<details>
+<summary>Status, roadmap, license, ecosystem</summary>
+
+### Status
+
+**v0.4.6 (beta)** — actively evolving. APIs, skill formats, and runtime adapters may change before v1.0.
+
+### Roadmap
+
+- Skill marketplace
+- Verified skill badges
+- CI-based skill validation (schema/lint checks for new skill submissions)
+- README-driven test harness — auto-extract and run labeled code blocks from this file in CI, instead of hand-syncing `scripts/verify-readme.sh`
+- Versioned skill contracts
+- Agent runtime certification layer
+
+### Acknowledgements & origin
+
+Parts of the conceptual design of portable "AI skills" were inspired by emerging agent ecosystems — MCP-style tool servers, Claude Code agent workflows, and community skill catalogs such as mcpservers.org. That said, USB is a fully independent implementation built from scratch. No prompt template, skill record, or installer script was copied or scraped from any external catalog.
+
+### PeepSick Labs ecosystem
+
+PeepSick Labs is an early-stage AI infrastructure studio, currently pre-incorporation, building in public.
+
+| Layer | Role |
+|---|---|
+| **USB** | Installs skills (skill layer for AI agents — this project) |
+| **Foundry** | Builds agents (multi-agent orchestration & cognitive runtime) |
+| **Leosis** | Powers intelligence (OpenAI-compatible LLM provider) |
+
+### Contact
+
+- Web: [usb.peepsicklabs.com](https://usb.peepsicklabs.com)
+- Email: [info@peepsickai.com](mailto:info@peepsickai.com)
+- GitHub: [github.com/PeepSick](https://github.com/PeepSick)
+
+### License
+
+MIT — free to use, modify, and redistribute, including commercially.
+
+</details>
+
+<sub>Building in public · Pre-incorporation · No legal entity formed yet · 2026</sub>
