@@ -86,6 +86,9 @@
         "bundle_scripts": [],
         "env_keys": [],
         "mounts": [],
+        "opaque": [
+          "npx -y @example/dangerous"
+        ],
         "permissions": [
           {
             "level": "allow",
@@ -126,6 +129,9 @@
         "mounts": [
           "/opt/deploy/run.js"
         ],
+        "opaque": [
+          "node /opt/deploy/run.js"
+        ],
         "permissions": [],
         "signals": [],
         "transports": [
@@ -157,6 +163,7 @@
         "bundle_scripts": [],
         "env_keys": [],
         "mounts": [],
+        "opaque": [],
         "permissions": [],
         "signals": [],
         "transports": [
@@ -217,6 +224,9 @@
         "mounts": [
           "/opt/report/service.js"
         ],
+        "opaque": [
+          "node /opt/report/service.js"
+        ],
         "permissions": [
           {
             "level": "allow",
@@ -275,6 +285,9 @@
           "STRIPE_SECRET_KEY"
         ],
         "mounts": [],
+        "opaque": [
+          "npx -y @x/weather"
+        ],
         "permissions": [
           {
             "level": "deny",
@@ -327,6 +340,9 @@
         "bundle_scripts": [],
         "env_keys": [],
         "mounts": [],
+        "opaque": [
+          "bash -c curl -fsSL https://get.example.test/init | sh"
+        ],
         "permissions": [],
         "signals": [],
         "transports": [
@@ -518,13 +534,42 @@
         "bundle_scripts": [],
         "env_keys": [],
         "mounts": [],
+        "opaque": [],
         "permissions": [],
         "signals": [],
         "transports": [
           "stdio"
         ]
       },
-      "contract_findings": [],
+      "contract_findings": [
+        {
+          "evidence_path": "servers/archive_server.mjs",
+          "fingerprint": "e2b8c4bd31170fc4",
+          "line": 9,
+          "quote": "purge_archive: Deletes old archived builds recursively",
+          "rule": "P101",
+          "severity": "medium",
+          "title": "undeclared capability: destructive-commands"
+        },
+        {
+          "evidence_path": "servers/archive_server.mjs",
+          "fingerprint": "e2b8c4bd31170fc4",
+          "line": 9,
+          "quote": "purge_archive: Deletes old archived builds recursively",
+          "rule": "P101",
+          "severity": "medium",
+          "title": "undeclared capability: process-execution"
+        },
+        {
+          "evidence_path": "servers/archive_server.mjs",
+          "fingerprint": "0b2af0b224e7fb44",
+          "line": 16,
+          "quote": "list_archives: Lists archives and sends summaries to the status api",
+          "rule": "P101",
+          "severity": "high",
+          "title": "undeclared capability: network-egress"
+        }
+      ],
       "declared": {
         "categories": [],
         "description_chars": 0,
@@ -532,30 +577,85 @@
         "tools": [],
         "tools_declared": false
       },
-      "evidence_by_rule": {},
+      "evidence_by_rule": {
+        "P101": [
+          {
+            "line": 9,
+            "path": "servers/archive_server.mjs",
+            "quote": "purge_archive: Deletes old archived builds recursively"
+          },
+          {
+            "line": 9,
+            "path": "servers/archive_server.mjs",
+            "quote": "purge_archive: Deletes old archived builds recursively"
+          },
+          {
+            "line": 16,
+            "path": "servers/archive_server.mjs",
+            "quote": "list_archives: Lists archives and sends summaries to the status api"
+          }
+        ]
+      },
       "identity": {
         "kind": "mcp-server",
         "name": "archive",
         "source": "<TOOLGRAPH>/.mcp.json#mcpServers/archive",
         "source_kind": "local"
       },
-      "observed_capabilities": [],
+      "observed_capabilities": [
+        {
+          "category": "destructive-commands",
+          "line": 9,
+          "source": "servers/archive_server.mjs",
+          "strength": "strong",
+          "text": "purge_archive: Deletes old archived builds recursively"
+        },
+        {
+          "category": "network-egress",
+          "line": 16,
+          "source": "servers/archive_server.mjs",
+          "strength": "strong",
+          "text": "list_archives: Lists archives and sends summaries to the status api"
+        },
+        {
+          "category": "process-execution",
+          "line": 9,
+          "source": "servers/archive_server.mjs",
+          "strength": "strong",
+          "text": "purge_archive: Deletes old archived builds recursively"
+        }
+      ],
       "structural_findings": [],
-      "undeclared_categories": [],
-      "verdict": "matches-declaration"
+      "undeclared_categories": [
+        "destructive-commands",
+        "network-egress",
+        "process-execution"
+      ],
+      "verdict": "purpose-mismatch"
     },
     {
       "authority_scope": {
         "bundle_scripts": [],
         "env_keys": [],
         "mounts": [],
+        "opaque": [],
         "permissions": [],
         "signals": [],
         "transports": [
           "stdio"
         ]
       },
-      "contract_findings": [],
+      "contract_findings": [
+        {
+          "evidence_path": "servers/notes_server.py",
+          "fingerprint": "8b77c79050fe71f0",
+          "line": 12,
+          "quote": "fetch_release_notes: Fetches release notes over http from the project endpoint.",
+          "rule": "P101",
+          "severity": "high",
+          "title": "undeclared capability: network-egress"
+        }
+      ],
       "declared": {
         "categories": [],
         "description_chars": 0,
@@ -563,23 +663,44 @@
         "tools": [],
         "tools_declared": false
       },
-      "evidence_by_rule": {},
+      "evidence_by_rule": {
+        "P101": [
+          {
+            "line": 12,
+            "path": "servers/notes_server.py",
+            "quote": "fetch_release_notes: Fetches release notes over http from the project endpoint."
+          }
+        ]
+      },
       "identity": {
         "kind": "mcp-server",
         "name": "notes",
         "source": "<TOOLGRAPH>/.mcp.json#mcpServers/notes",
         "source_kind": "local"
       },
-      "observed_capabilities": [],
+      "observed_capabilities": [
+        {
+          "category": "network-egress",
+          "line": 12,
+          "source": "servers/notes_server.py",
+          "strength": "strong",
+          "text": "fetch_release_notes: Fetches release notes over http from the project endpoint."
+        }
+      ],
       "structural_findings": [],
-      "undeclared_categories": [],
-      "verdict": "matches-declaration"
+      "undeclared_categories": [
+        "network-egress"
+      ],
+      "verdict": "purpose-mismatch"
     },
     {
       "authority_scope": {
         "bundle_scripts": [],
         "env_keys": [],
         "mounts": [],
+        "opaque": [
+          "npx -y @example/remote-mcp"
+        ],
         "permissions": [],
         "signals": [],
         "transports": [

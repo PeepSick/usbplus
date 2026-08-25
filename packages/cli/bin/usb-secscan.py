@@ -163,6 +163,142 @@ MCP_MAX_TOOLS_DECLARED = 200        # declared tools recorded per server
 # args elements that look like mounted filesystem paths (authority scope)
 MCP_MOUNT_RE = re.compile(r"^(?:~|[A-Za-z]:[\\/]|[\\/])")
 
+# --- stage 3: implementation-source idiom extraction (docs/tool-graph-
+# sources.md). Exact idioms only, no AST, no third-party frameworks:
+#   Python:     @<var>.tool()            followed by `def <name>`
+#   TypeScript: server.tool("name", ...) / server.registerTool("name", {...})
+# A registration yields CapabilityEvidence categorized by the existing
+# lexicon over `name + description`, anchored at the definition line,
+# strength always strong (code surface, not prose).
+MAX_SOURCE_FILES_PER_UNIT = 5       # launch-line files parsed per entry
+MAX_REGISTRATIONS_PER_FILE = 50     # registrations extracted per file
+MAX_TS_CALL_SPAN = 12               # lines scanned inside a TS call
+
+PY_TOOL_DECORATOR_RE = re.compile(r"^\s*@(\w+)\.tool\b")
+PY_DEF_RE = re.compile(r"^\s*def\s+(\w+)")
+TS_TOOL_CALL_RE = re.compile(r"^\s*server\.(tool|registerTool)\s*\(")
+TS_STRING_LIT_RE = re.compile(r'"([^"]*)"|\'([^\']*)\'')
+TS_DESCRIPTION_KEY_RE = re.compile(
+    r'"?description"?\s*:\s*"([^"]*)"', re.IGNORECASE)
+CODE_SOURCE_EXTENSIONS = {".py", ".js", ".mjs", ".cjs", ".ts"}
+
+
+def _py_docstring(lines, start_idx):
+    """First sentence of the def's docstring, deterministic: the text
+    between the opening and closing triple quotes (same line or spanning
+    at most 3 further lines). Empty when absent."""
+    opened = None
+    buf = []
+    for ln in lines[start_idx:start_idx + 6]:
+        if opened is None:
+            if '"""' not in ln and "'''" not in ln:
+                continue
+            marker = '"""' if '"""' in ln else "'''"
+            opened = marker
+            part = ln.split(marker, 1)[1]
+        else:
+            part = ln
+        if opened in part:
+            buf.append(part.split(opened)[0])
+            break
+        buf.append(part)
+    text = " ".join(p.strip() for p in buf if p.strip())
+    return trim_quote(text.rstrip('"\'')) if text else ""
+
+
+def extract_python_registrations(lines):
+    """-> [{name, description, line}] for @<var>.tool decorators."""
+    found = []
+    i = 0
+    while i < len(lines) and len(found) < MAX_REGISTRATIONS_PER_FILE:
+        m = PY_TOOL_DECORATOR_RE.match(lines[i])
+        if not m:
+            i += 1
+            continue
+        j = i + 1
+        while j < len(lines) and not lines[j].strip():
+            j += 1
+        dm = PY_DEF_RE.match(lines[j]) if j < len(lines) else None
+        if dm:
+            found.append({"name": dm.group(1),
+                          "description": _py_docstring(lines, j + 1),
+                          "line": i + 1})
+            i = j
+        i += 1
+    return found
+
+
+def _ts_call_chunk(lines, start_idx):
+    """Lines of the call starting at start_idx, until parentheses balance
+    (bounded by MAX_TS_CALL_SPAN)."""
+    depth = 0
+    seen_open = False
+    chunk = []
+    for ln in lines[start_idx:start_idx + MAX_TS_CALL_SPAN]:
+        chunk.append(ln)
+        depth += ln.count("(") - ln.count(")")
+        if "(" in ln:
+            seen_open = True
+        if seen_open and depth <= 0:
+            break
+    return "\n".join(chunk)
+
+
+def _strings_in_order(chunk):
+    out = []
+    for a, b in TS_STRING_LIT_RE.findall(chunk):
+        out.append(a if a != "" or b == "" else b)
+    return [s for s in out]
+
+
+def extract_ts_registrations(lines):
+    """-> [{name, description, line}] for server.tool(...) and
+    server.registerTool(...) calls. tool(): name = first string literal,
+    description = second. registerTool(): description read from its
+    'description' key."""
+    found = []
+    i = 0
+    while i < len(lines) and len(found) < MAX_REGISTRATIONS_PER_FILE:
+        m = TS_TOOL_CALL_RE.match(lines[i])
+        if not m:
+            i += 1
+            continue
+        chunk = _ts_call_chunk(lines, i)
+        strings = _strings_in_order(chunk)
+        name = strings[0] if strings else ""
+        desc = ""
+        if m.group(1) == "tool":
+            if len(strings) > 1:
+                desc = strings[1]
+        else:
+            km = TS_DESCRIPTION_KEY_RE.search(chunk)
+            if km:
+                desc = km.group(1)
+        if name.strip():
+            found.append({"name": name.strip(),
+                          "description": trim_quote(desc),
+                          "line": i + 1})
+        i += 1
+    return found
+
+
+def extract_registrations(path: Path):
+    """Dispatch on extension; unreadable/binary/unknown -> []."""
+    try:
+        raw = path.read_bytes()
+    except OSError:
+        return []
+    if b"\x00" in raw[:8192]:
+        return []
+    lines = raw.decode("utf-8", errors="replace").lstrip("\ufeff") \
+        .splitlines()
+    ext = path.suffix.lower()
+    if ext == ".py":
+        return extract_python_registrations(lines)
+    if ext in (".js", ".mjs", ".cjs", ".ts"):
+        return extract_ts_registrations(lines)
+    return []
+
 SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2, "info": 3}
 SEVERITY_LADDER = ["info", "low", "medium", "high"]
 EXIT_CLEAN = 0
@@ -1324,6 +1460,17 @@ def corroborated_signal_findings(authority_signals):
 MCP_URL_RE = re.compile(r"^https?://", re.IGNORECASE)
 
 
+def _categories_for_text(text_lower):
+    """Capability categories whose lexicon vocabulary appears in the given
+    text - the fresh-text classifier for extracted tool registrations
+    (declared_categories() by contrast only re-checks observed ones)."""
+    hits = []
+    for category, spec in CAPABILITY_CATEGORIES.items():
+        if any(word in text_lower for word in spec["lexicon"]):
+            hits.append(category)
+    return sorted(hits)
+
+
 class McpUnit:
     __slots__ = ("root_kind", "display_path", "server_name", "_artifact",
                  "_structural")
@@ -1571,7 +1718,8 @@ def _anchor_line(lines, server_name):
 
 
 def build_mcp_adapter_result(name: str, cfg, root_kind, locator, anchor,
-                             perm_patterns=None, claude_perms=None):
+                             perm_patterns=None, claude_perms=None,
+                             registrations=None, opaque=None):
     """ADAPTER LAYER OUTPUT for one MCP server entry (see block comment)."""
     strings = []
     cmd = cfg.get("command")
@@ -1594,9 +1742,10 @@ def build_mcp_adapter_result(name: str, cfg, root_kind, locator, anchor,
 
     evidence_all = {c: [] for c in CAPABILITY_CATEGORIES}
 
-    def add(category, text, strong):
+    def add(category, text, strong, src=None, line=None):
         evidence_all[category].append(
-            {"src": None, "line": anchor, "text": text, "strong": strong})
+            {"src": src, "line": line if line is not None else anchor,
+             "text": text, "strong": strong})
 
     for s in strings:
         for category, spats in SCRIPT_CAPABILITY_PATTERNS.items():
@@ -1614,6 +1763,14 @@ def build_mcp_adapter_result(name: str, cfg, root_kind, locator, anchor,
         # a remote transport reaches the network by existing - the strongest,
         # least arguable form of egress evidence at the config layer
         add("network-egress", url_str, True)
+
+    # stage 3: registrations extracted from in-tree implementation source
+    # are observed behavior surface - categorized via the lexicon over
+    # name + description, anchored at the registration line
+    for reg in registrations or []:
+        reg_text = f"{reg['name']}: {reg['description']}".strip(": ").strip()
+        for category in _categories_for_text(reg_text.lower()):
+            add(category, reg_text, True, src=reg["src"], line=reg["line"])
 
     observed = {}
     for category, evs in evidence_all.items():
@@ -1693,6 +1850,10 @@ def build_mcp_adapter_result(name: str, cfg, root_kind, locator, anchor,
             "transports": sorted(transports),
             "mounts": mounts,
             "permissions": perms,
+            # stage 3: launch lines whose implementation surface cannot be
+            # resolved inside the scanned tree - recorded verbatim, never
+            # analyzed-by-fiat
+            "opaque": sorted(set(opaque or [])),
         },
         "_observed_map": observed,
     }
@@ -1762,9 +1923,45 @@ def build_mcp_units(root_kind, display_root, rel, path: Path, stats,
                     "{name, description} objects); the runtime will ignore "
                     "it and no tool contract can be verified against it")]))
             continue
+
+        # stage 3 availability gate: launch-line arguments that resolve to
+        # code files INSIDE the tree (relative to the config file) get their
+        # registrations extracted; entries with none resolvable are recorded
+        # verbatim under authority_scope.opaque - never fetched, never
+        # guessed at
+        registrations = []
+        opaque = []
+        raw_args = [a for a in entry.get("args") or []
+                    if isinstance(a, str) and a.strip()]
+        if has_cmd:
+            base = path.parent
+            for a in raw_args:
+                if a.strip().startswith("-"):
+                    continue
+                candidate = base / a
+                try:
+                    if (candidate.suffix.lower() in CODE_SOURCE_EXTENSIONS
+                            and candidate.is_file()
+                            and not candidate.is_symlink()):
+                        regs = extract_registrations(candidate)
+                        for reg in regs:
+                            reg["src"] = a.replace("\\", "/")
+                        registrations.extend(regs)
+                        if len(registrations) >= MAX_REGISTRATIONS_PER_FILE:
+                            break
+                except OSError:
+                    continue
+            if not registrations:
+                spec = " ".join([entry["command"].strip()]
+                                + [a.strip() for a in raw_args])
+                opaque.append(trim_quote(spec))
+        if len(registrations) > MAX_REGISTRATIONS_PER_FILE:
+            registrations = registrations[:MAX_REGISTRATIONS_PER_FILE]
+
         artifact = build_mcp_adapter_result(
             name, entry, root_kind, locator, anchor,
-            perm_patterns=perm_patterns, claude_perms=claude_perms)
+            perm_patterns=perm_patterns, claude_perms=claude_perms,
+            registrations=registrations, opaque=opaque)
         units.append(McpUnit(root_kind, locator, server_name=name,
                              artifact=artifact))
     if truncated:

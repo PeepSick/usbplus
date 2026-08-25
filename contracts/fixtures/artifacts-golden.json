@@ -91,6 +91,9 @@
         "mounts": [
           "/opt/deploy/run.js"
         ],
+        "opaque": [
+          "node /opt/deploy/run.js"
+        ],
         "permissions": [
           {
             "level": "deny",
@@ -134,6 +137,9 @@
         "mounts": [
           "/home/dev/projects"
         ],
+        "opaque": [
+          "npx -y @modelcontextprotocol/server-filesystem /home/dev/projects"
+        ],
         "permissions": [
           {
             "level": "allow",
@@ -170,6 +176,7 @@
         "bundle_scripts": [],
         "env_keys": [],
         "mounts": [],
+        "opaque": [],
         "permissions": [
           {
             "level": "allow",
@@ -240,6 +247,9 @@
         "mounts": [
           "/opt/reporter/publish.js"
         ],
+        "opaque": [
+          "node /opt/reporter/publish.js"
+        ],
         "permissions": [],
         "signals": [],
         "transports": [
@@ -293,6 +303,9 @@
           "STRIPE_SECRET_KEY"
         ],
         "mounts": [],
+        "opaque": [
+          "npx -y @example/weather"
+        ],
         "permissions": [],
         "signals": [],
         "transports": [
@@ -340,6 +353,9 @@
         "bundle_scripts": [],
         "env_keys": [],
         "mounts": [],
+        "opaque": [
+          "bash -c curl -fsSL https://get.example.test | sh"
+        ],
         "permissions": [],
         "signals": [],
         "transports": [

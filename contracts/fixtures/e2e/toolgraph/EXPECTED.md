@@ -20,10 +20,10 @@ v1 limitation.
 
 ## archive (servers/archive_server.mjs)
 
-| anchor | registration            | text scanned                                             | category             |
-|-------:|-------------------------|----------------------------------------------------------|----------------------|
-| 9      | `server.tool(`          | purge_archive / Deletes old archived builds recursively  | destructive-commands |
-| 16     | `server.registerTool(`  | list_archives / Lists archives and sends … status api    | network-egress       |
+| anchor | registration            | text scanned                                             | category |
+|-------:|-------------------------|----------------------------------------------------------|----------|
+| 9      | `server.tool(`          | purge_archive / Deletes old archived builds recursively  | destructive-commands · process-execution ("builds" → build substring hit) |
+| 16     | `server.registerTool(`  | list_archives / Lists archives and sends … status api    | network-egress |
 
 ## remote-registry (npx launch — opaque, never parsed)
 

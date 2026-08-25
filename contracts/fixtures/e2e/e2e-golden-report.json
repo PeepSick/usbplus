@@ -331,34 +331,88 @@
       "contract": {
         "declared_categories": [],
         "declared_text": "archive",
-        "observed_categories": [],
-        "undeclared_categories": []
+        "observed_categories": [
+          "destructive-commands",
+          "network-egress",
+          "process-execution"
+        ],
+        "undeclared_categories": [
+          "destructive-commands",
+          "network-egress",
+          "process-execution"
+        ]
       },
-      "findings": [],
+      "findings": [
+        {
+          "detail": "1 signal line(s) show destructive-commands, but the declared contract (name/description/trigger) never covers it. Either declare the capability or remove the behavior.",
+          "evidence_path": "servers/archive_server.mjs",
+          "fingerprint": "e2b8c4bd31170fc4",
+          "line": 9,
+          "quote": "purge_archive: Deletes old archived builds recursively",
+          "rule": "P101",
+          "severity": "medium",
+          "title": "undeclared capability: destructive-commands"
+        },
+        {
+          "detail": "1 signal line(s) show process-execution, but the declared contract (name/description/trigger) never covers it. Either declare the capability or remove the behavior.",
+          "evidence_path": "servers/archive_server.mjs",
+          "fingerprint": "e2b8c4bd31170fc4",
+          "line": 9,
+          "quote": "purge_archive: Deletes old archived builds recursively",
+          "rule": "P101",
+          "severity": "medium",
+          "title": "undeclared capability: process-execution"
+        },
+        {
+          "detail": "1 signal line(s) show network-egress, but the declared contract (name/description/trigger) never covers it. Either declare the capability or remove the behavior.",
+          "evidence_path": "servers/archive_server.mjs",
+          "fingerprint": "0b2af0b224e7fb44",
+          "line": 16,
+          "quote": "list_archives: Lists archives and sends summaries to the status api",
+          "rule": "P101",
+          "severity": "high",
+          "title": "undeclared capability: network-egress"
+        }
+      ],
       "format": "mcp-server",
       "name": "archive",
       "source": {
         "kind": "local",
         "path": "<TOOLGRAPH>/.mcp.json#mcpServers/archive"
       },
-      "verdict": "matches-declaration"
+      "verdict": "purpose-mismatch"
     },
     {
       "authority_signals": [],
       "contract": {
         "declared_categories": [],
         "declared_text": "notes",
-        "observed_categories": [],
-        "undeclared_categories": []
+        "observed_categories": [
+          "network-egress"
+        ],
+        "undeclared_categories": [
+          "network-egress"
+        ]
       },
-      "findings": [],
+      "findings": [
+        {
+          "detail": "1 signal line(s) show network-egress, but the declared contract (name/description/trigger) never covers it. Either declare the capability or remove the behavior.",
+          "evidence_path": "servers/notes_server.py",
+          "fingerprint": "8b77c79050fe71f0",
+          "line": 12,
+          "quote": "fetch_release_notes: Fetches release notes over http from the project endpoint.",
+          "rule": "P101",
+          "severity": "high",
+          "title": "undeclared capability: network-egress"
+        }
+      ],
       "format": "mcp-server",
       "name": "notes",
       "source": {
         "kind": "local",
         "path": "<TOOLGRAPH>/.mcp.json#mcpServers/notes"
       },
-      "verdict": "matches-declaration"
+      "verdict": "purpose-mismatch"
     },
     {
       "authority_signals": [],
@@ -381,24 +435,24 @@
   "summary": {
     "authority_signals": 0,
     "by_rule": {
-      "P101": 3,
+      "P101": 7,
       "P103": 1,
       "S101": 3
     },
     "counts": {
-      "high": 6,
+      "high": 8,
       "info": 0,
       "low": 1,
-      "medium": 0
+      "medium": 2
     },
     "exit_code": 1,
-    "flagged": 7,
+    "flagged": 9,
     "skills": 15,
     "skills_with_authority_signals": 0,
     "verdicts": {
       "excessive-authority": 1,
-      "matches-declaration": 8,
-      "purpose-mismatch": 3,
+      "matches-declaration": 6,
+      "purpose-mismatch": 5,
       "unverifiable": 3
     }
   },
