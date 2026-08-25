@@ -1957,7 +1957,21 @@ DIM = "\033[2m"
 ACC = "\033[1;96m"          # accent (bright cyan): the brand mark
 
 
-def human_report(roots_stats, results, summary):
+def _shorten_locator(display_path, roots_stats):
+    """Human-view locator: strip the longest matching scan-root prefix so a
+    repeated absolute path does not bury the interesting part. JSON output
+    always carries full locators - this view-only shortening never feeds
+    fingerprints, baselines or the JSON report."""
+    best = ""
+    for st in roots_stats:
+        gp = st.given_path
+        if gp and gp != "." and display_path.startswith(gp + "/") \
+                and len(gp) > len(best):
+            best = gp
+    return display_path[len(best) + 1:] if best else display_path
+
+
+def human_report(roots_stats, results, summary_lines):
     # Color and unicode glyphs only on a real terminal; NO_COLOR
     # (https://no-color.org) always wins. Piped or CI output stays plain,
     # grep-friendly ASCII - same tree, same stream, byte-identical report.
@@ -1988,43 +2002,54 @@ def human_report(roots_stats, results, summary):
     for res in results:
         unit, entry = res["unit"], res
         verdict = entry["verdict"]
+        loc = _shorten_locator(unit.display_path, roots_stats)
+        if entry["findings"]:
+            glyph = paint("✗ ", COLORS["high"]) if use_color else ""
+        else:
+            glyph = paint("✓ ", COLORS["ok"]) if use_color else ""
         vtag = paint(verdict.upper(),
-                     COLORS["medium"] if verdict == "purpose-mismatch" else DIM)
-        out.append(f"{paint(unit.display_path, BOLD)}  "
+                     COLORS["medium"] if verdict == "purpose-mismatch"
+                     else DIM)
+        out.append(f"  {glyph}{paint(loc, BOLD)}  "
                    f"[{paint(unit.format, DIM)}]  contract: {vtag}")
         if not entry["findings"]:
             if use_color:
                 out.append(paint(
-                    "  ✓ observed behavior is covered by the declared "
+                    "    observed behavior is covered by the declared "
                     "contract", COLORS["ok"]))
             else:
                 out.append(
-                    "  ok - observed behavior is covered by the declared "
+                    "    ok - observed behavior is covered by the declared "
                     "contract")
         for f in entry["findings"]:
             sev = f["severity"].upper()
             corr = " (corroborated)" if f.get("corroborated") else ""
+            adv = paint("  [advisory]", DIM) if f["rule"] == "P103" else ""
             base = ""
             if f.get("baseline") == "acknowledged":
                 base = paint("  [baselined]", DIM)
-            out.append("  " + paint(
+            out.append("    " + paint(
                 f"{sev:<6} {f['rule']} {f['title']} (line {f['line']}){corr}",
                 COLORS[f["severity"]] if f.get("baseline") != "acknowledged" else DIM
-            ) + base)
+            ) + adv + base)
             if f.get("evidence_path"):
-                out.append(f"          {f['evidence_path']}:{f['line']}: {f['quote']}")
+                out.append(f"            {f['evidence_path']}:{f['line']}: "
+                           f"{f['quote']}")
             elif f["quote"]:
-                out.append(f"          {f['quote']}")
-            out.append(f"          why: {f['detail']}")
+                out.append(f"            {f['quote']}")
+            out.append(paint(f"            why: {f['detail']}", DIM))
         for s in entry["authority_signals"]:
             out.append(paint(
-                f"  note  {s['rule']} {s['title']} (line {s['line']}) - "
+                f"    note  {s['rule']} {s['title']} (line {s['line']}) - "
                 f"{trim_quote(s['matched'])}", DIM))
         out.append("")
-    if summary.startswith("summary:") and use_color:
-        out.append(paint("summary:", DIM) + summary[len("summary:"):])
-    else:
-        out.append(summary)
+    if summary_lines:
+        first = summary_lines[0]
+        if first.startswith("summary:") and use_color:
+            out.append(paint("summary:", DIM) + first[len("summary:"):])
+        else:
+            out.append(first)
+        out.extend(paint(ln, DIM) for ln in summary_lines[1:])
     return "\n".join(out)
 
 
@@ -2382,25 +2407,35 @@ def main(argv=None):
         new_blocking = new_counts["high"] + new_counts["medium"]
         blocking = new_blocking
 
-    summary = (
+    verdict_order = ["matches-declaration", "excessive-authority",
+                     "structural-issues", "purpose-mismatch",
+                     "unverifiable"]
+    vparts = []
+    for k in (verdict_order + sorted(set(verdict_counts)
+                                     - set(verdict_order))):
+        if k in verdict_counts:
+            adv = " (advisory)" if k == "excessive-authority" else ""
+            vparts.append(f"{k}:{verdict_counts[k]}{adv}")
+    exit_note = ("exit 1 - blocking findings present" if blocking
+                 else "exit 0 - nothing blocking")
+    summary_lines = [
         f"summary: {len(units)} skill(s) verified, {flagged_count} with "
-        f"findings - high:{counts['high']} medium:{counts['medium']} "
-        f"low:{counts['low']} info:{counts['info']} | authority signals: "
-        f"{authority_signal_total} across {skills_with_signals} skill(s) "
-        f"(advisory) | verdicts: " +
-        ", ".join(f"{k}:{verdict_counts[k]}" for k in sorted(verdict_counts))
-    )
+        f"findings | {exit_note}",
+        "  verdicts: " + " · ".join(vparts),
+        f"  findings: high:{counts['high']} medium:{counts['medium']} "
+        f"low:{counts['low']} info:{counts['info']}",
+        f"  authority signals: {authority_signal_total} across "
+        f"{skills_with_signals} skill(s) (always advisory)",
+    ]
     if baseline_entries is not None:
-        summary += (
-            f" | baseline: {acknowledged} acknowledged, {new_blocking} new "
-            f"blocking finding(s), {len(stale_fps)} stale"
-        )
-    if blocking:
-        summary += f" | exit {EXIT_FINDINGS}"
+        summary_lines.append(
+            f"  baseline: {acknowledged} acknowledged, {new_blocking} new "
+            f"blocking, {len(stale_fps)} stale")
 
     if write_path is not None:
         written = write_baseline(write_path, results, stale_fps)
-        summary += f" | baseline written: {write_path} ({written} entries)"
+        summary_lines.append(
+            f"  baseline written: {write_path} ({written} entries)")
 
     if args.emit_contracts:
         emit_contracts(Path(args.emit_contracts).expanduser(), results)
@@ -2456,7 +2491,8 @@ def main(argv=None):
         sys.stdout.write(json.dumps(report, ensure_ascii=False, indent=2,
                                     sort_keys=True) + "\n")
     else:
-        sys.stdout.write(human_report(roots_stats, results, summary) + "\n")
+        sys.stdout.write(human_report(roots_stats, results,
+                                      summary_lines) + "\n")
 
     return EXIT_FINDINGS if blocking else EXIT_CLEAN
 

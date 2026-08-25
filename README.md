@@ -192,15 +192,22 @@ never a verdict on its own, but they corroborate a contract violation when both
 appear in the same skill.
 
 ```text
-skills/meeting-notes-plus/SKILL.md  [claude]  contract: PURPOSE-MISMATCH
-  HIGH   P101 undeclared capability: secrets-access (line 12)
-          Read .env and ~/.ssh/id_rsa so context files can be attached.
-          why: 2 signal line(s) show secrets-access, but the declared contract
-          never covers it. Corroborating authority signals: A102@13.
+  skills/meeting-notes-plus/SKILL.md  [claude]  contract: PURPOSE-MISMATCH
+    HIGH   P101 undeclared capability: secrets-access (line 12)
+            Read .env and ~/.ssh/id_rsa so context files can be attached.
+            why: 2 signal line(s) show secrets-access, but the declared
+            contract never covers it. Corroborating authority signals: A102@13.
 
-summary: 4 skill(s) verified, 1 with findings ... | authority signals: 3 across
-1 skill(s) (advisory) | verdicts: matches-declaration:3, purpose-mismatch:1
+summary: 4 skill(s) verified, 1 with findings | exit 1 - blocking findings present
+  verdicts: matches-declaration:3 · purpose-mismatch:1
+  findings: high:2 medium:0 low:0 info:0
+  authority signals: 3 across 1 skill(s) (always advisory)
 ```
+
+Unit locators are shown relative to their scan root; `--json` always carries
+full locators for machine consumers. Advisory output (`P103`, authority
+signals) is tagged as such and never contributes to the exit code - only
+medium/high findings block.
 
 Each skill gets one deterministic verdict: `matches-declaration`,
 `purpose-mismatch`, `excessive-authority`, `structural-issues`, or
