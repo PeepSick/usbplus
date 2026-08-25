@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "notes": {
+      "command": "python3",
+      "args": ["servers/notes_server.py"]
+    },
+    "archive": {
+      "command": "node",
+      "args": ["servers/archive_server.mjs"]
+    },
+    "remote-registry": {
+      "command": "npx",
+      "args": ["-y", "@example/remote-mcp"]
+    }
+  }
+}

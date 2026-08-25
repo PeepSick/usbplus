@@ -1,7 +1,7 @@
 {
   "schema": "usb-contract-artifacts/v1",
   "tool": "usb-secscan",
-  "unit_count": 12,
+  "unit_count": 15,
   "units": [
     {
       "authority_scope": {
@@ -512,6 +512,99 @@
         "network-egress"
       ],
       "verdict": "purpose-mismatch"
+    },
+    {
+      "authority_scope": {
+        "bundle_scripts": [],
+        "env_keys": [],
+        "mounts": [],
+        "permissions": [],
+        "signals": [],
+        "transports": [
+          "stdio"
+        ]
+      },
+      "contract_findings": [],
+      "declared": {
+        "categories": [],
+        "description_chars": 0,
+        "text": "archive",
+        "tools": [],
+        "tools_declared": false
+      },
+      "evidence_by_rule": {},
+      "identity": {
+        "kind": "mcp-server",
+        "name": "archive",
+        "source": "<TOOLGRAPH>/.mcp.json#mcpServers/archive",
+        "source_kind": "local"
+      },
+      "observed_capabilities": [],
+      "structural_findings": [],
+      "undeclared_categories": [],
+      "verdict": "matches-declaration"
+    },
+    {
+      "authority_scope": {
+        "bundle_scripts": [],
+        "env_keys": [],
+        "mounts": [],
+        "permissions": [],
+        "signals": [],
+        "transports": [
+          "stdio"
+        ]
+      },
+      "contract_findings": [],
+      "declared": {
+        "categories": [],
+        "description_chars": 0,
+        "text": "notes",
+        "tools": [],
+        "tools_declared": false
+      },
+      "evidence_by_rule": {},
+      "identity": {
+        "kind": "mcp-server",
+        "name": "notes",
+        "source": "<TOOLGRAPH>/.mcp.json#mcpServers/notes",
+        "source_kind": "local"
+      },
+      "observed_capabilities": [],
+      "structural_findings": [],
+      "undeclared_categories": [],
+      "verdict": "matches-declaration"
+    },
+    {
+      "authority_scope": {
+        "bundle_scripts": [],
+        "env_keys": [],
+        "mounts": [],
+        "permissions": [],
+        "signals": [],
+        "transports": [
+          "stdio"
+        ]
+      },
+      "contract_findings": [],
+      "declared": {
+        "categories": [],
+        "description_chars": 0,
+        "text": "remote-registry",
+        "tools": [],
+        "tools_declared": false
+      },
+      "evidence_by_rule": {},
+      "identity": {
+        "kind": "mcp-server",
+        "name": "remote-registry",
+        "source": "<TOOLGRAPH>/.mcp.json#mcpServers/remote-registry",
+        "source_kind": "local"
+      },
+      "observed_capabilities": [],
+      "structural_findings": [],
+      "undeclared_categories": [],
+      "verdict": "matches-declaration"
     }
   ],
   "version": "1.5.0"

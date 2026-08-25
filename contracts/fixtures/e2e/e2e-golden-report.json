@@ -22,6 +22,17 @@
       "skipped_binary": 0,
       "skipped_large": [],
       "truncated": false
+    },
+    {
+      "exists": true,
+      "files_considered": 2,
+      "files_seen": 4,
+      "kind": "local",
+      "notes": [],
+      "path": "<TOOLGRAPH>",
+      "skipped_binary": 0,
+      "skipped_large": [],
+      "truncated": false
     }
   ],
   "skills": [
@@ -314,6 +325,57 @@
         "path": "<TREE>/skills/undeclared-egress/SKILL.md"
       },
       "verdict": "purpose-mismatch"
+    },
+    {
+      "authority_signals": [],
+      "contract": {
+        "declared_categories": [],
+        "declared_text": "archive",
+        "observed_categories": [],
+        "undeclared_categories": []
+      },
+      "findings": [],
+      "format": "mcp-server",
+      "name": "archive",
+      "source": {
+        "kind": "local",
+        "path": "<TOOLGRAPH>/.mcp.json#mcpServers/archive"
+      },
+      "verdict": "matches-declaration"
+    },
+    {
+      "authority_signals": [],
+      "contract": {
+        "declared_categories": [],
+        "declared_text": "notes",
+        "observed_categories": [],
+        "undeclared_categories": []
+      },
+      "findings": [],
+      "format": "mcp-server",
+      "name": "notes",
+      "source": {
+        "kind": "local",
+        "path": "<TOOLGRAPH>/.mcp.json#mcpServers/notes"
+      },
+      "verdict": "matches-declaration"
+    },
+    {
+      "authority_signals": [],
+      "contract": {
+        "declared_categories": [],
+        "declared_text": "remote-registry",
+        "observed_categories": [],
+        "undeclared_categories": []
+      },
+      "findings": [],
+      "format": "mcp-server",
+      "name": "remote-registry",
+      "source": {
+        "kind": "local",
+        "path": "<TOOLGRAPH>/.mcp.json#mcpServers/remote-registry"
+      },
+      "verdict": "matches-declaration"
     }
   ],
   "summary": {
@@ -331,11 +393,11 @@
     },
     "exit_code": 1,
     "flagged": 7,
-    "skills": 12,
+    "skills": 15,
     "skills_with_authority_signals": 0,
     "verdicts": {
       "excessive-authority": 1,
-      "matches-declaration": 5,
+      "matches-declaration": 8,
       "purpose-mismatch": 3,
       "unverifiable": 3
     }

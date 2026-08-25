@@ -35,6 +35,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 ENGINE = ROOT / "packages/cli/bin/usb-secscan.py"
 TREE = ROOT / "contracts/fixtures/e2e/acme-agent"
+TG_TREE = ROOT / "contracts/fixtures/e2e/toolgraph"
 GOLDENS = HERE.parent / "fixtures/e2e"
 
 sys.path.insert(0, str(HERE))
@@ -47,10 +48,11 @@ def posix(p: Path) -> str:
 
 def normalize(text: str) -> str:
     # Paths reach the engine in POSIX form, so no separator folding is
-    # needed; replacing the machine-specific prefix is enough. JSON escape
+    # needed; replacing the machine-specific prefixes is enough. JSON escape
     # sequences must survive untouched - never blanket-rewrite backslashes
     # here, they carry \", \\ and \n inside string literals.
-    return text.replace(posix(TREE), "<TREE>")
+    return text.replace(posix(TREE), "<TREE>").replace(posix(TG_TREE),
+                                                       "<TOOLGRAPH>")
 
 
 def run_engine(args, outdir: Path):
@@ -61,7 +63,8 @@ def run_engine(args, outdir: Path):
         cmd += ["--emit-contracts", str(snap)]
     else:
         snap = None
-    r = subprocess.run(cmd + [posix(TREE), posix(TREE / "broken/mcp.json")],
+    r = subprocess.run(cmd + [posix(TREE), posix(TREE / "broken/mcp.json"),
+                              posix(TG_TREE)],
                        capture_output=True, text=True)
     return r.returncode, r.stdout, snap
 
