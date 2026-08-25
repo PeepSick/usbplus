@@ -57,5 +57,6 @@ temp/
 
 # Internal agent/dev log - not for the public repo
 /MEMORIES.md
+/DEVAM.md
 
 __pycache__/
