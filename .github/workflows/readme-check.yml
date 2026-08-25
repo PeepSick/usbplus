@@ -38,3 +38,6 @@ jobs:
 
       - name: Verify usb secscan (offline fixture suite)
         run: python3 scripts/check-secscan.py
+
+      - name: Contract artifact conformance (Step 1)
+        run: python3 contracts/conformance/run_conformance.py

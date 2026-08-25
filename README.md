@@ -312,9 +312,12 @@ shared contract core. Phased, design-first:
    on *new* findings when scanning third-party collections;
    `--write-baseline` records (and prunes) the snapshot
 4. **Shared contract-core** (`@usb/contract-core`) — designed before any
-   new adapter is written; full spec in `docs/contract-core.md`. One
-   deterministic decision engine, and per-format adapters each emit the
-   same four artifacts (**Declared Contract, Observed Capabilities,
+   new adapter is written; full spec in `docs/contract-core.md`, and
+   Migration Step 1 is done: the engine now emits the four contract
+   artifacts (`--emit-contracts`) with a conformance suite proving they
+   re-derive every finding and verdict (see `docs/adapter-boundaries.md`).
+   One deterministic decision engine, and per-format adapters each emit
+   the same four artifacts (**Declared Contract, Observed Capabilities,
    Evidence, Authority Scope**) for the core to reduce into a single
    verdict from a fixed vocabulary (`matches-declaration`,
    `purpose-mismatch`, `excessive-authority`, `unverifiable`). Never

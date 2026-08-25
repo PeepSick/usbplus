@@ -1291,6 +1291,106 @@ def human_report(roots_stats, results, summary):
     return "\n".join(out)
 
 
+def canonical_finding(f):
+    """Finding fields that carry contract meaning (explanatory prose and
+    run-scoped policy state are deliberately excluded)."""
+    out = {
+        "rule": f["rule"],
+        "severity": f["severity"],
+        "title": f["title"],
+        "line": f["line"],
+        "quote": f["quote"],
+        "fingerprint": f["fingerprint"],
+    }
+    if f.get("evidence_path"):
+        out["evidence_path"] = f["evidence_path"]
+    if f.get("corroborated"):
+        out["corroborated"] = True
+    return out
+
+
+def emit_contracts(path: Path, results):
+    """Write the four contract artifacts per unit as canonical JSON.
+
+    This is the Migration Step 1 emission: a stable, deterministic snapshot
+    of what the engine understood about each unit, independent of report
+    formatting. Schema: usb-contract-artifacts/v1 (see docs/contract-core.md).
+    """
+    units_out = []
+    for res in results:
+        unit = res["unit"]
+        observed = [
+            {
+                "category": cat,
+                "strength": "strong" if e["strong"] else "weak",
+                "source": e["src"],
+                "line": e["line"],
+                "text": trim_quote(e["text"]),
+            }
+            for cat, evs in sorted(res["observed"].items())
+            for e in evs
+        ]
+        evidence_by_rule = {}
+        for f in res["findings"]:
+            entry = {"line": f["line"], "quote": f["quote"]}
+            if f.get("evidence_path"):
+                entry["path"] = f["evidence_path"]
+            evidence_by_rule.setdefault(f["rule"], []).append(entry)
+        authority = {
+            "signals": [
+                {
+                    "rule": s["rule"],
+                    "title": s["title"],
+                    "line": s["line"],
+                    "matched": s["matched"],
+                    "quote": s["quote"],
+                }
+                for s in res["authority_signals"]
+            ],
+            # v1 scope summary for skills: the bundle surface it can act on.
+            "bundle_scripts": sorted(
+                rel for rel, _ in collect_bundle_scripts(unit)
+            ) if unit.format == "claude" else [],
+        }
+        structural = [canonical_finding(f) for f in res["findings"]
+                      if f["rule"].startswith("S")]
+        contract = [canonical_finding(f) for f in res["findings"]
+                    if not f["rule"].startswith("S")]
+        units_out.append({
+            "identity": {
+                "name": unit.name,
+                "kind": unit.format,
+                "source_kind": unit.root_kind,
+                "source": unit.display_path,
+            },
+            "declared": {
+                "text": trim_quote(unit.claimed_purpose_text()),
+                "categories": sorted(res["declared"]),
+                "description_chars": len(unit.description),
+            },
+            "observed_capabilities": observed,
+            "evidence_by_rule": dict(sorted(evidence_by_rule.items())),
+            "authority_scope": authority,
+            "undeclared_categories": sorted(
+                set(res["observed"]) - set(res["declared"])),
+            "structural_findings": structural,
+            "contract_findings": contract,
+            "verdict": res["verdict"],
+        })
+    doc = {
+        "tool": TOOL,
+        "version": VERSION,
+        "schema": "usb-contract-artifacts/v1",
+        "unit_count": len(units_out),
+        "units": units_out,
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(doc, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
 def main(argv=None):
     # Pin output to UTF-8 regardless of platform/locale: findings quote skill
     # text that may contain any Unicode, and a cp1254/cp1252 stdout would
@@ -1317,6 +1417,10 @@ def main(argv=None):
                         default=None, metavar="FILE",
                         help="record every current finding as the new baseline "
                              f"(default: {BASELINE_DEFAULT_PATH}) and prune stale entries")
+    parser.add_argument("--emit-contracts", metavar="FILE",
+                        help="write the four contract artifacts (declared / "
+                             "observed / evidence / authority) as canonical "
+                             "JSON; additive debug output, stdout unchanged")
     parser.add_argument("--version", action="version", version=f"{TOOL} {VERSION}")
     args = parser.parse_args(argv)
 
@@ -1482,6 +1586,9 @@ def main(argv=None):
     if write_path is not None:
         written = write_baseline(write_path, results, stale_fps)
         summary += f" | baseline written: {write_path} ({written} entries)"
+
+    if args.emit_contracts:
+        emit_contracts(Path(args.emit_contracts).expanduser(), results)
 
     if args.json:
         report = {
