@@ -44,3 +44,6 @@ jobs:
 
       - name: End-to-end reference corpus (acme-agent)
         run: python3 contracts/conformance/run_e2e.py
+
+      - name: mcprobe conformance (consent + runtime observation)
+        run: python3 scripts/check-mcprobe.py
