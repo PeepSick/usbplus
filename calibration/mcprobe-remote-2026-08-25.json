@@ -1,0 +1,109 @@
+{
+  "deterministic": false,
+  "mode": "runtime-observation",
+  "reports": [
+    {
+      "contact": "remote-network",
+      "handshake": {
+        "connect": "ok",
+        "handshake": "ok",
+        "tools_list": "ok"
+      },
+      "launch_line_redacted": "https://mcp.deepwiki.com/mcp",
+      "locator": "C:/Users/bohem/AppData/Local/Temp/opencode/mcprobe-calib/.mcp.json#mcpServers/deepwiki-http",
+      "observation": {
+        "complete": true,
+        "reason": null
+      },
+      "server_info": {
+        "name": "DeepWiki",
+        "version": "2.14.3"
+      },
+      "session_id_present": false,
+      "tools": [
+        {
+          "description": "Ask any question about a GitHub repository and get an AI-powered, context-grounded response.",
+          "input_schema_keys": [
+            "question",
+            "repoName"
+          ],
+          "name": "ask_question"
+        },
+        {
+          "description": "View documentation about a GitHub repository.",
+          "input_schema_keys": [
+            "repoName"
+          ],
+          "name": "read_wiki_contents"
+        },
+        {
+          "description": "Get a list of documentation topics for a GitHub repository.",
+          "input_schema_keys": [
+            "repoName"
+          ],
+          "name": "read_wiki_structure"
+        }
+      ],
+      "transport": "remote-http"
+    },
+    {
+      "contact": "remote-network",
+      "handshake": {
+        "connect": "skipped",
+        "handshake": "protocol_error: HTTP 405",
+        "tools_list": "skipped"
+      },
+      "launch_line_redacted": "https://mcp.deepwiki.com/sse",
+      "locator": "C:/Users/bohem/AppData/Local/Temp/opencode/mcprobe-calib/.mcp.json#mcpServers/deepwiki-sse",
+      "observation": {
+        "complete": false,
+        "reason": "protocol_error"
+      },
+      "server_info": {},
+      "session_id_present": false,
+      "tools": [],
+      "transport": "remote-sse"
+    },
+    {
+      "contact": "remote-network",
+      "handshake": {
+        "connect": "skipped",
+        "handshake": "auth_required: HTTP 401",
+        "tools_list": "skipped"
+      },
+      "launch_line_redacted": "https://api.githubcopilot.com/mcp",
+      "locator": "C:/Users/bohem/AppData/Local/Temp/opencode/mcprobe-calib/.mcp.json#mcpServers/github-copilot-auth",
+      "observation": {
+        "complete": false,
+        "reason": "auth_required"
+      },
+      "server_info": {},
+      "session_id_present": false,
+      "tools": [],
+      "transport": "remote-http"
+    },
+    {
+      "contact": "remote-network",
+      "handshake": {
+        "connect": "skipped",
+        "handshake": "auth_required: HTTP 403",
+        "tools_list": "skipped"
+      },
+      "launch_line_redacted": "https://mcp.vanshul.com/mcp",
+      "locator": "C:/Users/bohem/AppData/Local/Temp/opencode/mcprobe-calib/.mcp.json#mcpServers/web-reader",
+      "observation": {
+        "complete": false,
+        "reason": "auth_required"
+      },
+      "server_info": {},
+      "session_id_present": false,
+      "tools": [],
+      "transport": "remote-http"
+    }
+  ],
+  "schema": "usb-mcprobe-report/v1",
+  "summary": {
+    "failed": 3,
+    "probed": 0
+  }
+}

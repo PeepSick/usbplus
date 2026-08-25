@@ -172,7 +172,8 @@ class HttpChannel:
         self.url = url
         self.mode = mode              # "remote-http" | "remote-sse"
         self.timeout = timeout
-        self.headers = dict(base_headers)
+        self.headers = {"User-Agent": "usb-mcprobe/0.1 (+security audit)",
+                        **dict(base_headers)}
         self.session_id = None
         self.session_present = False
         self.deadline = time.monotonic() + timeout
