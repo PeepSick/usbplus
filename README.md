@@ -218,14 +218,24 @@ Discovery knows the difference between a claim and its supporting material:
 a bundle's reference docs (`skills/<name>/references/*.md`, `cli.md`, ...)
 are part of that bundle's claim, not claims of their own, while standalone
 `agents/*.md` and `commands/*.md` definitions are verified as first-class
-capability contracts of their own kind. MCP/runtime JSON configs are out of
-scope by format.
+capability contracts of their own kind.
+
+MCP server configs get the same contract treatment at the **config layer**.
+Well-known project files (`.mcp.json`, `.cursor/mcp.json`, `.vscode/mcp.json`
+- both `mcpServers` and VS Code's `servers` root key) yield one unit per
+server entry: the entry *name* is the declaration, its command/args/url/env
+are observed behavior and requested authority. A remote `url` is network
+egress by existing; a `curl … | sh` bootstrap is undeclared process control;
+requesting an env token is recorded as authority scope and never branded
+behavior. A config that cannot be parsed is reported (`S101`) instead of
+being silently skipped - the runtime would launch zero servers from it.
 
 Rule catalog:
 
 | Group | Rules | Question |
 |---|---|---|
 | `S001-S007` structural | frontmatter present/closable, description required (≤1024 chars), name charset, non-empty body, duplicate names | "Is this a well-formed skill?" |
+| `S101` structural (MCP) | unparsable JSON, wrong-typed server table, unlaunchable entries | "Can a contract even be read from this config?" |
 | `P101-P102` purpose / contract | undeclared capability categories; unsupported purpose statement | "Does it do what it says?" |
 | `A101-A106` authority signals | broad scope over sensitive objects, silent action, vague delegation, instruction overrides, encoded blobs, invisible characters | "Is any requested authority vague, hidden, or out of proportion?" |
 

@@ -58,6 +58,13 @@ Step 2 landed: the core consumes AdapterResult directly
 (`build_adapter_result` is the single adapter→core seam; P-rules read
 artifacts, not files).
 
+Step 3 landed (Faz 5 v1): the MCP adapter runs on that core at the config
+layer. One server entry in `.mcp.json` / `.cursor/mcp.json` /
+`.vscode/mcp.json` → one AdapterResult: entry name declares, command/args/
+url observe, env keys + transports + mounts record authority scope. New
+S101 marks configs no contract can be read from; verdict mapping and the
+independent reducer were extended in lockstep (S101 → unverifiable).
+
 ## Rules extracted for the MCP adapter
 
 1. An MCP unit needs only: identity, claim text, transport/command/env
