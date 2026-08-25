@@ -128,3 +128,22 @@ With these closed, stage 3's design boundary is set: static, in-tree,
 anchored, additive to the existing artifacts — everything else stays on
 the far side of the line until a separate, explicitly non-deterministic
 mode is designed for it.
+
+## 8. Build order — corpus first, parser last
+
+Implementation enters the same conformance-first gate as everything else:
+
+1. Build `contracts/fixtures/e2e/toolgraph/` (mini Python + TypeScript
+   servers, a relative-path launch entry exercising the availability gate,
+   an npx entry asserting the opaque marker).
+2. Hand-write the EXPECTED evidence/artifact results — which registration
+   maps to which category at which file:line anchor. That expectation is
+   the golden target.
+3. Extend `run_e2e.py` to scan both corpus roots; it must fail against the
+   missing parser exactly as predicted (this validates the runner too).
+4. Lock goldens deliberately (`--update`).
+5. Only then write the idiom parsers, against that fixed target.
+6. Registrations flow into artifacts as CapabilityEvidence; P101/P103
+   semantics and reducer logic remain untouched.
+
+Principle: evidence contract first, code second.
