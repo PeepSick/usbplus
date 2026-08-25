@@ -40,15 +40,21 @@ Launching an untrusted MCP server means running untrusted code — the
 exact act secscan exists to avoid. Therefore:
 
 1. **Never implicit.** mcprobe only ever runs as its own command, per
-   target, with an explicit consent surface (interactive confirm or
-   `--yes`). Piped stdin counts as refusal.
+   target. Without `--yes` it prints exactly what it WOULD do (command,
+   transport, contact class, risk boundary) and stops. `--yes` is
+   explicit machine consent; piped stdin counts as REFUSAL — faking an
+   interactive confirmation is not allowed, and `--yes` already covers
+   automation honestly.
 2. **No tool calls. Ever.** Protocol scope is exactly: `initialize` →
    `initialized` → `tools/list` → shutdown. Registration of capabilities
    is observed; invocation is out of scope permanently.
 3. **Bounded contact.** Hard timeout on every phase; SIGTERM then kill;
    output size caps. A hung server is a finding, not a crash.
-4. **Environment minimization.** The server gets the env vars its config
-   entry declares — nothing inherited unless explicitly requested.
+4. **Environment minimization + redaction.** The server gets the env vars
+   its config entry declares — nothing inherited unless explicitly
+   requested. The REPORT never contains secret-bearing values: env values,
+   header values and the launch line are redacted to key names /
+   placeholder forms before anything is written.
 5. **Remote entries are safer than local ones** (no process spawn); the
    report records which contact class was used so consumers can weigh it.
 
@@ -66,6 +72,15 @@ HTTP/SSE transports skip the spawn and reuse the same message sequence
 over the wire. Every phase transition is recorded with ok/error/timeout so
 a partial probe is still an honest report.
 
+Pagination is bounded on both axes: default **10 pages**, hard ceiling of
+**1000 tools**. A repeated cursor stops the loop immediately; an empty or
+malformed page is recorded as a protocol failure. Reaching either bound
+marks the observation PARTIAL — never "zero tools":
+
+```json
+"observation": { "complete": false, "reason": "pagination_limit" }
+```
+
 ## 5. Output contract — `usb-mcprobe-report/v1`
 
 ```json
@@ -74,14 +89,22 @@ a partial probe is still an honest report.
   "mode": "runtime-observation",
   "deterministic": false,
   "target": { "locator": "...", "transport": "stdio", "contact": "local-process" },
+  "launch_line": "<redacted>",
   "handshake": { "initialize": "ok", "tools_list": "ok" },
   "server_info": { "name": "...", "version": "..." },
+  "observation": { "complete": true, "reason": null },
   "tools": [ { "name": "...", "description": "...", "input_schema_keys": [] } ]
 }
 ```
 
 - `tools` is sorted by name; `input_schema_keys` keeps only top-level
   property names (bounded review signal, no schema dumps).
+- `launch_line` and every env/header value are redacted before writing;
+  key names may appear, values never.
+- `observation.complete` is false with a `reason`
+  (`pagination_limit`, `protocol_error`, `timeout`) whenever the tool
+  surface could not be fully enumerated — partial observation is stated,
+  never silently treated as the whole truth.
 - No timestamps inside the structured body; wall-clock data belongs to the
   caller's log, not to a file that might be diffed.
 
@@ -91,9 +114,7 @@ mcprobe output finally enables the tool-level comparison sketched in the
 depth order:
 
 - config-declared tools (stage 2) vs runtime `tools` list
-- undeclared runtime tools → candidate finding family (`P104`,
-  "undeclared runtime tool") — **open decision**, see §8
-- declared-but-absent tools → drift note (server shrank silently)
+- undeclared runtime tools → **candidate** finding family `P104`
 
 Comparison lives OUTSIDE mcprobe (a read-only join over mcprobe report +
 secscan artifacts), keeping the observer dumb and the judge pure.
@@ -106,12 +127,17 @@ secscan artifacts), keeping the observer dumb and the judge pure.
   throwaway users). Sandboxing integration is a follow-up feature.
 - No merging into baselines: fingerprints presuppose reproducibility.
 
-## 8. Open decisions (before implementation)
+## 8. Resolved decisions
 
-1. Finding vocabulary for declared-vs-runtime deltas (P104 now? or
-   report-only first iteration?)
-2. Baseline interplay: none (recommended) vs a separate mcprobe-baseline
-   concept
-3. Consent UX: interactive prompt wording, `--yes` semantics, batch files
-4. Pagination cap for `tools/list` (proposed hard ceiling + truncation
-   marker)
+Locked before implementation:
+
+| Decision | Ruling |
+|---|---|
+| P104 | **v1 is report-only.** mcprobe emits observations; no blocking finding family on day one. The static↔runtime join runs read-only first, real-world behavior calibrates the corpus, and P104 becomes a deliberate spec change only if it earns it. |
+| Baseline interplay | **None.** The baseline is the acknowledgement mechanism for deterministic scan findings; runtime observation is timestamped, environment-dependent and non-reproducible. mcprobe stays its own report. |
+| Consent UX | `usb mcprobe ...` without `--yes` shows exactly what would run and stops. `--yes` = explicit machine consent. Piped stdin = refusal. Launch line and env/header values are redacted in every report. |
+| Pagination | Default 10 pages, hard ceiling 1000 tools, repeated cursor → immediate stop, empty/malformed page → recorded protocol failure. Bound reached ⇒ `observation.complete: false` + reason; never "no tools". |
+
+With these locked, mcprobe v1 matches USB's character end to end: narrow,
+controlled, hiding nothing about what it does — and keeping observation
+strictly separated from judgment.
