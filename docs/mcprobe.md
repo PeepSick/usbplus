@@ -182,6 +182,24 @@ usb-contract-artifacts" carry over verbatim. P104 stays untouched -
 remote probes accumulate calibration data report-only like everything
 else.
 
+### 9.3 Resolved: auth_required vs bot_blocked
+
+401 and 403 responses are distinguished:
+
+- **401** → `auth_required` (server genuinely needs credentials)
+- **403 + `WWW-Authenticate` header** → `auth_required` (server rejected
+  credentials)
+- **403 without `WWW-Authenticate`** → `bot_blocked` (Cloudflare/WAF
+  challenge page, not real auth)
+
+Rationale: Cloudflare returns 403 with a challenge page (no
+`WWW-Authenticate`) when it detects automated requests. This is not an
+auth failure — it's a WAF block. The distinction matters for consumers:
+`auth_required` means "you need OAuth/API key"; `bot_blocked` means
+"you're being rate-limited or fingerprinted — credential won't help".
+
+Both reasons produce exit code 1 (failure). No auth flows or retries in v1.
+
 Implementation note: stdio needs a background line reader because a pipe
 pushes unsolicited bytes; HTTP is request/response, so the reader thread
 disappears and each phase becomes a single bounded request. Less code,
@@ -197,3 +215,24 @@ same contract.
   holding it transiently in memory is required, publishing it is not.
 - v1 does NOT open the server-initiated GET channel; tools/list needs no
   downstream requests, so no second connection exists to authenticate.
+
+### 9.2 Resolved: Legacy SSE transport (NOT supported)
+
+The legacy SSE transport (GET-stream + POST) is **not supported** in mcprobe
+v1. Rationale:
+
+1. The MCP spec has deprecated the legacy SSE model in favor of Streamable
+   HTTP (POST-only). The 2026-07-28 release candidate formalizes this.
+2. Real-world calibration confirms: deepwiki `/sse` returns HTTP 405 (Method
+   Not Allowed) — servers are actively dropping the endpoint.
+3. Streamable HTTP is universally available across all tested servers.
+4. mcprobe's behavior is already correct: when a config entry declares
+   `"type": "sse"`, the probe attempts the connection and honest-fails with
+   `protocol_error: HTTP 405` (or similar). This is the right behavior —
+   the error is the finding, not a bug to work around.
+
+**Action:** No code change needed. The existing behavior (attempt → honest
+protocol_error → record in report) is the correct response to a deprecated
+transport. Config entries with `"type": "sse"` will produce a protocol_error
+report, which is useful signal for consumers: "this server's SSE endpoint
+is dead."

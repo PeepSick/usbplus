@@ -7,8 +7,8 @@ tools, disconnects. Never calls tools. Separate from secscan's
 deterministic audit chain by construction.
 
 Transports: stdio spawn (local-process) and streamable-HTTP / SSE
-(remote-network). Remote v1 has no auth flows - 401/403 is recorded as
-`auth_required`.
+(remote-network). Remote v1 has no auth flows - 401 is recorded as
+`auth_required`, 403 without WWW-Authenticate as `bot_blocked`.
 
 Consent contract (docs/mcprobe.md section 8):
     no --yes          -> prints the plan and stops; interactive prompt only
@@ -16,7 +16,7 @@ Consent contract (docs/mcprobe.md section 8):
     --yes             -> explicit machine consent, runs immediately
 
 Exit codes: 0 all probes contacted successfully, 1 at least one probe hit
-a protocol error/timeout/auth failure, 2 refusal / no targets / usage.
+a protocol error/timeout/auth failure/bot-block, 2 refusal / no targets / usage.
 """
 
 from __future__ import annotations
@@ -210,8 +210,16 @@ class HttpChannel:
         try:
             resp = self._post(payload)
         except urllib.error.HTTPError as exc:
-            kind = ("auth_required" if exc.code in (401, 403)
-                    else "protocol_error")
+            if exc.code == 401:
+                kind = "auth_required"
+            elif exc.code == 403:
+                # Distinguish genuine auth failure from WAF/bot-block.
+                # 403 + WWW-Authenticate = server rejected credentials.
+                # 403 without it = Cloudflare/WAF challenge page.
+                wa = exc.headers.get("WWW-Authenticate", "") if exc.headers else ""
+                kind = "auth_required" if wa else "bot_blocked"
+            else:
+                kind = "protocol_error"
             exc.close()
             raise ProbeError("handshake" if payload.get("method") ==
                              "initialize" else "tools_list",
@@ -606,7 +614,8 @@ def main(argv=None) -> int:
         else:
             rep = probe_remote(target, args.timeout)
         reason = rep["observation"]["reason"]
-        if reason in ("protocol_error", "timeout", "auth_required") \
+        if reason in ("protocol_error", "timeout", "auth_required",
+                       "bot_blocked") \
                 or rep["handshake"].get("initialize", "").startswith(("error",
                                                                       "spawn")):
             failures += 1

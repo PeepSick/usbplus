@@ -175,6 +175,12 @@ def main():
                                          "message": "unauthorized"}}
                         self._send_json(401, err)
                         return
+                    if make_handler.bot_block:
+                        err = {"jsonrpc": "2.0", "id": msg.get("id"),
+                               "error": {"code": -32000,
+                                         "message": "forbidden"}}
+                        self._send_json(403, err)
+                        return
                     method = msg.get("method")
                     payload_id = msg.get("id")
                     if method == "initialize":
@@ -231,6 +237,7 @@ def main():
         handler_cls = make_handler()
         handler_cls.auth = False
         handler_cls.sse = False
+        handler_cls.bot_block = False
         server = ThreadingHTTPServer(("127.0.0.1", 0), handler_cls)
         port = server.server_address[1]
         thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -239,6 +246,7 @@ def main():
         # E1) streamable http: session echo + secret redaction + url strip
         make_handler.auth = False
         make_handler.sse = False
+        make_handler.bot_block = False
         rootE = tmp / "remote"
         rootE.mkdir(parents=True)
         url = f"http://127.0.0.1:{port}/mcp?key=topsecret123"
@@ -264,6 +272,7 @@ def main():
 
         # E2) auth failure -> honest auth_required, exit 1
         make_handler.auth = True
+        make_handler.bot_block = False
         r = run(["--yes", "--json", str(rootE)])
         rep = parse_report(r.stdout)
         unit = rep["reports"][0] if rep else {}
@@ -273,8 +282,21 @@ def main():
               == "auth_required",
               f"rc={r.returncode} obs={unit.get('observation')}")
 
+        # E2b) 403 without WWW-Authenticate -> bot_blocked, exit 1
+        make_handler.auth = False
+        make_handler.bot_block = True
+        r = run(["--yes", "--json", str(rootE)])
+        rep = parse_report(r.stdout)
+        unit = rep["reports"][0] if rep else {}
+        check("remote 403 no WWW-Auth: bot_blocked, exit 1",
+              r.returncode == 1
+              and unit.get("observation", {}).get("reason")
+              == "bot_blocked",
+              f"rc={r.returncode} obs={unit.get('observation')}")
+
         # E3) sse envelope parses identically
         make_handler.auth = False
+        make_handler.bot_block = False
         make_handler.sse = True
         write_remote_config(rootE, url, "sse",
                             {"Authorization": "Bearer sk-abc99987654321"})

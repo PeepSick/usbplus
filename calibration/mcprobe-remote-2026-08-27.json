@@ -1,0 +1,2351 @@
+{
+  "deterministic": false,
+  "mode": "runtime-observation",
+  "reports": [
+    {
+      "contact": "remote-network",
+      "handshake": {
+        "connect": "protocol_error: connection failed: [SSL: TLSV1_ALERT_INTERNAL_ERROR] tlsv1 alert internal error (_ssl.c:1000)",
+        "handshake": "skipped",
+        "tools_list": "skipped"
+      },
+      "launch_line_redacted": "https://api.402.bot/mcp",
+      "locator": "C:/Users/bohem/AppData/Local/Temp/opencode/mcprobe-calib2/.mcp.json#mcpServers/402bot",
+      "observation": {
+        "complete": false,
+        "reason": "protocol_error"
+      },
+      "server_info": {},
+      "session_id_present": false,
+      "tools": [],
+      "transport": "remote-http"
+    },
+    {
+      "contact": "remote-network",
+      "handshake": {
+        "connect": "protocol_error: connection failed: [Errno 11001] getaddrinfo failed",
+        "handshake": "skipped",
+        "tools_list": "skipped"
+      },
+      "launch_line_redacted": "https://mcp.bgpt.pro/mcp",
+      "locator": "C:/Users/bohem/AppData/Local/Temp/opencode/mcprobe-calib2/.mcp.json#mcpServers/bgpt",
+      "observation": {
+        "complete": false,
+        "reason": "protocol_error"
+      },
+      "server_info": {},
+      "session_id_present": false,
+      "tools": [],
+      "transport": "remote-http"
+    },
+    {
+      "contact": "remote-network",
+      "handshake": {
+        "connect": "ok",
+        "handshake": "ok",
+        "tools_list": "ok"
+      },
+      "launch_line_redacted": "https://chainflip-broker.io/mcp",
+      "locator": "C:/Users/bohem/AppData/Local/Temp/opencode/mcprobe-calib2/.mcp.json#mcpServers/chainflip",
+      "observation": {
+        "complete": true,
+        "reason": null
+      },
+      "server_info": {
+        "name": "Broker as a Service",
+        "version": "v1"
+      },
+      "session_id_present": false,
+      "tools": [
+        {
+          "description": "Check the status of a swap by its ID. Returns the current swap state including deposit detection, swap progress, and egress information.",
+          "input_schema_keys": [
+            "swapId"
+          ],
+          "name": "check_status"
+        },
+        {
+          "description": "Get swap quotes for exchanging one crypto asset to another using native (smallest unit) amounts. Returns available quotes with exchange rates, fees, and estimated output amounts. Use this when you have amounts in native units (e.g., satoshis for BTC, wei for ETH). API key is optional.",
+          "input_schema_keys": [
+            "amount",
+            "apiKey",
+            "destinationAsset",
+            "sourceAsset"
+          ],
+          "name": "get_native_quotes"
+        },
+        {
+          "description": "Get swap quotes for exchanging one crypto asset to another. Returns available quotes with exchange rates, fees, and estimated output amounts. API key is optional.",
+          "input_schema_keys": [
+            "amount",
+            "apiKey",
+            "destinationAsset",
+            "sourceAsset"
+          ],
+          "name": "get_quotes"
+        },
+        {
+          "description": "List all available swap assets and their details including ticker, network, direction, decimals, minimum amounts, and current USD prices.",
+          "input_schema_keys": [],
+          "name": "list_assets"
+        },
+        {
+          "description": "Start a DCA (Dollar Cost Averaging) cross-chain swap that splits into multiple sub-swaps over time. Returns the deposit address. API key is optional.",
+          "input_schema_keys": [
+            "apiKey",
+            "chunkIntervalBlocks",
+            "destinationAddress",
+            "destinationAsset",
+            "minimumPrice",
+            "numberOfChunks",
+            "refundAddress",
+            "sourceAsset"
+          ],
+          "name": "start_dca_swap"
+        },
+        {
+          "description": "Start a cross-chain swap. Returns the deposit address where you should send your source asset. API key is optional.",
+          "input_schema_keys": [
+            "apiKey",
+            "destinationAddress",
+            "destinationAsset",
+            "minimumPrice",
+            "refundAddress",
+            "sourceAsset"
+          ],
+          "name": "start_swap"
+        }
+      ],
+      "transport": "remote-http"
+    },
+    {
+      "contact": "remote-network",
+      "handshake": {
+        "connect": "ok",
+        "handshake": "ok",
+        "tools_list": "ok"
+      },
+      "launch_line_redacted": "https://mcp.deepwiki.com/mcp",
+      "locator": "C:/Users/bohem/AppData/Local/Temp/opencode/mcprobe-calib2/.mcp.json#mcpServers/deepwiki-http",
+      "observation": {
+        "complete": true,
+        "reason": null
+      },
+      "server_info": {
+        "name": "DeepWiki",
+        "version": "2.14.3"
+      },
+      "session_id_present": false,
+      "tools": [
+        {
+          "description": "Ask any question about a GitHub repository and get an AI-powered, context-grounded response.",
+          "input_schema_keys": [
+            "question",
+            "repoName"
+          ],
+          "name": "ask_question"
+        },
+        {
+          "description": "View documentation about a GitHub repository.",
+          "input_schema_keys": [
+            "repoName"
+          ],
+          "name": "read_wiki_contents"
+        },
+        {
+          "description": "Get a list of documentation topics for a GitHub repository.",
+          "input_schema_keys": [
+            "repoName"
+          ],
+          "name": "read_wiki_structure"
+        }
+      ],
+      "transport": "remote-http"
+    },
+    {
+      "contact": "remote-network",
+      "handshake": {
+        "connect": "skipped",
+        "handshake": "protocol_error: HTTP 405",
+        "tools_list": "skipped"
+      },
+      "launch_line_redacted": "https://mcp.deepwiki.com/sse",
+      "locator": "C:/Users/bohem/AppData/Local/Temp/opencode/mcprobe-calib2/.mcp.json#mcpServers/deepwiki-sse",
+      "observation": {
+        "complete": false,
+        "reason": "protocol_error"
+      },
+      "server_info": {},
+      "session_id_present": false,
+      "tools": [],
+      "transport": "remote-http"
+    },
+    {
+      "contact": "remote-network",
+      "handshake": {
+        "connect": "ok",
+        "handshake": "ok",
+        "tools_list": "ok"
+      },
+      "launch_line_redacted": "https://mcp.roundtable.now/mcp",
+      "locator": "C:/Users/bohem/AppData/Local/Temp/opencode/mcprobe-calib2/.mcp.json#mcpServers/roundtable",
+      "observation": {
+        "complete": true,
+        "reason": null
+      },
+      "server_info": {
+        "name": "Roundtable MCP",
+        "version": "1.5.0"
+      },
+      "session_id_present": false,
+      "tools": [
+        {
+          "description": "Tradeoff assessment council. Pragmatist, Skeptic, and Futurist evaluate options from different angles — short-term vs long-term, risk vs reward, simplicity vs flexibility. Output as pros-cons.",
+          "input_schema_keys": [
+            "context",
+            "decision",
+            "options",
+            "priorities",
+            "session_context",
+            "thinking_level",
+            "webhook_url"
+          ],
+          "name": "assess-tradeoffs"
+        },
+        {
+          "description": "Check your remaining credits, usage limits, and plan info",
+          "input_schema_keys": [
+            "verbose"
+          ],
+          "name": "check-usage"
+        },
+        {
+          "description": "Consult the AI coding council — multiple models discuss your engineering question sequentially (each sees prior responses), then a moderator synthesizes. Auto-mode by default — AI picks optimal models, roles, and conversation mode from your prompt. Provide explicit models to override (manual mode). ",
+          "input_schema_keys": [
+            "auto_route",
+            "context",
+            "format",
+            "knowledge",
+            "mode",
+            "models",
+            "prompt",
+            "roles",
+            "session_context",
+            "thinking_level",
+            "webhook_url"
+          ],
+          "name": "consult-council"
+        },
+        {
+          "description": "Debugging council. Root Cause Analyst, Systems Engineer, and Edge Case Investigator collaboratively diagnose bugs, analyze errors, and propose fixes.",
+          "input_schema_keys": [
+            "code",
+            "error",
+            "expected_behavior",
+            "knowledge",
+            "problem",
+            "session_context",
+            "thinking_level",
+            "webhook_url"
+          ],
+          "name": "debug-issue"
+        },
+        {
+          "description": "Architecture design council. Systems Architect, Infrastructure Engineer, and DX Advocate evaluate your system design. Always uses high thinking for maximum depth. Output as ADR.",
+          "input_schema_keys": [
+            "description",
+            "focus_areas",
+            "scale",
+            "tech_stack",
+            "webhook_url"
+          ],
+          "name": "design-architecture"
+        },
+        {
+          "description": "Query structured logs from your MCP tool executions. Filter by session, severity level, event type, and time range. Useful for debugging and monitoring tool usage.",
+          "input_schema_keys": [
+            "end_time",
+            "event",
+            "level",
+            "limit",
+            "offset",
+            "session_id",
+            "start_time"
+          ],
+          "name": "get-logs"
+        },
+        {
+          "description": "Get full details of a previous MCP session by ID. Returns the complete result including participant responses and moderator synthesis. Use list-sessions first to find session IDs.",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "get-session"
+        },
+        {
+          "description": "Get the dashboard URL for a previous debate session. Returns the thread link and public URL if the thread is public.",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "get-thread-link"
+        },
+        {
+          "description": "List available AI models grouped by thinking level (low/medium/high). Shows default models, credit costs, capabilities for each tier. Use this before consult to understand model options.",
+          "input_schema_keys": [
+            "thinking_level"
+          ],
+          "name": "list-models"
+        },
+        {
+          "description": "List your previous MCP tool sessions. Returns session metadata including prompt, tool used, quality score, and credits consumed. Useful for reviewing past council discussions.",
+          "input_schema_keys": [
+            "limit",
+            "offset",
+            "tool_name"
+          ],
+          "name": "list-sessions"
+        },
+        {
+          "description": "Implementation planning council. Tech Lead, Senior Engineer, and QA Strategist break down a feature into actionable steps, identify risks, and define acceptance criteria. Output as ADR.",
+          "input_schema_keys": [
+            "codebase_context",
+            "constraints",
+            "feature",
+            "knowledge",
+            "session_context",
+            "tech_stack",
+            "thinking_level",
+            "webhook_url"
+          ],
+          "name": "plan-implementation"
+        },
+        {
+          "description": "Code review council. Senior Engineer, Security Reviewer, and Performance Analyst analyze your code and a moderator synthesizes their findings.",
+          "input_schema_keys": [
+            "code",
+            "focus",
+            "language",
+            "thinking_level",
+            "webhook_url"
+          ],
+          "name": "review-code"
+        },
+        {
+          "description": "Set a thread as public or private. Public threads can be shared via URL. Use session_id from a previous debate session.",
+          "input_schema_keys": [
+            "is_public",
+            "session_id"
+          ],
+          "name": "set-thread-visibility"
+        }
+      ],
+      "transport": "remote-http"
+    },
+    {
+      "contact": "remote-network",
+      "handshake": {
+        "connect": "skipped",
+        "handshake": "auth_required: HTTP 401",
+        "tools_list": "skipped"
+      },
+      "launch_line_redacted": "https://mcp.semgrep.ai/mcp",
+      "locator": "C:/Users/bohem/AppData/Local/Temp/opencode/mcprobe-calib2/.mcp.json#mcpServers/semgrep",
+      "observation": {
+        "complete": false,
+        "reason": "auth_required"
+      },
+      "server_info": {},
+      "session_id_present": false,
+      "tools": [],
+      "transport": "remote-http"
+    },
+    {
+      "contact": "remote-network",
+      "handshake": {
+        "connect": "ok",
+        "handshake": "ok",
+        "tools_list": "ok"
+      },
+      "launch_line_redacted": "https://game.spacemolt.com/mcp",
+      "locator": "C:/Users/bohem/AppData/Local/Temp/opencode/mcprobe-calib2/.mcp.json#mcpServers/spacemolt",
+      "observation": {
+        "complete": true,
+        "reason": null
+      },
+      "server_info": {
+        "name": "spacemolt-gameserver",
+        "version": "0.563.1"
+      },
+      "session_id_present": true,
+      "tools": [
+        {
+          "description": "Abandon an active mission (Removes the mission from your active list. Most mission cargo stays in your hold, but goods a mission provided on accept (e.g. smuggling courier contraband) are reclaimed: held units are confiscated and the base value of any you no longer carry is charged, so only delivery",
+          "input_schema_keys": [
+            "mission_id",
+            "session_id"
+          ],
+          "name": "abandon_mission"
+        },
+        {
+          "description": "Accept a mission from the mission board (You must be docked at the base offering the mission. Maximum 5 active missions at once. Use get_missions to see available missions and their IDs.)",
+          "input_schema_keys": [
+            "mission_id",
+            "session_id",
+            "template_id"
+          ],
+          "name": "accept_mission"
+        },
+        {
+          "description": "Get actionable trading insights at your current station (Returns trading insights based on your trading skill level. No parameters needed. Higher trading skill reveals more opportunities including regional demand, price trends, arbitrage, and specific station opportunities. Only references stations ",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "analyze_market"
+        },
+        {
+          "description": "Attack another player, pirate, empire NPC, creature, or station (target_id accepts a player ID, username, pirate ID, empire NPC ID, or wildlife creature ID. Target must be in the same system. Attacking any target creates or joins a system-scale battle with zone-based tactical combat — it is not a si",
+          "input_schema_keys": [
+            "session_id",
+            "target_id"
+          ],
+          "name": "attack"
+        },
+        {
+          "description": "Manage your battle — move, change stance, target enemies, or join a fight (Actions: advance, retreat, stance, target, engage, help.\nUse action=\"help\" for full documentation with examples.\n- advance: Move one zone closer (outer→mid→inner→engaged).\n- retreat: Move one zone back.\n- stance: Change postu",
+          "input_schema_keys": [
+            "action",
+            "session_id",
+            "side_id",
+            "stance",
+            "target_id"
+          ],
+          "name": "battle"
+        },
+        {
+          "description": "Browse ships listed for sale at a base (View player-listed ships for sale at the current base (or specify base_id). Filter by class_id or max_price.)",
+          "input_schema_keys": [
+            "base_id",
+            "class_id",
+            "max_price",
+            "session_id"
+          ],
+          "name": "browse_ships"
+        },
+        {
+          "description": "Found a faction-owned station at your current point of interest in lawless space (Deploys a Station Core (assembled at a Station Core Foundry) to found a new faction station beside the POI you're loitering at. Requires: membership in a faction with the ManageBases permission, an undocked ship holdin",
+          "input_schema_keys": [
+            "name",
+            "public_access",
+            "session_id"
+          ],
+          "name": "build_base"
+        },
+        {
+          "description": "Deploy a lightweight, members-only faction outpost at your current point of interest in lawless space (Deploys an Outpost Kit (assembled at an Outpost Frame Assembler) to plant a faction outpost beside the POI you're loitering at — far cheaper than a station. Requires: membership in a faction with t",
+          "input_schema_keys": [
+            "name",
+            "session_id"
+          ],
+          "name": "build_outpost"
+        },
+        {
+          "description": "Buy items at market price from the station exchange (No fees for instant fills. Items delivered to cargo (or storage if cargo full). Use deliver_to=storage to send directly to storage. Use auto_list=true to automatically place a buy order for any unfilled quantity (listing fee applies — 1% default, ",
+          "input_schema_keys": [
+            "auto_list",
+            "deliver_to",
+            "item_id",
+            "quantity",
+            "session_id"
+          ],
+          "name": "buy"
+        },
+        {
+          "description": "Purchase ship insurance (Purchases insurance at your current risk-based rate. Coverage equals fitted ship value (hull + modules). Premium paid to the station insurer. Use get_insurance_quote first to see your rate.)",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "buy_insurance"
+        },
+        {
+          "description": "Purchase a ship from the exchange (Buy a ship from the exchange. Must be docked at the same base. Your current ship is stored at the base and the purchased ship becomes your active ship. Credits go directly to the seller.)",
+          "input_schema_keys": [
+            "listing_id",
+            "session_id"
+          ],
+          "name": "buy_listed_ship"
+        },
+        {
+          "description": "License a specific ship design so your faction can build it at its own stations (Empire and pirate hulls are normally exclusive to their own territory. A per-design shipbuilding license lets your faction build that one hull at its own stations, in exchange for a per-build royalty of 10% of the hull'",
+          "input_schema_keys": [
+            "session_id",
+            "ship_class"
+          ],
+          "name": "buy_ship_license"
+        },
+        {
+          "description": "Cancel a pending or in-progress ship commission (Cancel a commission that hasn't finished yet. You receive a 50% refund. If you provided materials, they are returned to station storage.)",
+          "input_schema_keys": [
+            "commission_id",
+            "session_id"
+          ],
+          "name": "cancel_commission"
+        },
+        {
+          "description": "Cancel an active order and return escrow (Sell orders: remaining items returned to station storage. Buy orders: remaining credits returned to wallet. Partially filled orders keep their fills. Use order_id 'all' or '*' to cancel all your orders at this station. Bulk mode: pass 'order_ids' array to ca",
+          "input_schema_keys": [
+            "order_id",
+            "order_ids",
+            "session_id"
+          ],
+          "name": "cancel_order"
+        },
+        {
+          "description": "Cancel one of your ship buy orders and refund the escrow (Refunds the full escrowed amount (price + sales tax). Works from anywhere. If the shipyard was already building for your order, the finished ship goes to the showroom instead.)",
+          "input_schema_keys": [
+            "order_id",
+            "session_id"
+          ],
+          "name": "cancel_ship_buy_order"
+        },
+        {
+          "description": "Remove your ship listing from the exchange (Cancel a ship listing. The listing's seller — or the ship's current owner — may cancel it. The listing fee is not refunded.)",
+          "input_schema_keys": [
+            "listing_id",
+            "session_id"
+          ],
+          "name": "cancel_ship_listing"
+        },
+        {
+          "description": "Add an entry to your captain's log (personal journal) (Your captain's log is a personal journal for tracking your journey. Max 20 entries, max 100KB per entry. Oldest entries are removed when limit is reached. Use this to record discoveries, plans, contacts, and thoughts.)",
+          "input_schema_keys": [
+            "entry",
+            "session_id"
+          ],
+          "name": "captains_log_add"
+        },
+        {
+          "description": "Delete a specific entry from your captain's log (Index 0 is the newest entry, higher indices are older entries. Only your own log entries can be deleted. Remaining entries are re-indexed so index 0 always points to the newest entry. Returns invalid_index if the index is out of range.)",
+          "input_schema_keys": [
+            "index",
+            "session_id"
+          ],
+          "name": "captains_log_delete"
+        },
+        {
+          "description": "Get a specific entry from your captain's log (Index 0 is the newest entry, higher indices are older entries.)",
+          "input_schema_keys": [
+            "index",
+            "session_id"
+          ],
+          "name": "captains_log_get"
+        },
+        {
+          "description": "List all entries in your captain's log (Returns all log entries in reverse chronological order (newest first). Index 0 is the most recent entry.)",
+          "input_schema_keys": [
+            "index",
+            "session_id"
+          ],
+          "name": "captains_log_list"
+        },
+        {
+          "description": "Browse game reference data: ships, skills, recipes, items, facilities with filtering and pagination (Paginated reference data lookup. type: ships|skills|recipes|items|facilities. id: get one entry by ID (a facility lookup also returns the recipe it runs). category: filter by category (ship class, sk",
+          "input_schema_keys": [
+            "category",
+            "class",
+            "commissionable",
+            "empire",
+            "id",
+            "page",
+            "page_size",
+            "search",
+            "session_id",
+            "tier",
+            "type"
+          ],
+          "name": "catalog"
+        },
+        {
+          "description": "Send a chat message (Channels: system (current system), local (current POI), faction (your faction), private (direct message, requires target_id which accepts a player ID or username).)",
+          "input_schema_keys": [
+            "channel",
+            "content",
+            "session_id",
+            "target_id"
+          ],
+          "name": "chat"
+        },
+        {
+          "description": "View and manage your empire citizenships (list, apply, renounce, withdraw) (Action-dispatched. Empire IDs: solarian, voidborn, crimson, nebula, outerrim.\n\nConcepts\n- Origin: the empire you picked at character creation (player.empire). Immutable — affects empire-restricted skills and ship classes.\n- ",
+          "input_schema_keys": [
+            "action",
+            "empire_id",
+            "session_id"
+          ],
+          "name": "citizenship"
+        },
+        {
+          "description": "Link your player to your website account using a registration code (Get your registration code at https://spacemolt.com/dashboard. This links your player to your website account for dashboard visibility. Each player can only be claimed once.)",
+          "input_schema_keys": [
+            "registration_code",
+            "session_id"
+          ],
+          "name": "claim"
+        },
+        {
+          "description": "View your active insurance policies",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "claim_insurance"
+        },
+        {
+          "description": "Toggle cloaking device (Requires a cloaking device module or a ship with an integrated cloak. When cloaked, you are hidden from other players unless their scanner out-powers your cloak strength. Cloak strength = cloak modules + scan-resistant hull, scaled by your Stealth skill (1% per level) and any",
+          "input_schema_keys": [
+            "enable",
+            "quantity",
+            "session_id"
+          ],
+          "name": "cloak"
+        },
+        {
+          "description": "Get a cost estimate for commissioning a ship (Returns detailed pricing for both payment modes (credits-only vs provide-materials) and lists any blockers (wrong empire, shipyard tier, skills). Does not place an order.)",
+          "input_schema_keys": [
+            "session_id",
+            "ship_class"
+          ],
+          "name": "commission_quote"
+        },
+        {
+          "description": "Commission a ship to be built at this shipyard (Place a build order at the current base's shipyard. At an empire/NPC shipyard, two payment modes: credits only (default, pay markup for materials + labor) or provide_materials (cheaper, supply build materials and required modules yourself). Both modes ",
+          "input_schema_keys": [
+            "fund_from_faction",
+            "provide_materials",
+            "session_id",
+            "ship_class"
+          ],
+          "name": "commission_ship"
+        },
+        {
+          "description": "Check the status of your ship commissions (Shows all your active commissions. Optionally filter by base_id. Commissions progress pending → building, then the finished ship is delivered straight into your fleet, docked at the build station — switch_ship to fly it. The commission disappears from this ",
+          "input_schema_keys": [
+            "base_id",
+            "session_id"
+          ],
+          "name": "commission_status"
+        },
+        {
+          "description": "Complete a mission and claim rewards (Mission objectives must be fulfilled. Delivery missions require docking at the destination with items in cargo. Community missions accept partial material contributions from cargo or station storage toward a shared goal — call repeatedly as you gather materials.",
+          "input_schema_keys": [
+            "mission_id",
+            "session_id"
+          ],
+          "name": "complete_mission"
+        },
+        {
+          "description": "List all missions you have completed (Shows template ID, title, type, difficulty, completion time, and giver for each completed mission.)",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "completed_missions"
+        },
+        {
+          "description": "Queue a crafting job (auto-routes to your own/faction facility, or hand-crafts at the Station Workshop) (Must be docked. Ordinary recipes require crafting and storage service; package recipes use the rules described below. Crafting is no longer instant: it queues a job that runs over subsequent tick",
+          "input_schema_keys": [
+            "action",
+            "count",
+            "deliver_to",
+            "dry_run",
+            "facility_id",
+            "items",
+            "job_id",
+            "job_ids",
+            "jobs",
+            "label",
+            "output_package_label",
+            "package_id",
+            "package_ids",
+            "preset",
+            "quantity",
+            "recipe_id",
+            "session_id",
+            "source",
+            "target"
+          ],
+          "name": "craft"
+        },
+        {
+          "description": "Place a buy offer on the station exchange (Listing fee on the portion that goes on the order book (1% default; pirate strongholds and stations with a custom market fee charge more). Instant fills incur no fee. Items from instant fills delivered to cargo by default (use deliver_to=storage for storage",
+          "input_schema_keys": [
+            "deliver_to",
+            "item_id",
+            "orders",
+            "price_each",
+            "quantity",
+            "session_id"
+          ],
+          "name": "create_buy_order"
+        },
+        {
+          "description": "Create a new faction (Tag must be exactly 4 characters. Both name and tag must be unique.)",
+          "input_schema_keys": [
+            "name",
+            "session_id",
+            "tag"
+          ],
+          "name": "create_faction"
+        },
+        {
+          "description": "Create a new note document (Creates a tradeable text document. Notes can contain messages, secrets, contracts, coordinates, or any text. Max 100 char title, 100,000 char content. Requires docking and 1 cargo space.)",
+          "input_schema_keys": [
+            "content",
+            "session_id",
+            "title"
+          ],
+          "name": "create_note"
+        },
+        {
+          "description": "List items for sale on the station exchange (Listing fee on the portion that goes on the order book (1% default; pirate strongholds and stations with a custom market fee charge more). Instant fills incur no fee. Items escrowed from cargo first, then station storage. Accepts item_id or item name (e.g",
+          "input_schema_keys": [
+            "item_id",
+            "orders",
+            "price_each",
+            "quantity",
+            "session_id"
+          ],
+          "name": "create_sell_order"
+        },
+        {
+          "description": "Decline a mission and hear the NPC's response (Returns the mission giver's decline dialog. The mission remains available — you can still accept it later. Must be docked at a base where the mission is available.)",
+          "input_schema_keys": [
+            "mission_id",
+            "session_id",
+            "template_id"
+          ],
+          "name": "decline_mission"
+        },
+        {
+          "description": "Permanently delete a note document you own (Permanently destroys a note you own and frees its 1 cargo slot. Cannot be undone. Requires docking.)",
+          "input_schema_keys": [
+            "note_id",
+            "session_id"
+          ],
+          "name": "delete_note"
+        },
+        {
+          "description": "Deploy a drone from your bay into space (Drone must be loaded in your bay. Consumes bandwidth. Use get_drones to list your bay. Once deployed, use upload_drone_script to give it autonomous behavior. Pass all: true to deploy every in-bay drone in a single tick — any drone that would exceed remaining ",
+          "input_schema_keys": [
+            "all",
+            "drone_id",
+            "session_id"
+          ],
+          "name": "deploy_drone"
+        },
+        {
+          "description": "Move items from cargo (or directly from personal/faction storage) into a storage destination (Items default to moving from cargo into your personal station storage. Set 'source' to 'storage' or 'faction' and 'target' to 'faction' / 'faction:TAG' / a player name to perform direct cross-storage transf",
+          "input_schema_keys": [
+            "item_id",
+            "quantity",
+            "session_id",
+            "source",
+            "target"
+          ],
+          "name": "deposit_items"
+        },
+        {
+          "description": "Dismantle a faction outpost you're docked at, packing it back into an Outpost Kit (Must be docked at one of your faction's outposts (not a full station). Requires the ManageBases permission. Packs the entire outpost — base, its point of interest, and its built-in lockbox and fuel bunker — back into ",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "dismantle_outpost"
+        },
+        {
+          "description": "Broadcast a distress signal to nearby players for emergency rescue (Broadcasts an emergency signal and auto-assigns investigation missions to nearby players in the same system. Types: \"fuel\" (out of fuel), \"repair\" (hull critically damaged), \"combat\" (under attack). Cannot be used while docked. Only",
+          "input_schema_keys": [
+            "distress_type",
+            "session_id"
+          ],
+          "name": "distress_signal"
+        },
+        {
+          "description": "Dock at a base",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "dock"
+        },
+        {
+          "description": "Send a spy to gather intelligence on the station you're docked at, using your faction's Espionage HQ (Requires faction membership, an active Espionage HQ facility built anywhere by your faction, and being docked at the target station. Takes about 80 seconds; no other actions can be taken until it re",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "espionage"
+        },
+        {
+          "description": "Preview what buying would cost without executing (Read-only. Shows available quantity, total cost, and price breakdown across sellers. Accepts item_id or item name (e.g. 'Iron Ore').)",
+          "input_schema_keys": [
+            "item_id",
+            "quantity",
+            "session_id"
+          ],
+          "name": "estimate_purchase"
+        },
+        {
+          "description": "Manage facilities at stations (production, faction, personal, sales, and more) (Actions: types, build, list, owned, upgrades, upgrade, dismantle, repair, faction_build, faction_dismantle, faction_upgrade, faction_list, faction_owned, transfer, personal_build, personal_decorate, personal_visit, list_",
+          "input_schema_keys": [
+            "access",
+            "action",
+            "bucket",
+            "category",
+            "cull_target",
+            "custom_name",
+            "deliver_to",
+            "description",
+            "direction",
+            "facility_id",
+            "facility_type",
+            "faction",
+            "items",
+            "job_id",
+            "job_ids",
+            "label",
+            "level",
+            "listing_id",
+            "max_price",
+            "name"
+          ],
+          "name": "facility"
+        },
+        {
+          "description": "Accept a pending alliance proposal (Requires `manage_diplomacy` permission. Ratifies the alliance on both sides. Use faction_info to see pending alliance proposals. Accepts faction ID or 4-character faction tag (e.g. NOVA).)",
+          "input_schema_keys": [
+            "session_id",
+            "target_faction_id"
+          ],
+          "name": "faction_accept_ally"
+        },
+        {
+          "description": "Accept a faction invitation (alias for join_faction) (Alias for join_faction. You must have a pending invite from the faction. Both names accept the same payload and produce the same result.)",
+          "input_schema_keys": [
+            "faction_id",
+            "session_id"
+          ],
+          "name": "faction_accept_invite"
+        },
+        {
+          "description": "Accept a peace proposal (Requires `manage_diplomacy` permission. Ends the war. Use faction_info to see pending peace proposals. Accepts faction ID or 4-character faction tag (e.g. NOVA).)",
+          "input_schema_keys": [
+            "session_id",
+            "target_faction_id"
+          ],
+          "name": "faction_accept_peace"
+        },
+        {
+          "description": "Cancel a posted faction mission and refund escrowed rewards (Cancels the mission and returns escrowed credits and items to faction storage. Cannot cancel if a player is actively working on it. Requires `manage_treasury` permission.)",
+          "input_schema_keys": [
+            "session_id",
+            "template_id"
+          ],
+          "name": "faction_cancel_mission"
+        },
+        {
+          "description": "Create a buy order on behalf of your faction (credits from faction treasury) (Credits are escrowed from the faction treasury. Purchased items go to faction storage. Use item_id 'fuel' to post a buy order for fuel — filled by players selling fuel from their ships, routed to faction fuel reserve. Requ",
+          "input_schema_keys": [
+            "bucket",
+            "item_id",
+            "orders",
+            "price_each",
+            "private",
+            "quantity",
+            "session_id"
+          ],
+          "name": "faction_create_buy_order"
+        },
+        {
+          "description": "Create a custom faction role (Requires `manage_roles` permission. Priority 2-99 (default roles: recruit=1, member=10, officer=50, leader=100). Your priority must exceed the new role's priority.)",
+          "input_schema_keys": [
+            "name",
+            "permissions",
+            "priority",
+            "session_id"
+          ],
+          "name": "faction_create_role"
+        },
+        {
+          "description": "Create a sell order on behalf of your faction (items from faction storage) (Items are escrowed from faction storage. Credits from fills go to the faction treasury. Listing fee deducted from faction credits. Requires `manage_treasury` permission. Accepts item_id or item name. If the faction already h",
+          "input_schema_keys": [
+            "bucket",
+            "item_id",
+            "orders",
+            "price_each",
+            "private",
+            "quantity",
+            "session_id"
+          ],
+          "name": "faction_create_sell_order"
+        },
+        {
+          "description": "Declare war on another faction (Requires `manage_diplomacy` permission. Both factions enter war state. Kills are tracked. Targets are notified. Accepts faction ID or 4-character faction tag (e.g. NOVA).)",
+          "input_schema_keys": [
+            "reason",
+            "session_id",
+            "target_faction_id"
+          ],
+          "name": "faction_declare_war"
+        },
+        {
+          "description": "Decline a faction invitation (Removes the pending invitation.)",
+          "input_schema_keys": [
+            "faction_id",
+            "session_id"
+          ],
+          "name": "faction_decline_invite"
+        },
+        {
+          "description": "Delete a custom faction role (Requires `manage_roles` permission. Cannot delete default roles. Members with this role are reassigned to 'member'. Your priority must exceed the role's priority.)",
+          "input_schema_keys": [
+            "role_id",
+            "session_id"
+          ],
+          "name": "faction_delete_role"
+        },
+        {
+          "description": "Delete a room from your faction's common space (Permanently removes the room and its description. Requires `manage_facilities` permission.)",
+          "input_schema_keys": [
+            "room_id",
+            "session_id"
+          ],
+          "name": "faction_delete_room"
+        },
+        {
+          "description": "Transfer credits from your wallet to the faction treasury (Any faction member can deposit credits. Tracked in the audit log.)",
+          "input_schema_keys": [
+            "amount",
+            "session_id"
+          ],
+          "name": "faction_deposit_credits"
+        },
+        {
+          "description": "Move items from your cargo (or directly from personal storage) into faction storage (Any faction member can deposit items. Set source=\"storage\" to move items directly from your personal station storage into faction storage in a single call (no cargo loop). All deposits are tracked in the audit log.)",
+          "input_schema_keys": [
+            "item_id",
+            "quantity",
+            "session_id",
+            "source",
+            "target"
+          ],
+          "name": "faction_deposit_items"
+        },
+        {
+          "description": "Update faction description, charter, colors, and ally-sharing toggles (Shape your faction's identity. The description (max 500 chars) is your faction's public tagline — a short summary that appears in listings. The charter (max 4000 chars) is your faction's founding document: a manifesto, code of co",
+          "input_schema_keys": [
+            "ally_facility_access",
+            "ally_fuel_access",
+            "ally_intel_opt_out",
+            "charter",
+            "description",
+            "primary_color",
+            "secondary_color",
+            "session_id"
+          ],
+          "name": "faction_edit"
+        },
+        {
+          "description": "Edit a custom faction role (Requires `manage_roles` permission. Cannot edit default roles (leader, officer, member, recruit). Your priority must exceed the role's priority.)",
+          "input_schema_keys": [
+            "name",
+            "permissions",
+            "role_id",
+            "session_id"
+          ],
+          "name": "faction_edit_role"
+        },
+        {
+          "description": "View your faction's full ship-garage roster across all stations (Lists every ship parked in your faction's ship garages, grouped by station, with per-station used/capacity counts plus galaxy-wide totals. Shows the whole shared fleet pool regardless of where you are docked. Members can claim any of t",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "faction_garages"
+        },
+        {
+          "description": "View pending faction invitations (Shows all factions you've been invited to.)",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "faction_get_invites"
+        },
+        {
+          "description": "View faction details (Without faction_id, shows your faction. Members see member list (paginated, default limit 50 max 100), roles with permissions, treasury, wars, peace proposals, and a galaxy-wide fuel-bunker summary (per-bunker status plus total reserve and capacity). Use offset and limit to pag",
+          "input_schema_keys": [
+            "faction_id",
+            "limit",
+            "offset",
+            "session_id"
+          ],
+          "name": "faction_info"
+        },
+        {
+          "description": "View faction intel coverage statistics (Shows systems known, POIs known, galaxy coverage percentage, most active contributor, and intel level.)",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "faction_intel_status"
+        },
+        {
+          "description": "Invite a player to your faction (player_id accepts a player ID or username. Requires invite permission. Target receives notification.)",
+          "input_schema_keys": [
+            "player_id",
+            "session_id"
+          ],
+          "name": "faction_invite"
+        },
+        {
+          "description": "Kick a player from your faction (player_id accepts a player ID or username. Requires kick permission. Cannot kick faction leader.)",
+          "input_schema_keys": [
+            "player_id",
+            "session_id"
+          ],
+          "name": "faction_kick"
+        },
+        {
+          "description": "List all factions (Returns faction summary with pagination. Max 100 per page.)",
+          "input_schema_keys": [
+            "limit",
+            "offset",
+            "session_id"
+          ],
+          "name": "faction_list"
+        },
+        {
+          "description": "List your faction's posted missions at this station (Shows all missions your faction has posted at the current station, including active instance counts and who posted each one.)",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "faction_list_missions"
+        },
+        {
+          "description": "Post a mission on your faction's mission board (Post contracts, bounties, and jobs that tell a story about what your faction needs. Rewards are escrowed from faction storage. Requires docked at a base with a faction_missions facility and `manage_treasury` permission. Optional fields: giver_name, giv",
+          "input_schema_keys": [
+            "description",
+            "dialog",
+            "expiration_hours",
+            "giver_name",
+            "giver_title",
+            "objectives",
+            "rewards",
+            "session_id",
+            "title",
+            "triggers",
+            "type"
+          ],
+          "name": "faction_post_mission"
+        },
+        {
+          "description": "Prepay credits from the faction treasury toward the next corporate tax assessment (Moves credits from the faction treasury into a tax-prepayment pool. On tax day the pool covers the faction's corporate income-tax assessment before the treasury is touched, so the faction can't be caught short. Any su",
+          "input_schema_keys": [
+            "amount",
+            "session_id"
+          ],
+          "name": "faction_prepay_tax"
+        },
+        {
+          "description": "Promote or demote a faction member (player_id accepts a player ID or username. Leader can change any member's role. Members with Promote permission can assign roles below their own priority. Only the leader can transfer leadership (role_id=leader). Roles: recruit, member, officer, leader.)",
+          "input_schema_keys": [
+            "player_id",
+            "role_id",
+            "session_id"
+          ],
+          "name": "faction_promote"
+        },
+        {
+          "description": "Propose a mutual alliance with another faction (Requires `manage_diplomacy` permission. Cannot propose with factions you're at war with or already allied with. Target faction's diplomacy-capable members are notified and must call faction_accept_ally to ratify. Accepts faction ID or 4-character facti",
+          "input_schema_keys": [
+            "session_id",
+            "target_faction_id"
+          ],
+          "name": "faction_propose_ally"
+        },
+        {
+          "description": "Propose peace to a faction you're at war with (Requires `manage_diplomacy` permission. Target faction leaders are notified. Accepts faction ID or 4-character faction tag (e.g. NOVA).)",
+          "input_schema_keys": [
+            "session_id",
+            "target_faction_id",
+            "terms"
+          ],
+          "name": "faction_propose_peace"
+        },
+        {
+          "description": "Query your faction's intel database, or an allied faction's (L1 (Intel Terminal): filter by system_id or system_name. L2 (Intel Center): additionally filter by resource_type, poi_type, empire. Paginate with offset and limit (default 50, max 100). Does not require docking. Optional source_faction_id ",
+          "input_schema_keys": [
+            "limit",
+            "offset",
+            "poi_type",
+            "resource_type",
+            "session_id",
+            "source_faction_id",
+            "system_id",
+            "system_name"
+          ],
+          "name": "faction_query_intel"
+        },
+        {
+          "description": "Search your faction's market price database, or an allied faction's (Query by base_id or station_name. L2 (Commerce Terminal) also supports item_id filter to find the best prices for a specific item across all known stations. Paginate with offset and limit (default 20, max 50). Optional source_facti",
+          "input_schema_keys": [
+            "base_id",
+            "item_id",
+            "limit",
+            "offset",
+            "session_id",
+            "source_faction_id",
+            "station_name"
+          ],
+          "name": "faction_query_trade_intel"
+        },
+        {
+          "description": "Dissolve an alliance with another faction (Requires `manage_diplomacy` permission. Removes the alliance from both factions and notifies the other side. Idempotent: succeeds even if no alliance existed. Accepts faction ID or 4-character faction tag (e.g. NOVA).)",
+          "input_schema_keys": [
+            "session_id",
+            "target_faction_id"
+          ],
+          "name": "faction_remove_ally"
+        },
+        {
+          "description": "Return an enemy faction to neutral standing (Requires `manage_diplomacy` permission. Idempotent: succeeds even if the target was not an enemy. Does not end active wars — use faction_propose_peace for that. Accepts faction ID or 4-character faction tag (e.g. NOVA).)",
+          "input_schema_keys": [
+            "session_id",
+            "target_faction_id"
+          ],
+          "name": "faction_remove_enemy"
+        },
+        {
+          "description": "List rooms in your faction's common space at the current station (Shows rooms in your faction's Common Space facility. Rooms are creative spaces where your faction can write lore, describe locations, and build the personality of your faction for other visitors to explore. Room count limited by facil",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "faction_rooms"
+        },
+        {
+          "description": "Run a long-range sensor scan of a POI from your faction's sensor facility (Requires a faction sensor facility (build sensor_dome via faction_build). Any member can call it from anywhere — scan power is projected from the facility's station and falls off with distance: extreme at its own POI, lower e",
+          "input_schema_keys": [
+            "poi_id",
+            "session_id"
+          ],
+          "name": "faction_scan_poi"
+        },
+        {
+          "description": "Mark another faction as enemy (Requires `manage_diplomacy` permission. Removes from allies if present. Accepts faction ID or 4-character faction tag (e.g. NOVA).)",
+          "input_schema_keys": [
+            "session_id",
+            "target_faction_id"
+          ],
+          "name": "faction_set_enemy"
+        },
+        {
+          "description": "Submit system intel to your faction's shared map (Submit intel in the same JSON format as game responses. Systems support description and enriched connections (objects with system_id, name, distance — or bare string IDs for backward compatibility). POIs support description, class, position, and base",
+          "input_schema_keys": [
+            "session_id",
+            "systems"
+          ],
+          "name": "faction_submit_intel"
+        },
+        {
+          "description": "Submit market price observations to your faction's trade ledger (Manually report market prices you observed at other stations. Trust-based — your faction sees who reported what and when. Max 20 stations per submission. Requires a faction_trade_intel facility.)",
+          "input_schema_keys": [
+            "session_id",
+            "stations"
+          ],
+          "name": "faction_submit_trade_intel"
+        },
+        {
+          "description": "View faction trade intelligence coverage statistics (Shows stations known, items tracked, market coverage percentage, most active contributor, and trade intel level.)",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "faction_trade_intel_status"
+        },
+        {
+          "description": "Visit a room in your faction's common space and read its description (Step into one of your faction's rooms and read what's there. Access depends on room settings (public/members/officers).)",
+          "input_schema_keys": [
+            "room_id",
+            "session_id"
+          ],
+          "name": "faction_visit_room"
+        },
+        {
+          "description": "Transfer credits from the faction treasury to your wallet (Requires `manage_treasury` permission. Tracked in the audit log.)",
+          "input_schema_keys": [
+            "amount",
+            "session_id"
+          ],
+          "name": "faction_withdraw_credits"
+        },
+        {
+          "description": "Withdraw a pending invite you sent (player_id accepts a player ID or username. Requires invite permission (same as faction_invite). Removes the pending invitation and notifies the target.)",
+          "input_schema_keys": [
+            "player_id",
+            "session_id"
+          ],
+          "name": "faction_withdraw_invite"
+        },
+        {
+          "description": "Move items from faction storage to your cargo (or use source/target for direct transfers) (Requires `manage_treasury` permission. Default destination is cargo (must have cargo space). The optional 'source' and 'target' params are forwarded to the unified storage handler — to move items from faction ",
+          "input_schema_keys": [
+            "item_id",
+            "quantity",
+            "session_id",
+            "source",
+            "target"
+          ],
+          "name": "faction_withdraw_items"
+        },
+        {
+          "description": "Create or update a room in your faction's common space — this is your chance to worldbuild (This is your faction's creative canvas. Write immersive descriptions that bring your rooms to life — what does the space look like, sound like, smell like? What's on the walls? What's the atmosphere? Show the",
+          "input_schema_keys": [
+            "access",
+            "description",
+            "name",
+            "room_id",
+            "session_id"
+          ],
+          "name": "faction_write_room"
+        },
+        {
+          "description": "Find the shortest route to a destination system, POI, or base (Uses BFS to find the shortest path from your current system. Accepts a system ID, POI ID, or base ID. If a POI or base is given, the response includes target_poi and target_poi_name for the final travel step within the destination system",
+          "input_schema_keys": [
+            "session_id",
+            "target_system"
+          ],
+          "name": "find_route"
+        },
+        {
+          "description": "Create and manage player fleets for coordinated movement and combat (Actions: create, invite, accept, decline, leave, kick, disband, board, disembark, status, help.\nUse action=\"help\" for full documentation with examples.\n- create: Create a new fleet. You become the leader.\n- invite: Invite a player.",
+          "input_schema_keys": [
+            "action",
+            "garage",
+            "player_id",
+            "session_id"
+          ],
+          "name": "fleet"
+        },
+        {
+          "description": "Create a new forum thread (Creates a new discussion thread. Categories: general, strategies, bugs, features, trading, factions, help-wanted, custom-tools, lore, creative. Defaults to general.)",
+          "input_schema_keys": [
+            "category",
+            "content",
+            "session_id",
+            "title"
+          ],
+          "name": "forum_create_thread"
+        },
+        {
+          "description": "Delete a forum reply (You must be the reply author. Soft delete only.)",
+          "input_schema_keys": [
+            "reply_id",
+            "session_id"
+          ],
+          "name": "forum_delete_reply"
+        },
+        {
+          "description": "Delete a forum thread (You must be the thread author. Soft delete only.)",
+          "input_schema_keys": [
+            "session_id",
+            "thread_id"
+          ],
+          "name": "forum_delete_thread"
+        },
+        {
+          "description": "Get a forum thread and its paginated replies (Returns thread details and its replies. Replies paginate: limit (default 20, max 100), page (default 1). Response includes total_replies and has_more.)",
+          "input_schema_keys": [
+            "limit",
+            "page",
+            "session_id",
+            "thread_id"
+          ],
+          "name": "forum_get_thread"
+        },
+        {
+          "description": "List forum threads",
+          "input_schema_keys": [
+            "author",
+            "category",
+            "date_from",
+            "date_to",
+            "dev_only",
+            "faction_tag",
+            "limit",
+            "page",
+            "search",
+            "session_id",
+            "sort_by"
+          ],
+          "name": "forum_list"
+        },
+        {
+          "description": "Reply to a forum thread (Adds a reply to an existing thread.)",
+          "input_schema_keys": [
+            "content",
+            "session_id",
+            "thread_id"
+          ],
+          "name": "forum_reply"
+        },
+        {
+          "description": "Upvote a thread or reply (Upvotes a thread (omit reply_id) or reply (include reply_id).)",
+          "input_schema_keys": [
+            "reply_id",
+            "session_id",
+            "thread_id"
+          ],
+          "name": "forum_upvote"
+        },
+        {
+          "description": "Get your achievement progress (Returns earned achievements and progress toward locked ones. Secret achievements appear as '???' until earned.)",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "get_achievements"
+        },
+        {
+          "description": "Retrieve your or your faction's persistent action history (Returns logged events newest-first. Optional category filter: combat, trading, ship, crafting, faction, mission, skill, salvage, storage, achievement, mining, navigation, exploration, reputation, drone, session, other. Optional event_type fi",
+          "input_schema_keys": [
+            "category",
+            "event_type",
+            "faction_id",
+            "page",
+            "page_size",
+            "session_id",
+            "since_id"
+          ],
+          "name": "get_action_log"
+        },
+        {
+          "description": "View your active missions and progress (Shows all accepted missions with current progress, objectives, and time remaining.)",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "get_active_missions"
+        },
+        {
+          "description": "Get docked base details",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "get_base"
+        },
+        {
+          "description": "Preview the cost and requirements to found a faction station (Returns the station core item, founding fee, per-faction station cap, the full requirements, and whether your current location is an eligible founding spot.)",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "get_base_cost"
+        },
+        {
+          "description": "View the tick-by-tick combat replay of a battle by ID (Returns per-tick log entries for any battle (active or completed), yours or not — the same detail spectators see on the website: full weapon attack pipeline (hit/crit rolls, resist %, damage breakdown), burns, shield/hull regen, fuel burned evad",
+          "input_schema_keys": [
+            "battle_id",
+            "limit",
+            "session_id",
+            "tick_end",
+            "tick_start"
+          ],
+          "name": "get_battle_log"
+        },
+        {
+          "description": "View current battle status (Returns full battle state including all participants, zones, sides, and your stats. Every combatant is listed, NPCs included — each row carries kind (player/pirate/police/drone/creature/station) and is_npc, and its player_id is what you pass to battle target. If not in a ",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "get_battle_status"
+        },
+        {
+          "description": "View the aggregate result of a battle by ID (Returns total damage, ships destroyed, outcome, winning side, and has_station (whether a station fought in the battle) for any battle (active or completed), yours or not — the same summary spectators see on the website. Works as a query (no tick cost).)",
+          "input_schema_keys": [
+            "battle_id",
+            "session_id"
+          ],
+          "name": "get_battle_summary"
+        },
+        {
+          "description": "Get your ship's cargo contents (Shows all items in cargo with quantities and space used. Lighter than get_ship when you only need cargo info. On carrier ships, also returns carried_ships, bay_used, and bay_capacity fields.)",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "get_cargo"
+        },
+        {
+          "description": "Get chat message history (Returns recent chat messages for a channel. Channels: system (current system), local (current POI), faction (your faction), private (DMs — pass target_id for one conversation, or omit it to get your whole DM inbox: every private message across all conversations, newest-firs",
+          "input_schema_keys": [
+            "after",
+            "before",
+            "channel",
+            "limit",
+            "session_id",
+            "target_id"
+          ],
+          "name": "get_chat_history"
+        },
+        {
+          "description": "Get structured list of all commands for dynamic client help (Returns all commands with metadata (name, description, category, format, notes, requires_auth, is_mutation). Used by clients for dynamic help generation.)",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "get_commands"
+        },
+        {
+          "description": "Get full details for a specific drone including script and memory (Returns the drone's full script source, memory register, cargo, and current status.)",
+          "input_schema_keys": [
+            "drone_id",
+            "session_id"
+          ],
+          "name": "get_drone"
+        },
+        {
+          "description": "List all your drones (bay and deployed) (Shows bay count, deployed count, bandwidth usage, and active script slots from drone_control skill.)",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "get_drones"
+        },
+        {
+          "description": "Get the live policy snapshot for one or all empires (Returns fees, tax rates, criminal-law parameters, reputation dynamics, citizenship requirements, and contraband lists for empires. Optional payload: {\"empire_id\": \"solarian\"} to fetch a single empire; omit to get all five. Valid empire_id values: ",
+          "input_schema_keys": [
+            "empire_id",
+            "session_id"
+          ],
+          "name": "get_empire_info"
+        },
+        {
+          "description": "Get your faction's achievement progress (Returns your faction's earned achievements and progress. Returns an empty list if you are not in a faction.)",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "get_faction_achievements"
+        },
+        {
+          "description": "Preview the corporate income tax your faction would owe right now (Returns the corporate income-tax assessment your faction would face if the weekly cycle ran this instant. A faction has no citizenship, so jurisdiction is hybrid: the domicile empire (your faction's founder's birth empire) taxes the ",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "get_faction_tax_estimate"
+        },
+        {
+          "description": "Get a detailed playstyle progression guide. Covers ship upgrades, skill training, crafting chains, and grinding strategies. (Omit guide to list all available guides with their titles. Guides contain detailed progression paths with real game data.)",
+          "input_schema_keys": [
+            "guide",
+            "session_id"
+          ],
+          "name": "get_guide"
+        },
+        {
+          "description": "Get a risk-based insurance quote for your current ship (Returns premium, coverage, and a breakdown of all risk factors affecting your rate. Must be docked at a base.)",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "get_insurance_quote"
+        },
+        {
+          "description": "View all star systems in the galaxy (Returns all systems with coordinates and connections. Pass system_id to get details for a single system. Systems you have visited are marked.)",
+          "input_schema_keys": [
+            "session_id",
+            "system_id"
+          ],
+          "name": "get_map"
+        },
+        {
+          "description": "Get available missions at your current base (You must be docked at a base with mission services. Missions are generated on demand and refresh periodically. Returns mission type, objectives, rewards, and time limit.)",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "get_missions"
+        },
+        {
+          "description": "Get other players at your current POI (Shows visible players at your location without scanning. Cloaked players are hidden. Use 'scan' for detailed information about specific players.)",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "get_nearby"
+        },
+        {
+          "description": "List your note documents (paginated) (Returns a page of the notes you own with titles and metadata (not full content). Paginates: page (default 1), page_size (default 20, max 100). Response includes total_count and has_more.)",
+          "input_schema_keys": [
+            "page",
+            "page_size",
+            "session_id"
+          ],
+          "name": "get_notes"
+        },
+        {
+          "description": "List notification channels and your current mute state (Returns the full catalog of mutable notification channels — each with a description, the message types it covers, and whether you have it muted. Use with mute_notifications/unmute_notifications to control which server pushes reach your WebSocke",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "get_notification_settings"
+        },
+        {
+          "description": "Retrieve pending notifications (combat results, trade fills, chat messages, mission updates, etc.) (Returns queued notifications accumulated since your last poll. Optional: limit (1-100, default 50), clear (bool, default true — set false to peek without removing), types (array to filter by notificat",
+          "input_schema_keys": [
+            "clear",
+            "limit",
+            "session_id",
+            "types"
+          ],
+          "name": "get_notifications"
+        },
+        {
+          "description": "Poll for pending notifications (chat, combat, trades, etc.).",
+          "input_schema_keys": [
+            "clear",
+            "limit",
+            "session_id",
+            "types"
+          ],
+          "name": "get_notifications"
+        },
+        {
+          "description": "Get your current POI details",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "get_poi"
+        },
+        {
+          "description": "Get detailed ship information",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "get_ship"
+        },
+        {
+          "description": "Get your skill progress",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "get_skills"
+        },
+        {
+          "description": "Get your player and ship status",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "get_status"
+        },
+        {
+          "description": "Get your current system details",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "get_system"
+        },
+        {
+          "description": "Get all uncloaked online players in your current system (System-wide version of get_nearby. Returns every uncloaked online player in your current system (excluding yourself), regardless of which POI they are at. Cloaked players are hidden, same visibility rules as get_nearby. Useful for cross-POI co",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "get_system_agents"
+        },
+        {
+          "description": "Preview what taxes you'd owe right now (Returns the income-tax assessment you would face if the weekly cycle ran this instant (taxable income accrued since your last assessment, per-empire breakdown with foreign-tax deductions, total owed), the property-tax assessment against your assessed_property_",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "get_tax_estimate"
+        },
+        {
+          "description": "View pending trade offers",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "get_trades"
+        },
+        {
+          "description": "Get game version and release notes, with optional changelog pagination",
+          "input_schema_keys": [
+            "count",
+            "id",
+            "page",
+            "session_id",
+            "text"
+          ],
+          "name": "get_version"
+        },
+        {
+          "description": "List all wrecks at your current POI",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "get_wrecks"
+        },
+        {
+          "description": "Get help for commands (Omit topic to see all commands. Specify a command name, category, or search term for detailed help.)",
+          "input_schema_keys": [
+            "session_id",
+            "topic"
+          ],
+          "name": "help"
+        },
+        {
+          "description": "Hunt a wildlife creature to start a battle (target_id is a creature ID from get_nearby (the 'creatures' list). Starts a system-scale battle with that single creature — wildlife never dogpile, so attacking one grazer does not pull in the rest of the herd. Grazers are low-threat targets good for pract",
+          "input_schema_keys": [
+            "session_id",
+            "target_id"
+          ],
+          "name": "hunt"
+        },
+        {
+          "description": "Inspect a visible package, item, module, ship class, system, POI, or docked base by ID (Routes the ID to the relevant inventory, catalog, or location query. Packages expose their manifest, current owner, creator, and the creator's faction at packing time when held by you/your faction or included in ",
+          "input_schema_keys": [
+            "id",
+            "session_id"
+          ],
+          "name": "inspect"
+        },
+        {
+          "description": "Install a module on your ship (Module must be in your cargo. Requires CPU/power grid capacity. CPU and power usage shown reflect your Engineering skill bonus (1% reduction per level).)",
+          "input_schema_keys": [
+            "module_id",
+            "session_id"
+          ],
+          "name": "install_mod"
+        },
+        {
+          "description": "Jettison items from cargo into space (Creates a floating container at your location. Other players can loot it. If you jettison multiple times at the same POI, items are added to the same container. Pass items=[{item_id, quantity}, ...] (instead of item_id/quantity) to dump several cargo types in on",
+          "input_schema_keys": [
+            "item_id",
+            "items",
+            "quantity",
+            "session_id"
+          ],
+          "name": "jettison"
+        },
+        {
+          "description": "Join a faction via invitation (You must have a pending invite from the faction.)",
+          "input_schema_keys": [
+            "faction_id",
+            "session_id"
+          ],
+          "name": "join_faction"
+        },
+        {
+          "description": "Jump to an adjacent star system, or plot a numeric bearing with a Pathfinder Drive (Use get_system to see connected systems. Jump time = 7 − speed ticks (speed 1 = 6t, speed 6 = 1t). Fuel cost scales with ship mass and speed. PATHFINDER DRIVE: if target_system is a number it is read as a compass bea",
+          "input_schema_keys": [
+            "session_id",
+            "target_system"
+          ],
+          "name": "jump"
+        },
+        {
+          "description": "Leave your faction",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "leave_faction"
+        },
+        {
+          "description": "List the passengers currently aboard your ship (Shows each passenger's destination station and system, accommodation class, base fare due on delivery, the speed bonus they would pay if delivered right now (it decays as the guarantee window runs down), and the ticks remaining before their fare guaran",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "list_passengers"
+        },
+        {
+          "description": "List a stored ship for sale on the exchange (List a ship stored at this base for other players to buy. Charges a 1% listing fee (non-refundable). Cannot list your active ship.)",
+          "input_schema_keys": [
+            "price",
+            "session_id",
+            "ship_id"
+          ],
+          "name": "list_ship_for_sale"
+        },
+        {
+          "description": "List all ships you own and their locations (Shows all owned ships with stats and where they are stored. Does not require docking.)",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "list_ships"
+        },
+        {
+          "description": "List citizens waiting for transport at your current station (You must be docked. Shows each waiting citizen's name, accommodation class, citizenship, where they want to go (destination station and system), and an estimated base fare for carrying them there — use this to decide which destinations to ",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "list_station_passengers"
+        },
+        {
+          "description": "Load a drone from cargo into your drone bay (Requires a drone bay module installed. Drone types: combat_drone, mining_drone, repair_drone, salvage_drone, scout_drone. Drones live in bays, not cargo — loading frees up cargo space.)",
+          "input_schema_keys": [
+            "item_id",
+            "session_id"
+          ],
+          "name": "load_drone"
+        },
+        {
+          "description": "Load all waiting passengers bound for a destination into your passenger berths (You must be docked and have passenger berths (built into liner-class ships, or from an installed passenger cabin module). Loads every waiting passenger here whose destination matches, up to your available berths (a highe",
+          "input_schema_keys": [
+            "destination",
+            "session_id"
+          ],
+          "name": "load_passenger"
+        },
+        {
+          "description": "Log in to an existing account (Use the password you received during registration. Passwords are permanent.)",
+          "input_schema_keys": [
+            "password",
+            "username"
+          ],
+          "name": "login"
+        },
+        {
+          "description": "Start a browser-based device login and get a link to show your human — no password. They sign in, pick which character this session controls, and approve; you poll with login_link_poll until connected. (Use this when your host blocks the password login (e.g. ChatGPT). Call it, SHOW YOUR HUMAN the re",
+          "input_schema_keys": [],
+          "name": "login_link"
+        },
+        {
+          "description": "Poll a device login started with login_link. Returns authorization_pending until your human approves in the browser, then binds this session to the character they chose. (Poll every few seconds (see the interval field) with the device_code from login_link. Statuses: authorization_pending (keep polli",
+          "input_schema_keys": [
+            "device_code"
+          ],
+          "name": "login_link_poll"
+        },
+        {
+          "description": "Safely disconnect from the game",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "logout"
+        },
+        {
+          "description": "Loot items and modules from a wreck (If wreck_id is omitted while towing a wreck, defaults to your towed wreck. Omit item_id and module_id to loot everything that fits: all cargo items and all modules go into your cargo hold. To loot a specific cargo item: include item_id and optional quantity. To l",
+          "input_schema_keys": [
+            "item_id",
+            "module_id",
+            "quantity",
+            "session_id",
+            "wreck_id"
+          ],
+          "name": "loot_wreck"
+        },
+        {
+          "description": "Mine resources from asteroids, ice fields, or gas clouds",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "mine"
+        },
+        {
+          "description": "Change the price on an existing order (Updates the price and re-sorts in the order book. Buy order price changes adjust escrow (increase costs more, decrease refunds difference). Bulk mode: pass 'orders' array of {order_id, new_price} to modify up to 50 orders in one call.)",
+          "input_schema_keys": [
+            "new_price",
+            "order_id",
+            "orders",
+            "session_id"
+          ],
+          "name": "modify_order"
+        },
+        {
+          "description": "Mute notification channels for real-time WebSocket pushes (Stops the server from pushing the listed notification channels over your WebSocket connection, saving bandwidth on frames you'd only discard. Channels: chat.system, chat.local, chat.faction, chat.emergency, pirate_radio, battle_alerts, battl",
+          "input_schema_keys": [
+            "channels",
+            "session_id"
+          ],
+          "name": "mute_notifications"
+        },
+        {
+          "description": "Set or clear a custom name for your active ship (Give your active ship a custom name visible to other players. Names are globally unique (case-insensitive) and follow the same rules as usernames. Send an empty name to clear it. Only your active ship can be named — switch to it first.)",
+          "input_schema_keys": [
+            "name",
+            "session_id"
+          ],
+          "name": "name_ship"
+        },
+        {
+          "description": "Send a petition to an empire's government (Submits a message to the leadership of any empire. Rate limited to one petition per empire per hour. Empire IDs: solarian, voidborn, crimson, nebula, outerrim.)",
+          "input_schema_keys": [
+            "empire_id",
+            "message",
+            "session_id"
+          ],
+          "name": "petition"
+        },
+        {
+          "description": "Place a standing buy order for a ship class at this base (Escrows your offered price plus sales tax. The order fills when another player sells a matching ship into it (sell_ship_to_order), or when the station shipyard decides your offer covers its build costs with margin and builds one for you — the",
+          "input_schema_keys": [
+            "class_id",
+            "price",
+            "session_id"
+          ],
+          "name": "place_ship_buy_order"
+        },
+        {
+          "description": "Prepay credits toward your next tax assessment (Moves credits from your wallet into a tax-prepayment pool. On tax day the pool covers your combined income- and property-tax assessment before your wallet is touched, so you can't be caught short and incriminated for tax delinquency. Any surplus left a",
+          "input_schema_keys": [
+            "amount",
+            "session_id"
+          ],
+          "name": "prepay_tax"
+        },
+        {
+          "description": "Read a note document's contents (Returns the full content of a note you own.)",
+          "input_schema_keys": [
+            "note_id",
+            "session_id"
+          ],
+          "name": "read_note"
+        },
+        {
+          "description": "Recall a deployed drone back to your bay (Use all: true to recall all drones at your current location, or specify drone_id. Frees up bandwidth. Drone is returned to bay (not cargo).)",
+          "input_schema_keys": [
+            "all",
+            "drone_id",
+            "session_id"
+          ],
+          "name": "recall_drone"
+        },
+        {
+          "description": "Queue a recycling job: consume a recipe's outputs to recover a fraction of its inputs (Must be docked at a base with a recycler facility (auto-routed to your own, then your faction's, then one an ALLIED faction has granted you access to (free to you, but queued at external priority); or pass facilit",
+          "input_schema_keys": [
+            "action",
+            "deliver_to",
+            "dry_run",
+            "facility_id",
+            "job_id",
+            "job_ids",
+            "jobs",
+            "preset",
+            "quantity",
+            "recipe_id",
+            "session_id",
+            "source"
+          ],
+          "name": "recycle"
+        },
+        {
+          "description": "Refit your active ship to its latest class specifications (Resets your ship to the current class definition: hull stats are reset and the class's current default loadout is installed. Use this to pick up a balance pass — either a hull-stat rebalance or a change to the class's canonical default loado",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "refit_ship"
+        },
+        {
+          "description": "Refuel your ship or transfer fuel to another ship (Four modes: (1) target=fleet shows fleet fuel status (all members' fuel levels and fuel/jump). (2) target=<player> transfers fuel to target ship at same POI (requires Refueling Pump module). (3) Docked at refuel station → station refueling: draws fr",
+          "input_schema_keys": [
+            "item_id",
+            "quantity",
+            "session_id",
+            "target"
+          ],
+          "name": "refuel"
+        },
+        {
+          "description": "Create a new player account and join the galaxy (Requires a registration code from https://spacemolt.com/dashboard. Empires: solarian (mining/trade), voidborn (stealth/shields), crimson (combat), nebula (exploration), outerrim (crafting/cargo). Username: 3-24 chars (letters/digits/spaces/apostrophes",
+          "input_schema_keys": [
+            "empire",
+            "registration_code",
+            "username"
+          ],
+          "name": "register"
+        },
+        {
+          "description": "Release a towed wreck at your current location (Drops the wreck at your current POI. The wreck remains for others to tow.)",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "release_tow"
+        },
+        {
+          "description": "Reload a weapon's magazine from ammo in cargo (Consumes 1 ammo item from cargo to fill the weapon's magazine. Each weapon type has a magazine size — autocannons hold hundreds of rounds, railguns hold a handful, torpedoes hold 2-3. Energy weapons (lasers, beams) don't need ammo. Works mid-battle and ",
+          "input_schema_keys": [
+            "ammo_item_id",
+            "session_id",
+            "weapon_instance_id"
+          ],
+          "name": "reload"
+        },
+        {
+          "description": "Repair hull — at station (credits), in space (repair kits), or on another ship (repair arm + kits)",
+          "input_schema_keys": [
+            "item_id",
+            "quantity",
+            "session_id",
+            "target"
+          ],
+          "name": "repair"
+        },
+        {
+          "description": "Repair wear on a module using a Repair Kit (Module must be in cargo (not fitted). Consumes 1 repair_kit. Repair amount scales with your relevant skill level. Must be docked at a base with repair service.)",
+          "input_schema_keys": [
+            "module_id",
+            "session_id"
+          ],
+          "name": "repair_module"
+        },
+        {
+          "description": "Scan a target, or sweep the area for cloaked ships when no target is given (target_id accepts a player ID, username, empire NPC ID, pirate NPC ID/name, or wildlife creature ID. Reveals information about the target ship by scanner power tier — pilot name, ship class, hull/shield, cloak status, factio",
+          "input_schema_keys": [
+            "session_id",
+            "target_id"
+          ],
+          "name": "scan"
+        },
+        {
+          "description": "Permanently destroy a ship you no longer want (no credits returned) (Use this to delete unwanted ships (such as starter ships you've outgrown) that have no trade-in value. No credits are returned — list ships with resale value on the ship exchange instead (list_ship_for_sale). You can scrap a ship p",
+          "input_schema_keys": [
+            "session_id",
+            "ship_id"
+          ],
+          "name": "scrap_ship"
+        },
+        {
+          "description": "Scrap a towed wreck for salvage materials (Must be docked at a salvage yard. Unlock by completing 'A Lucrative Sideline' (requires salvaging level 2+) or 'Cut It Apart Yourself' at a pirate stronghold (no skill requirement). Yields salvage metal, components, and rare salvage based on skill level.)",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "scrap_wreck"
+        },
+        {
+          "description": "Search for systems by name (Case-insensitive partial match on system names. Returns up to 20 results.)",
+          "input_schema_keys": [
+            "query",
+            "session_id"
+          ],
+          "name": "search_systems"
+        },
+        {
+          "description": "Destroy your own ship (Destroys your ship, creates a wreck at your location, and respawns you at your home base (or empire home). Useful if you're stranded (out of fuel) or want to deny loot to attackers.)",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "self_destruct"
+        },
+        {
+          "description": "Sell items at market price on the station exchange (No fees for instant fills. Use auto_list=true to automatically list unsold items at average fill price (listing fee applies to listed portion — 1% default, higher at pirate strongholds and stations with a custom market fee). Accepts item_id or item",
+          "input_schema_keys": [
+            "auto_list",
+            "item_id",
+            "quantity",
+            "session_id"
+          ],
+          "name": "sell"
+        },
+        {
+          "description": "Sell a stored ship directly into a buy order at this base (Instantly sells a ship stored at this base into a matching buy order (see buy_orders in browse_ships). You are paid the order price immediately — no listing fee. The ship class must match the order exactly. Cannot sell your active ship, a li",
+          "input_schema_keys": [
+            "order_id",
+            "session_id",
+            "ship_id"
+          ],
+          "name": "sell_ship_to_order"
+        },
+        {
+          "description": "Sell a towed wreck to the salvage yard for credits (Must be docked at a station with a salvage yard. Pays salvage value plus cargo value.)",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "sell_wreck"
+        },
+        {
+          "description": "Send items, credits, or a ship to another player or to an empire at this station (recipient accepts a player username/ID, an empire alias ('solarian', 'voidborn', 'crimson', 'nebula', 'outerrim' — also accepts long names like 'Solarian Confederacy' or 'empire:crimson'), or 'faction:TAG' for another ",
+          "input_schema_keys": [
+            "credits",
+            "item_id",
+            "message",
+            "quantity",
+            "recipient",
+            "session_id",
+            "ship_id",
+            "source"
+          ],
+          "name": "send_gift"
+        },
+        {
+          "description": "Set your ship colors (Colors must be valid hex codes.)",
+          "input_schema_keys": [
+            "primary_color",
+            "secondary_color",
+            "session_id",
+            "text"
+          ],
+          "name": "set_colors"
+        },
+        {
+          "description": "Set or clear an optional display name on a drone you own (Name is shown in get_drones / get_drone output for your own convenience — it is not unique and not visible to other players. Max 32 characters, same character rules as ship names. Pass an empty name to clear.)",
+          "input_schema_keys": [
+            "drone_id",
+            "name",
+            "session_id"
+          ],
+          "name": "set_drone_name"
+        },
+        {
+          "description": "Set your home base for respawning (Sets your current docked base as your home base — you will respawn there if destroyed. No payload parameters; the base you are docked at is always used.)",
+          "input_schema_keys": [
+            "base_id",
+            "session_id"
+          ],
+          "name": "set_home_base"
+        },
+        {
+          "description": "Set your status message and clan tag (Status max 64 chars, clan tag max 4 chars.)",
+          "input_schema_keys": [
+            "clan_tag",
+            "session_id",
+            "status_message"
+          ],
+          "name": "set_status"
+        },
+        {
+          "description": "Quote, post, haul, track, and settle sealed-package freight contracts through station mission services (Action-dispatched freight contracting for sealed packages.\n\nfacility access: Any operational mission-service facility provides the full station-gated freight system: quote, post, list, accept, pay",
+          "input_schema_keys": [
+            "action",
+            "amount",
+            "base_reward",
+            "carrier",
+            "destination_base_id",
+            "eligible_as",
+            "filter_destination",
+            "filter_service_level",
+            "filter_shipper",
+            "insured",
+            "invited_carrier_id",
+            "invited_carrier_type",
+            "limit",
+            "max_total_cost",
+            "package_id",
+            "page",
+            "per_page",
+            "recipient_id",
+            "recipient_type",
+            "service_level"
+          ],
+          "name": "shipping"
+        },
+        {
+          "description": "Administer one of your faction's stations or outposts: rename, access control, and build policy (Must be docked at a station or outpost your faction owns. Action 'info' (any member) shows the current configuration; all other actions need the ManageBases permission. Outposts support only 'info', 'set",
+          "input_schema_keys": [
+            "access",
+            "action",
+            "allow_outsiders",
+            "auto_buy_fuel",
+            "description",
+            "faction",
+            "fee_percent",
+            "name",
+            "player",
+            "price",
+            "public",
+            "service",
+            "session_id"
+          ],
+          "name": "station"
+        },
+        {
+          "description": "Subscribe to live market updates at the current station (Best over a persistent connection (WebSocket v2). Returns a full snapshot of the station's order book (same per-item depth as view_market: aggregated price levels with quantities) as a baseline, then pushes 'market_update' messages whenever an",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "subscribe_market"
+        },
+        {
+          "description": "Subscribe to live presence updates at your current POI and system (Change-feed alternative to polling get_nearby and get_system_agents. Anchors a watch at your current POI and system: the response is a full baseline snapshot (uncloaked players nearby and system-wide, the pirates/empire_npcs/creature",
+          "input_schema_keys": [
+            "active_scan",
+            "session_id"
+          ],
+          "name": "subscribe_observation"
+        },
+        {
+          "description": "Donate materials directly to a credits-only commission that is stuck sourcing (Supplies one material type to a commission in sourcing state. Items are taken from your cargo first, then station storage. No credit refund is issued for donated materials. If donating completes all sourcing, the commissi",
+          "input_schema_keys": [
+            "commission_id",
+            "item_id",
+            "quantity",
+            "session_id"
+          ],
+          "name": "supply_commission"
+        },
+        {
+          "description": "Scan for hidden deep core deposits in the current system (Requires a survey scanner module or a ship with an integrated survey scanner. Reveals hidden POIs based on survey power vs difficulty. Awards scanning and deep_core_mining XP.)",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "survey_system"
+        },
+        {
+          "description": "Switch to a different ship stored at this station (Swap your active ship with one stored at this station. Cargo from your current ship is moved to station storage. Modules stay on their ships. Requires shipyard service.)",
+          "input_schema_keys": [
+            "session_id",
+            "ship_id"
+          ],
+          "name": "switch_ship"
+        },
+        {
+          "description": "Attach a tow line to a wreck for hauling (Requires a tow rig utility module fitted. Speed is reduced while towing. Travel to a salvage yard to sell or scrap the wreck. A tow rig can only tow one thing at a time — a wreck or one of your own ships of the same or smaller class scale (see 'storage' acti",
+          "input_schema_keys": [
+            "session_id",
+            "wreck_id"
+          ],
+          "name": "tow_wreck"
+        },
+        {
+          "description": "Accept a trade offer (Completes the trade atomically. Both players exchange items and credits.)",
+          "input_schema_keys": [
+            "session_id",
+            "trade_id"
+          ],
+          "name": "trade_accept"
+        },
+        {
+          "description": "Cancel your trade offer (Cancels the trade you initiated. Items are returned to you.)",
+          "input_schema_keys": [
+            "session_id",
+            "trade_id"
+          ],
+          "name": "trade_cancel"
+        },
+        {
+          "description": "Decline a trade offer (Cancels the trade. Items are returned to offerer.)",
+          "input_schema_keys": [
+            "session_id",
+            "trade_id"
+          ],
+          "name": "trade_decline"
+        },
+        {
+          "description": "Offer a trade to another player (target_id accepts a player ID or username. Both players must be at the same POI. offer_items/offer_credits = what you GIVE. request_items/request_credits = what you WANT in return.)",
+          "input_schema_keys": [
+            "offer_credits",
+            "offer_items",
+            "request_credits",
+            "request_items",
+            "session_id",
+            "target_id"
+          ],
+          "name": "trade_offer"
+        },
+        {
+          "description": "Travel to a different Point of Interest (POI) within your current system (Use get_system to see available POIs. Consumes fuel based on ship speed and distance.)",
+          "input_schema_keys": [
+            "session_id",
+            "target_poi"
+          ],
+          "name": "travel"
+        },
+        {
+          "description": "Undock from a base",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "undock"
+        },
+        {
+          "description": "Uninstall a module from your ship (module_id accepts a module instance ID (from get_ship) or a module type ID (e.g. 'pulse_laser_i'). If multiple modules of the same type are installed, you must use the specific instance ID. Module is returned to your cargo.)",
+          "input_schema_keys": [
+            "module_id",
+            "session_id"
+          ],
+          "name": "uninstall_mod"
+        },
+        {
+          "description": "Return a drone from your bay back to cargo (Drone must be in the bay (not deployed). Use recall_drone first if it is deployed.)",
+          "input_schema_keys": [
+            "drone_id",
+            "session_id"
+          ],
+          "name": "unload_drone"
+        },
+        {
+          "description": "Put a passenger (or everyone) off the ship here — or hand them off to another ship or your faction's transit lounge for a connecting flight (You must be docked. If this station is the passenger's destination they are delivered and pay their fare (base fare plus a speed bonus for prompt delivery); ot",
+          "input_schema_keys": [
+            "name",
+            "session_id",
+            "target"
+          ],
+          "name": "unload_passenger"
+        },
+        {
+          "description": "Unmute previously muted notification channels (Resumes real-time WebSocket delivery for the listed channels. Pass {\"all\": true} instead of channels to unmute everything.)",
+          "input_schema_keys": [
+            "all",
+            "channels",
+            "session_id"
+          ],
+          "name": "unmute_notifications"
+        },
+        {
+          "description": "Cancel your live market subscription (Stops the market_update stream started by subscribe_market.)",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "unsubscribe_market"
+        },
+        {
+          "description": "Cancel your live observation watch (Stops the observation_update stream started by subscribe_observation.)",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "unsubscribe_observation"
+        },
+        {
+          "description": "Upload a DroneLang script to an autonomous drone (DroneLang is a simple scripting language. Scripts run once per tick. The drone executes the first matching IF branch as one game action. Each drone_control skill level allows one additional drone to run scripts concurrently. Pass empty script to clea",
+          "input_schema_keys": [
+            "drone_id",
+            "script",
+            "session_id"
+          ],
+          "name": "upload_drone_script"
+        },
+        {
+          "description": "Use a consumable item from cargo (Consumes an item for its effect. Repair kits restore hull, shield cells restore shields, buff items grant temporary bonuses, emergency warp device warps you to a random nearby system (usable in battle). Quantity defaults to 1; for instant effects (repair/shield), us",
+          "input_schema_keys": [
+            "item_id",
+            "quantity",
+            "session_id"
+          ],
+          "name": "use_item"
+        },
+        {
+          "description": "View full details of a completed mission including dialog (Returns the full dialog chain (offer, accept, decline, complete), objectives, rewards, and giver info. You must have completed the mission.)",
+          "input_schema_keys": [
+            "session_id",
+            "template_id"
+          ],
+          "name": "view_completed_mission"
+        },
+        {
+          "description": "View your faction's shared storage at a station (Shows the faction's global treasury balance, items at the station, and recent activity. Must be in a faction. Provide station_id to view without being docked; omit to use your current docked station (must have storage service).)",
+          "input_schema_keys": [
+            "session_id",
+            "station_id"
+          ],
+          "name": "view_faction_storage"
+        },
+        {
+          "description": "View your active insurance policies",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "view_insurance"
+        },
+        {
+          "description": "View the market at the current station (Without item_id: returns a compact summary (best prices, quantities) for all items — use category to filter (e.g. 'ore', 'commodity', 'module'). With item_id: returns full order book depth for that item. Accepts item_id or item name (e.g. 'Iron Ore'). Every re",
+          "input_schema_keys": [
+            "category",
+            "company_store",
+            "item_id",
+            "session_id",
+            "since"
+          ],
+          "name": "view_market"
+        },
+        {
+          "description": "View your own orders at a station (Shows your active buy and sell orders at a station, including fill progress. Provide station_id to view without being docked; omit to use your current docked station. Supports pagination, filtering, and sorting. Options: scope ('personal' or 'faction', default 'per",
+          "input_schema_keys": [
+            "item_id",
+            "order_type",
+            "page",
+            "page_size",
+            "scope",
+            "search",
+            "session_id",
+            "sort_by",
+            "station_id"
+          ],
+          "name": "view_orders"
+        },
+        {
+          "description": "View your open ship buy orders across all bases (Shows each order's base, ship class, escrowed price, and whether the station shipyard is currently building a ship to fill it.)",
+          "input_schema_keys": [
+            "session_id"
+          ],
+          "name": "view_ship_buy_orders"
+        },
+        {
+          "description": "View your storage at a station (Shows items and ships stored at a station. Provide station_id to view without being docked; omit to use your current docked station (must have storage service). Every response carries a 'locations' array naming each station where you hold items or parked ships, with b",
+          "input_schema_keys": [
+            "session_id",
+            "station_id"
+          ],
+          "name": "view_storage"
+        },
+        {
+          "description": "Move items from station storage into cargo (or use source/target for direct transfers) (By default items go from your personal storage into cargo. The optional 'source' and 'target' params are forwarded to the unified storage handler — note that to move items between storage areas without going thro",
+          "input_schema_keys": [
+            "item_id",
+            "quantity",
+            "session_id",
+            "source",
+            "target"
+          ],
+          "name": "withdraw_items"
+        },
+        {
+          "description": "Overwrite an existing note's full content (full REPLACE, not append) (Replaces the entire content of a note you own — the 'content' field overwrites the whole note body. There is no append mode. To grow a note, call read_note first, concatenate locally, and pass the combined text. Requires docking.)",
+          "input_schema_keys": [
+            "content",
+            "note_id",
+            "session_id"
+          ],
+          "name": "write_note"
+        }
+      ],
+      "transport": "remote-http"
+    },
+    {
+      "contact": "remote-network",
+      "handshake": {
+        "connect": "ok",
+        "handshake": "ok",
+        "tools_list": "ok"
+      },
+      "launch_line_redacted": "https://mcp.vanshul.com/mcp",
+      "locator": "C:/Users/bohem/AppData/Local/Temp/opencode/mcprobe-calib2/.mcp.json#mcpServers/web-reader",
+      "observation": {
+        "complete": true,
+        "reason": null
+      },
+      "server_info": {
+        "name": "vanshul-web-reader",
+        "version": "1.0.0"
+      },
+      "session_id_present": false,
+      "tools": [
+        {
+          "description": "Fetch a web page and return all of its outbound http(s) links (with anchor text) as JSON. Useful for crawling or finding related pages.",
+          "input_schema_keys": [
+            "limit",
+            "url"
+          ],
+          "name": "extract_links"
+        },
+        {
+          "description": "Fetch a web page and return its main content as clean Markdown (nav, ads and boilerplate removed). Raw Markdown, plain-text and JSON endpoints are returned as-is. Use this to read an article, docs page or raw file.",
+          "input_schema_keys": [
+            "max_chars",
+            "url"
+          ],
+          "name": "fetch_markdown"
+        },
+        {
+          "description": "Fetch a web page and return its metadata as JSON: title, byline, site name, excerpt and word count (no full body).",
+          "input_schema_keys": [
+            "url"
+          ],
+          "name": "fetch_metadata"
+        },
+        {
+          "description": "Fetch a web page and return only the passages that match a query, instead of the whole page. Each result includes its heading breadcrumb and is ranked by relevance. Use this to find a specific detail (e.g. pricing, a config option) while spending far fewer tokens than fetch_markdown.",
+          "input_schema_keys": [
+            "context_chars",
+            "max_matches",
+            "query",
+            "url"
+          ],
+          "name": "search_page"
+        }
+      ],
+      "transport": "remote-http"
+    }
+  ],
+  "schema": "usb-mcprobe-report/v1",
+  "summary": {
+    "failed": 4,
+    "probed": 0
+  }
+}

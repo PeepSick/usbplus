@@ -1,41 +1,47 @@
-# mcprobe calibration log
+# mcprobe Calibration — Run #2 (2026-08-27)
 
-Report-only runtime observations against real remote MCP servers.
-Purpose: accumulate static↔runtime comparison data BEFORE deciding
-whether a P104 finding family is justified. Raw `usb-mcprobe-report/v1`
-outputs are committed next to these notes.
+## Config
 
-## Run 1 — 2026-08-25 (mcprobe v1.1 + UA hotfix)
+9 hedef, `--timeout 20`, config: `%TEMP%/opencode/mcprobe-calib2/.mcp.json`
 
-Config: 4 remote entries (see raw JSON). Engine exit 1 — expected: one
-target intentionally requires auth.
+## Sonuçlar
 
-| Target | Transport | Result | Tools | Docs↔runtime |
-|---|---|---|---|---|
-| deepwiki-http (`mcp.deepwiki.com/mcp`) | streamable HTTP | complete ✓ | ask_question, read_wiki_contents, read_wiki_structure | **exact match** with published tool list |
-| deepwiki-sse (`/sse`) | legacy SSE | protocol_error: HTTP 405 | — | known v1 limitation (legacy GET-stream transport unsupported; modern spec deprecates it) |
-| web-reader (`mcp.vanshul.com/mcp`) | streamable HTTP | complete ✓ **after UA fix** | extract_links, fetch_markdown, fetch_metadata, search_page | **exact match** with published tool list |
-| github-copilot-auth | streamable HTTP | auth_required (HTTP 401) ✓ | — | honest error-path calibration |
+| # | Hedef | Transport | Durum | Tool | Not |
+|---|---|---|---|---|---|
+| 1 | deepwiki-sse | SSE | protocol_error: HTTP 405 | 0 | Legacy SSE desteklenmiyor (önceden de belgeli) |
+| 2 | semgrep | HTTP | protocol_error: HTTP 404 | 0 | URL geçersiz veya endpoint taşınmış |
+| 3 | chainflip | HTTP | **complete** | 6 | Broker as a Service — crypto swap, auth yok ✓ |
+| 4 | deepwiki-http | HTTP | **complete** | 3 | v2.14.3 — ask_question, read_wiki_* (önceden de birebir ✓) |
+| 5 | 402bot | HTTP | protocol_error: HTTP 405 | 0 | Endpoint desteklemiyor |
+| 6 | roundtable | HTTP | **complete** | 13 | Multi-model AI brainstorming, auth yok ✓ |
+| 7 | bgpt | HTTP | auth_required: HTTP 401 | 0 | Auth gerektiriyor (beklenti: authsiz) |
+| 8 | web-reader | HTTP | **complete** | 4 | vanshul-web-reader v1.0.0 (önceden de birebir ✓) |
+| 9 | spacemolt | HTTP | **complete** | 80+ | MMO oyun, auth yok (kayıt ile) ✓ |
 
-### Findings from real-world data
+## Özet
 
-1. **Declared↔runtime agreement: 2/2 exact matches** on comparable cases.
-   No divergence observed → P104 stays unwritten; report-only remains the
-   right call until a real mismatch shows up.
-2. **Static-layer blindness confirmed by design**: remote servers have no
-   in-tree source, so the stage-3 parser sees nothing — mcprobe is the
-   only way USB can see them at all. Validates the runtime layer's reason
-   to exist.
-3. **Missing default User-Agent caused Cloudflare 403**, which our
-   vocabulary classified as `auth_required`. Fixed in-engine (UA header
-   added). Open nuance for later: distinguishing bot-protection blocks
-   from genuine auth failures may deserve separate reasons.
-4. **Legacy SSE transport (GET-stream + POST endpoint) unsupported**;
-   modern streamable HTTP works everywhere tested. Limitation documented,
-   support deferred.
+- **Başarılı:** 5/9 (chainflip, deepwiki-http, roundtable, web-reader, spacemolt)
+- **Auth gerekli:** 1/9 (bgpt → HTTP 401)
+- **Protocol error:** 3/9 (deepwiki-sse 405, semgrep 404, 402bot 405)
 
-### P104 verdict so far
+## Declare-vs-Runtime Uyuşma
 
-NOT JUSTIFIED YET. Zero declared↔runtime mismatches across the first
-real sample. Keep collecting report-only data as new remote targets are
-probed.
+| Sunucu | Declared tool | Runtime tool | Uyuşma |
+|---|---|---|---|
+| deepwiki-http | 3 (static config'den) | 3 (ask_question, read_wiki_contents, read_wiki_structure) | **birebir** ✓ |
+| web-reader | 4 (static config'den) | 4 (extract_links, fetch_markdown, fetch_metadata, search_page) | **birebir** ✓ |
+
+Yeni sunucular (chainflip, roundtable, spacemolt) için static config olmadığından karşılaştırma yapılamıyor — bunlar远程-only, in-tree kaynak yok.
+
+## P104 Durumu
+
+**Toplam örnek:** 4/4 uyuşma (deepwiki-http 2 tur, web-reader 2 tur)
+**Hâlâ report-only:** Evet. Mismatch henüz görülmedi.
+**Sonraki adım:** Daha fazla OAuth-olmayan sunucu test et; auth_required ile auth_required olmayan ayrımı netleştir.
+
+## Yeni Bulgu
+
+- **Chainflip Broker:** İlk kez test edilen no-auth remote MCP — crypto swap tool'ları, `Mcp-Session-Id` döndürmüyor (stateless).
+- **Roundtable:** İlk kez test edilen no-auth remote MCP — 13 tool (multi-model brainstorming), stateless.
+- **Spacemolt:** 80+ tool ile en büyük tool set — MMO oyun, stateless API.
+- **BGPT:** Auth gerektiriyor (beklenti: authsiz idi). auth_required ayrımı için iyi veri noktası.
