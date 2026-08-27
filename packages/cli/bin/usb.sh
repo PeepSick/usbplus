@@ -22,6 +22,7 @@
 #                                  ("usb scan" is a shorthand alias)
 #   usb mcprobe [paths...]         Runtime observation of MCP servers (LAUNCHES
 #                                  targets - opt-in via --yes; non-deterministic)
+#   usb mcp                        Start the MCP stdio server (for AI agents)
 #   usb version                    Show USB pack version
 #   usb --help                     Show this help
 #
@@ -672,6 +673,11 @@ case "${1:-}" in
       err "mcprobe needs python3 in PATH"; exit 2; }
     MCP_DIR="$(cd "$(dirname "$USB_SECSCAN_ENGINE")" && pwd)"
     python3 "$(secscan_to_native_path "$MCP_DIR")/usb-mcprobe.py" "$@" ;;
+  mcp)            shift
+    command -v python3 >/dev/null 2>&1 || {
+      err "mcp server needs python3 in PATH"; exit 2; }
+    MCP_DIR="$(cd "$(dirname "$USB_SECSCAN_ENGINE")" && pwd)"
+    python3 "$(secscan_to_native_path "$MCP_DIR")/usb-mcp.py" "$@" ;;
   version|-V|--version) cmd_version ;;
   -h|--help|help) usage ;;
   *)
