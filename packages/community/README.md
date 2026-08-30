@@ -46,6 +46,6 @@ Each agent documents its metadata at `packages/community/<name>/manifest.json`:
   "skills": ["oauth-flows", "prompt-injection-defense"],
   "presets": ["security"],
   "tags": ["auth", "security", "oauth"],
-  "minUsbVersion": "0.4.0"
+  "minUsbVersion": "1.0.0"
 }
 ```

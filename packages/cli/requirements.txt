@@ -1,0 +1,3 @@
+# USB CLI Python dependencies
+# Required for: usb mcp (MCP stdio server)
+mcp>=1.0.0

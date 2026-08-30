@@ -1,6 +1,6 @@
 {
   "name": "@peepsick/usb-cli",
-  "version": "0.5.0",
+  "version": "1.0.1",
   "description": "Universal Skill Bridge CLI — install, search, inspect and security-scan (secscan) AI agent skills from your terminal.",
   "type": "module",
   "bin": {
@@ -8,8 +8,12 @@
   },
   "files": [
     "bin",
+    "requirements.txt",
     "README.md"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "keywords": [
     "usb",
     "universal-skill-bridge",

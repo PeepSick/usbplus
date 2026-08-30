@@ -60,7 +60,7 @@ Real output, not mocked up:
 
 ```bash
 $ usb install web-dev --target=claude
-✅ universal-skill-bridge-catalog v0.4.1 installed for target: claude (73 skills)
+✅ universal-skill-bridge-catalog v1.0.0 installed for target: claude (73 skills)
 📦 Portable pack: ~/.ai-skills/universal-skill-bridge-catalog
 🔌 Target files: ~/.claude/skills/universal-skill-bridge-catalog
 ```
@@ -360,7 +360,7 @@ path-normalized byte-stable goldens.
 
 ### Status
 
-**v0.4.6 (beta)** — actively evolving. APIs, skill formats, and runtime adapters may change before v1.0.
+**v1.0.0** — first stable release. Trust Layer, secscan, MCP server, and 529 skills included.
 
 ### Roadmap
 

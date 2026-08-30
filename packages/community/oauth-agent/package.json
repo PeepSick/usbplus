@@ -1,6 +1,6 @@
 {
   "name": "@peepsick/usb-community-oauth-agent",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "OAuth + token rotation hardening agent built on USB.",
   "type": "module",
   "main": "./index.ts",
@@ -16,7 +16,15 @@
     "url": "https://github.com/PeepSick/usb.git",
     "directory": "packages/community/oauth-agent"
   },
+  "files": [
+    "index.ts",
+    "manifest.json",
+    "README.md"
+  ],
   "peerDependencies": {
-    "@peepsick/usb-sdk": ">=0.4.0"
+    "@peepsick/usb-sdk": ">=1.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

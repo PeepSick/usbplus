@@ -21,6 +21,8 @@ curl -fsSL https://usb.peepsicklabs.com/usb -o /usr/local/bin/usb && chmod +x /u
 
 ## Usage
 
+### Skill Management
+
 ```bash
 # Interactive picker — pick what to install
 usb
@@ -50,8 +52,11 @@ usb info intent-router
 
 # Show pack version
 usb version
+```
 
-# Security-scan skills before trusting them (Skill Contract Verifier)
+### Security Scanning (Skill Contract Verifier)
+
+```bash
 usb secscan                        # project-local skills (.claude/skills, skills, .cursor/rules)
 usb secscan --system               # installed skill locations on this machine
 usb secscan --repo owner/repo      # fetch a git/GitHub repo read-only and scan it
@@ -60,21 +65,51 @@ usb secscan --write-baseline .     # snapshot findings; then gate CI:
 usb secscan --baseline .usb-secscan-baseline.json   # only NEW findings block
 ```
 
-## Security scanning
+### Runtime Observation (MCP Probe)
 
-`usb secscan` verifies each skill's contract: does the body only do what the
-frontmatter declares? Undeclared capabilities (credential access, pipe-to-shell
-network egress, destructive deletion, persistence hooks) are findings; vague or
-silent-agency phrasing is reported as advisory signals and never blocks on its
-own. Deterministic output, `--json` for CI, exit 1 when a contract is violated.
-Requires `python3`. See the repository README ("Security scanning skills") for
-the rule catalog.
+```bash
+usb mcprobe stdio:/path/to/server         # probe a local MCP server via stdio
+usb mcprobe https://example.com/mcp       # probe a remote MCP server via HTTP
+usb mcprobe --yes stdio:npx -y @scope/pkg # skip interactive consent prompt
+```
+
+`usb mcprobe` performs the MCP handshake, records exposed tools, and reports
+results. Requires `python3`. Non-deterministic by design — see `docs/mcprobe.md`.
+
+### MCP Server
+
+```bash
+usb mcp    # start the MCP stdio server (for AI agents)
+```
+
+Exposes `usb_scan` and `usb_mcprobe` as MCP tools. Requires `python3` and
+the `mcp` Python package.
+
+## Python Dependencies
+
+| Command | Python 3 only | Extra pip package |
+|---------|---------------|-------------------|
+| `usb secscan` | ✅ | None |
+| `usb mcprobe` | ✅ | None |
+| `usb mcp` | ✅ | `mcp` |
+
+For the MCP server:
+
+```bash
+pip install mcp
+# or
+pip install -r $(npm root -g)/@peepsick/usb-cli/requirements.txt
+```
 
 ## How it works
 
 The CLI is a thin bash wrapper (~6 KB, zero dependencies beyond `curl` and
 `bash`) that talks to the public [USB catalog](https://usb.peepsicklabs.com).
 No local state, no API keys, no telemetry by default.
+
+Python scripts (`usb-secscan.py`, `usb-mcprobe.py`, `usb-mcp.py`) handle
+security scanning and runtime observation. They use only Python 3 stdlib
+except for `usb-mcp.py` which requires the `mcp` package.
 
 ## License
 

@@ -182,7 +182,7 @@ async function handleRpc(req: JsonRpcRequest, origin: string): Promise<JsonRpcRe
         return rpcOk(id, {
           protocolVersion: "2024-11-05",
           capabilities: { tools: {} },
-          serverInfo: { name: "usb", version: "0.4.1" },
+          serverInfo: { name: "usb", version: "1.0.0" },
         });
 
       case "notifications/initialized":
@@ -255,7 +255,7 @@ export async function GET() {
     {
       ok: true,
       name: "usb-mcp",
-      version: "0.4.1",
+      version: "1.0.0",
       transport: "http",
       endpoint: "/api/mcp",
       methods: ["initialize", "tools/list", "tools/call", "ping"],
