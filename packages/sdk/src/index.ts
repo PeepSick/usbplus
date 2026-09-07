@@ -96,11 +96,8 @@ export class SkillRegistry {
 
   /** Find one skill by slug. Returns null if not found. */
   async get(slug: string): Promise<Skill | null> {
-    const res = await fetch(`${this.baseUrl}/api/audit/${encodeURIComponent(slug)}`);
-    if (res.status === 404) return null;
-    if (!res.ok) throw new Error(`USB audit fetch failed: ${res.status}`);
-    const json = (await res.json()) as { skill: Skill };
-    return json.skill;
+    const all = await this.manifest();
+    return all.find((s) => s.slug === slug) ?? null;
   }
 
   /** Search the catalog by free-text query. */

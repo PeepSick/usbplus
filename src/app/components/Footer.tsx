@@ -101,7 +101,7 @@ export function Footer() {
             <ul className="mt-4 space-y-3 text-sm text-slate-300">
               <li>License: MIT</li>
               <li>© 2026 PeepSick Labs</li>
-              <li>Pack v0.4.1 · 529 skills</li>
+              <li>Pack v1.0.1 · 529 skills</li>
               <li className="text-xs text-slate-500">
                 All skill content original. Inspired by{" "}
                 <a
