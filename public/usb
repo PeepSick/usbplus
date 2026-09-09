@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# usb — Universal Skill Bridge CLI
+# usb — Universal Systems Bridge CLI
 # https://github.com/PeepSick/usb
 #
 # Install:
@@ -173,7 +173,7 @@ cmd_install() {
 cmd_interactive() {
   printf '\n'
   printf '%s╔══════════════════════════════════════════════════════════════╗%s\n' "$CYA" "$RST"
-  printf '%s║%s   %sUSB — Universal Skill Bridge%s                                %s║%s\n' "$CYA" "$RST" "$BOLD" "$RST" "$CYA" "$RST"
+  printf '%s║%s   %sUSB — Universal Systems Bridge%s                                %s║%s\n' "$CYA" "$RST" "$BOLD" "$RST" "$CYA" "$RST"
   printf '%s║%s   %sA plug-and-play skill system for AI agents%s               %s║%s\n' "$CYA" "$RST" "$DIM" "$RST" "$CYA" "$RST"
   printf '%s╚══════════════════════════════════════════════════════════════╝%s\n' "$CYA" "$RST"
   printf '\n'
@@ -201,7 +201,8 @@ cmd_interactive() {
   PS3=$'\n  Choose a number (1-8): '
   select opt in "${choices[@]}"; do
     case "$opt" in
-      "🌐 Full pack"*)            cmd_install ;;
+      "🌐 Full pack"*)
+        cmd_install
         break ;;
       "⚡ Pick a single skill")
         local slug

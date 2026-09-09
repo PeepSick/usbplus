@@ -4,7 +4,7 @@
 
 ## What is USB?
 
-USB (Universal Skill Bridge) is a plug-and-play skill system for AI agents. Write a skill once, install it into any of 16 agent runtimes — Claude Code, Cursor, Ollama, and more.
+USB (Universal Systems Bridge) is a plug-and-play skill system for AI agents. Write a skill once, install it into any of 16 agent runtimes — Claude Code, Cursor, Ollama, and more — then verify what those capabilities actually do with the Trust Layer (`secscan`, `mcprobe`).
 
 ## Highlights
 
@@ -31,14 +31,21 @@ USB discovers AI capabilities inside repositories and verifies whether their obs
 
 ### Filter System
 
-Install exactly what you need:
+Install exactly what you need. The CLI positional argument selects a **preset
+name** (`web-dev`, `backend`, `infra`, `security`, `data`, `core-only`) or an
+**exact skill slug**; the interactive menu (`usb`) and the HTTP API / SDK expose
+the full filter vocabulary (`slug`, `domain`, `category`, `preset`, `core`,
+`exclude`) and let you combine it freely:
 
 ```bash
-usb install --preset=web-dev          # curated bundle
-usb install --domain=react-state      # one domain
-usb install --category=Security       # by category
-usb install --slug=intent-router      # single skill
-usb install --exclude=python-*        # exclude patterns
+usb install web-dev                  # curated preset (its domains + the 9 core skills)
+usb install intent-router            # a single skill by exact slug
+usb install --dry-run web-dev        # preview the script without executing it
+usb install --target=claude web-dev  # force a specific runtime
+
+# Full filter vocabulary via the API / SDK — combine freely:
+#   ?preset=web-dev&core=true     ?domain=react-state
+#   ?category=Audit,Security      ?exclude=python-*,node-*
 ```
 
 ## Upgrade from v0.4.x
@@ -50,11 +57,16 @@ usb install --target=<your-runtime>
 
 ## Packages
 
-| Package | Version | Description |
-|---------|---------|-------------|
-| `@peepsick/usb-cli` | 1.0.1 | Terminal CLI |
-| `@peepsick/usb-sdk` | 1.0.1 | TypeScript SDK |
-| `@peepsick/usb-community-oauth-agent` | 0.1.0 | OAuth hardening agent |
+| Package | Version | Where |
+|---------|---------|-------|
+| `@peepsick/usb-cli` | 1.0.1 | [npm](https://www.npmjs.com/package/@peepsick/usb-cli) |
+| `@peepsick/usb-sdk` | 1.0.1 | [npm](https://www.npmjs.com/package/@peepsick/usb-sdk) |
+| Community agents (`packages/community/*`) | source | this repo — publish to npm yourself |
+
+The community packages (`@peepsick/usb-community-*`, e.g. the OAuth agent under
+`packages/community/oauth-agent`) are **source-only**: they ship in this
+repository and are published to npm per-package by their own maintainers, not as
+part of the CLI release train.
 
 ## Links
 

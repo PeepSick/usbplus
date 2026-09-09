@@ -10,12 +10,12 @@ export function Footer() {
             <div className="flex items-center gap-2">
               <img
                 src="/usb-logo.png"
-                alt="USB — Universal Skill Bridge"
+                alt="USB — Universal Systems Bridge"
                 className="h-9 w-auto drop-shadow-[0_0_20px_rgba(34,211,238,0.25)]"
               />
             </div>
             <p className="mt-3 text-sm leading-relaxed text-slate-400">
-              A plug-and-play skill bridge for AI agents. 9 hand-written core skills + 520 generated from a 65-domain × 8-workflow matrix — npm install into any of 16 runtimes.
+              A plug-and-play systems bridge for AI agents — 529 skills (9 hand-written core + 520 generated from a 65-domain × 8-workflow matrix), verified by secscan and installable into any of 16 runtimes.
             </p>
             <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
               <img
@@ -120,7 +120,7 @@ export function Footer() {
 
         <div className="mt-12 flex flex-col items-center gap-2 border-t border-white/5 pt-6 text-center text-xs text-slate-500 sm:flex-row sm:justify-between">
           <span>
-            Built in public · Universal Skill Bridge is a PeepSick Labs
+            Built in public · Universal Systems Bridge is a PeepSick Labs
             product.
           </span>
           <span className="font-mono">

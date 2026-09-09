@@ -1,5 +1,5 @@
 /**
- * Filter logic for the Universal Skill Bridge.
+ * Filter logic for the Universal Systems Bridge.
  *
  * Lets a user install a single skill, a domain, a category, a preset, or any
  * combination — instead of always pulling the full 529-skill pack.

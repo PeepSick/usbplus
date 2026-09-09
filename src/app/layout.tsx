@@ -4,10 +4,11 @@ import { Footer } from "@/app/components/Footer";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "USB — Universal Skill Bridge | Plug-and-play AI agent skills",
+  metadataBase: new URL("https://usb.peepsicklabs.com"),
+  title: "USB — Universal Systems Bridge | Plug-and-play AI agent capabilities",
   description:
-    "One portable skill format, installed with sha256-verified installers into 16 agent runtimes — Claude Code, Cursor, MCP, LangChain, and more. 9 hand-written core skills plus 520 generated from a 65-domain × 8-workflow matrix.",
-  applicationName: "USB — Universal Skill Bridge",
+    "One portable capability format for AI agents — installed with sha256-verified installers into 16 runtimes and verified by secscan, a deterministic skill contract verifier. 529 skills from a 65-domain × 8-workflow matrix.",
+  applicationName: "USB — Universal Systems Bridge",
   authors: [{ name: "PeepSick Labs" }],
   keywords: [
     "AI skills",
@@ -20,23 +21,25 @@ export const metadata: Metadata = {
     "Anthropic",
     "OpenRouter",
     "skill bridge",
+    "systems bridge",
     "USB",
-    "Universal Skill Bridge",
+    "Universal Systems Bridge",
+    "secscan",
     "PeepSick Labs",
   ],
   openGraph: {
-    title: "USB — Universal Skill Bridge",
+    title: "USB — Universal Systems Bridge",
     description:
-      "One portable skill format, installed with sha256-verified installers into 16 agent runtimes. 9 hand-written core skills + 520 generated from a 65-domain × 8-workflow matrix.",
-    images: ["/usb-og.png"],
+      "One portable capability format for AI agents, installed into 16 runtimes and verified by secscan. 529 skills from a 65-domain × 8-workflow matrix.",
+    images: ["/usblg.png"],
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "USB — Universal Skill Bridge",
+    title: "USB — Universal Systems Bridge",
     description:
-      "One portable skill format, installed with sha256-verified installers into 16 agent runtimes. 9 hand-written core skills + 520 generated from a 65-domain × 8-workflow matrix.",
-    images: ["/usb-og.png"],
+      "One portable capability format for AI agents, installed into 16 runtimes and verified by secscan. 529 skills from a 65-domain × 8-workflow matrix.",
+    images: ["/usblg.png"],
   },
 };
 

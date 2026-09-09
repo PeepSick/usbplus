@@ -1,12 +1,12 @@
-# USB — Universal Skill Bridge
+# USB — Universal Systems Bridge
 
 <p align="center">
-  <img src="public/usb-logo.png" alt="USB — Universal Skill Bridge" width="640">
+  <img src="public/usblg.png" alt="USB — Universal Systems Bridge" width="600">
 </p>
 
 <p align="center">
   <b>One skill format. Every agent runtime.</b><br>
-  Write once. Install anywhere.
+  Write once. Install anywhere. Verify what it actually does.
 </p>
 
 <p align="center">
@@ -34,6 +34,23 @@
   <sub>Build in public · Pre-revenue · 529 skills · 16 provider targets</sub>
 </p>
 
+USB grew from **Universal Skill Bridge** — write a skill once, install it into any
+of 16 AI runtimes — into **Universal Systems Bridge**. The 529-skill catalog and
+the installer you already use are unchanged. What the v1 series adds is a
+**Trust Layer**: tooling that verifies whether a skill, MCP server, agent or
+command actually does what it declares — deterministically, before you run or
+ship it. Two editions, one codebase:
+
+| Edition | Includes | Made for |
+|---|---|---|
+| **Skill Bridge** | 529 skills · 16 runtime targets · sha256-verified installer | Anyone who wants proven skills installed into their agent runtime |
+| **Systems Bridge** *(this project)* | Skill Bridge **plus** the Trust Layer — `secscan` contract verification, `mcprobe` runtime observation, an MCP server | Teams that build, trust, or audit agent capabilities |
+
+The install surface is identical in both — the Trust Layer is additive tooling and
+never changes how skills install. New here? Start at **Quickstart**. Already a
+Skill Bridge user? Everything you run still works; `secscan` and `mcprobe` are
+just new commands to meet.
+
 ---
 
 ## Quickstart
@@ -56,13 +73,14 @@ usb install intent-router            # install just one
 usb install web-dev --target=claude  # install a preset into a specific runtime
 ```
 
-Real output, not mocked up:
+Real installer output — not mocked up (`web-dev` = 8 domains × 8 workflows + the 9 core skills):
 
 ```bash
 $ usb install web-dev --target=claude
-✅ universal-skill-bridge-catalog v1.0.0 installed for target: claude (73 skills)
+✅ universal-skill-bridge-catalog v1.0.1 installed for target: claude (73 skills)
 📦 Portable pack: ~/.ai-skills/universal-skill-bridge-catalog
-🔌 Target files: ~/.claude/skills/universal-skill-bridge-catalog
+🔌 Target files: ~/.claude/skills
+📝 Local registry: ~/.ai-skills/universal-skill-bridge-catalog/installed.json
 ```
 
 ## Who is this for?
@@ -144,14 +162,18 @@ Trust the publisher and skip the review step: `curl -fsSL https://usb.peepsickla
 
 | Command | Description |
 |---|---|
-| `usb install [skill\|preset]` | Install a skill or preset bundle into the detected runtime |
-| `usb install --dry-run` | Print the install script without executing it |
+| `usb` | Open the interactive picker — browse domains, categories, presets, skills |
+| `usb install [preset\|skill]` | Install a curated preset or single skill into the detected runtime |
+| `usb install` | Install the whole pack (529 skills) |
 | `usb install --target=<name>` | Force a specific provider target |
+| `usb install --dry-run` | Print the install script without executing it |
 | `usb search <query>` | Search the skill catalog |
 | `usb list` | List every skill in the catalog |
 | `usb info <skill>` | Show details for one skill |
-| `usb secscan [paths]` | Skill Contract Verifier - security-scan skills (see below) |
-| `usb version` | Print CLI/catalog version and the verify command for one-shot inspect+verify+run |
+| `usb secscan [paths\|--system\|--repo]` | Skill Contract Verifier — security-scan skills (below) |
+| `usb mcprobe [target]` | Runtime observation of MCP servers (interactive consent) |
+| `usb mcp` | Start the stdio MCP server for AI agents |
+| `usb version` | Print the pack/CLI version |
 
 ```bash
 usb install --dry-run                  # print the install script, do NOT execute
@@ -319,6 +341,13 @@ curl -X POST https://usb.peepsicklabs.com/api/mcp \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
 
+USB ships **two MCP surfaces** — different transports, different jobs:
+
+| Surface | Transport | Tools | Job |
+|---|---|---|---|
+| Catalog MCP | HTTP JSON-RPC 2.0 over `/api/mcp` | `usb_search`, `usb_get_skill`, `usb_audit_skill`, `usb_render_install` | Remote catalog — find skills, audit a definition, render install scripts |
+| CLI MCP | stdio (`usb mcp`) | `usb_scan`, `usb_mcprobe` | Local security — contract-scan skill dirs/repos, probe MCP servers |
+
 ## Local development
 
 ```bash
@@ -360,7 +389,10 @@ path-normalized byte-stable goldens.
 
 ### Status
 
-**v1.0.0** — first stable release. Trust Layer, secscan, MCP server, and 529 skills included.
+**v1.0.1** — current release. Universal Systems Bridge: the 529-skill catalog, the
+16-target installer, and the Trust Layer (`secscan` contract verification,
+`mcprobe` runtime observation, MCP server). The Skill Bridge surface — same CLI,
+same skills — remains fully supported.
 
 ### Roadmap
 

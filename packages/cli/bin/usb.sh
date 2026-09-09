@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# usb — Universal Skill Bridge CLI
+# usb — Universal Systems Bridge CLI
 # https://github.com/PeepSick/usb
 #
 # Install:
@@ -564,7 +564,7 @@ pick_preset() {
 # --- interactive picker ------------------------------------------------------
 cmd_interactive() {
   printf '\n'
-  printf '  %s%s%s%susb%s %s— Universal Skill Bridge%s\n' \
+  printf '  %s%s%s%susb%s %s— Universal Systems Bridge%s\n' \
     "$ACC" "$G_MARK" "$RST" "$BOLD" "$RST" "$DIM" "$RST"
   printf '  %splug-and-play skills for AI agents%s\n' "$DIM" "$RST"
   rule

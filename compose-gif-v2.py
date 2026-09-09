@@ -58,7 +58,7 @@ for path, step_no, title, subtitle in steps:
         radius=12, fill=(34, 211, 238, 255),
     )
     draw.text((pad + 26, pad + 20), step_no, fill=(2, 6, 23, 255), font=font_step)
-    draw.text((pad + 124, pad + 22), "USB  ·  Universal Skill Bridge", fill=(148, 163, 184, 255), font=font_brand)
+    draw.text((pad + 124, pad + 22), "USB  ·  Universal Systems Bridge", fill=(148, 163, 184, 255), font=font_brand)
     draw.text((pad + 16, pad + 60), title, fill=(255, 255, 255, 255), font=font_title)
     draw.text((pad + 16, pad + 106), subtitle, fill=(203, 213, 225, 255), font=font_sub)
 

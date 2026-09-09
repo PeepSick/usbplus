@@ -11,9 +11,9 @@ import {
 } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Privacy & KVKK — Universal Skill Bridge",
+  title: "Privacy & KVKK — Universal Systems Bridge",
   description:
-    "Privacy policy and KVKK / GDPR disclosure for Universal Skill Bridge, operated by PeepSick LABS.",
+    "Privacy policy and KVKK / GDPR disclosure for Universal Systems Bridge, operated by PeepSick LABS.",
 };
 
 export default function PrivacyPage() {
@@ -36,9 +36,9 @@ export default function PrivacyPage() {
           Privacy Policy
         </h1>
         <p className="mt-6 text-slate-300">
-          Last updated: June 2026. This page explains what data Universal Skill
-          Bridge collects, how it is used, and your rights under KVKK and
-          GDPR.
+          Last updated: June 2026. This page explains what data Universal
+          Systems Bridge collects, how it is used, and your rights under KVKK
+          and GDPR.
         </p>
       </header>
 
@@ -50,7 +50,7 @@ export default function PrivacyPage() {
           </h2>
           <div className="mt-4 space-y-3 text-slate-300">
             <p>
-              Universal Skill Bridge operates as a public skill catalog. The
+              Universal Systems Bridge operates as a public skill catalog. The
               data we process is:
             </p>
             <ul className="ml-6 list-disc space-y-2">

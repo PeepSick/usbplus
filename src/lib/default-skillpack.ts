@@ -40,11 +40,11 @@ export const DEFAULT_TARGETS: AgentTarget[] = [
 
 export const DEFAULT_PACK = {
   slug: "universal-skill-bridge-catalog",
-  name: "Universal Skill Bridge Catalog",
+  name: "Universal Systems Bridge Catalog",
   description:
     "A fully original, from-scratch catalog across 16 provider targets: 65 hand-researched engineering domains systematically expanded across 8 workflows (Audit, Plan, Build, Script, Diagnose, Harden, Explain, Tune) into 529 skills, plus 9 hand-written core orchestration skills. Every skill has a distinct trigger phrase, protocol prompt, input/output contract and examples — zero external dependencies.",
-  version: "1.0.0",
-  author: "Universal Skill Bridge",
+  version: "1.0.1",
+  author: "Universal Systems Bridge",
 };
 
 // Stable, hand-set timestamp for this catalog version. The real install

@@ -58,5 +58,14 @@ temp/
 # Internal agent/dev log - not for the public repo
 /MEMORIES.md
 /DEVAM.md
+/DEVAM.md.bak-*
+
+# Local machine - NEVER publish
+# .npmrc carries a live npm publish auth token - keep it out of the repo
+/.npmrc
+
+# Unrelated deploy bundle accidentally placed in this tree (see git status)
+/birbiletkes-*.tar.gz
+/birbiletkes-*.zip
 
 __pycache__/

@@ -1,6 +1,6 @@
 # @peepsick/usb-cli
 
-> The Universal Skill Bridge command line.
+> The Universal Systems Bridge command line.
 
 Install 529 original agent skills (65 hand-researched domains × 8 workflows,
 plus 9 core skills) into Claude Code, Hermes, LeoSIS, Cursor, OpenAI, Anthropic,
@@ -24,25 +24,24 @@ curl -fsSL https://usb.peepsicklabs.com/usb -o /usr/local/bin/usb && chmod +x /u
 ### Skill Management
 
 ```bash
-# Interactive picker — pick what to install
+# Interactive picker — browse domains, categories, presets or skills
 usb
 
-# Install the whole pack (auto-detects runtime)
+# Install the whole pack (auto-detects your runtime)
 usb install
 
-# Install one skill by slug
+# Install one skill by exact slug
 usb install intent-router
 
-# Install one domain (8 workflows)
-usb install react-state
-
-# Install a curated preset
+# Install a curated preset — the positional argument is a preset name
+# (web-dev, backend, infra, security, data, core-only) or an exact skill slug
 usb install web-dev
-usb install backend
 usb install security
+usb install core-only          # just the 9 core orchestration skills
 
-# Just the 9 core orchestration skills
-usb install core-only
+# Force a runtime, or preview the script without executing it
+usb install --target=claude web-dev
+usb install --dry-run web-dev
 
 # Search the catalog
 usb search oauth

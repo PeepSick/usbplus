@@ -12,9 +12,9 @@ import {
 } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "About — Universal Skill Bridge",
+  title: "About — Universal Systems Bridge",
   description:
-    "PeepSick Labs builds Universal Skill Bridge: 529 open-source AI skills installable into any agent runtime.",
+    "PeepSick Labs builds Universal Systems Bridge: 529 open-source AI skills installable into any agent runtime and verified by secscan.",
 };
 
 export default function AboutPage() {
@@ -34,11 +34,12 @@ export default function AboutPage() {
           PeepSick Labs · Building in public
         </div>
         <h1 className="mt-6 text-4xl font-black tracking-tight text-white sm:text-6xl">
-          About Universal Skill Bridge
+          About Universal Systems Bridge
         </h1>
         <p className="mt-6 text-xl leading-relaxed text-slate-300">
           We build portable, installable AI skill cards that work across every
-          agent runtime — open source, transparent, and free.
+          agent runtime — open source, transparent, and free — and verify that
+          what a skill claims is what it does before it runs.
         </p>
       </header>
 
@@ -82,7 +83,7 @@ Every domain in this catalog is hand-researched from real engineering
             Reach
           </h2>
           <p className="mt-4 text-slate-300 leading-relaxed">
-            Universal Skill Bridge installs with a single{" "}
+            Universal Systems Bridge installs with a single{" "}
             <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-sm text-cyan-200">
               curl | bash
             </code>{" "}
@@ -100,7 +101,7 @@ Every domain in this catalog is hand-researched from real engineering
             Open source commitment
           </h2>
           <p className="mt-4 text-slate-300 leading-relaxed">
-            Universal Skill Bridge is MIT licensed. Every skill, every adapter
+            Universal Systems Bridge is MIT licensed. Every skill, every adapter
             descriptor, every install script is in this repository. You can
             fork it, extend it, ship it commercially — and we ask only that
             derivative works respect the same transparency about their own

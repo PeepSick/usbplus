@@ -50,7 +50,7 @@ export default async function HomePage() {
             <div className="mb-6 flex items-center gap-4">
               <img
                 src="/usb-logo.png"
-                alt="USB — Universal Skill Bridge"
+                alt="USB — Universal Systems Bridge"
                 className="h-24 w-auto drop-shadow-[0_0_40px_rgba(34,211,238,0.35)] sm:h-32"
               />
               <div className="hidden flex-col sm:flex">
@@ -62,7 +62,7 @@ export default async function HomePage() {
             <div className="flex flex-wrap items-center gap-3">
               <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-300/10 px-4 py-2 text-sm text-cyan-100 shadow-lg backdrop-blur-md">
                 <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-emerald-400" />
-                Universal Skill Bridge v{pack.version}
+                Universal Systems Bridge v{pack.version}
               </div>
               <div className="inline-flex items-center gap-1.5 rounded-full border border-purple-300/25 bg-purple-300/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-purple-100">
                 Plug &amp; Play

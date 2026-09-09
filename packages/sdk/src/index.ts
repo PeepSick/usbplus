@@ -1,7 +1,8 @@
 /**
- * @peepsick/usb-sdk — Universal Skill Bridge SDK
+ * @peepsick/usb-sdk — Universal Systems Bridge SDK
  *
- * Build an agent that discovers, scores, evolves and shares USB skills.
+ * Build an agent that loads, searches and installs USB skills from a typed
+ * registry, with sha256-verified install scripts.
  *
  * Usage:
  *

@@ -68,7 +68,7 @@ export function SkillCatalog({ skills, packName, packDescription, sourceUrl }: S
             rel="noreferrer"
             className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-slate-300 transition hover:border-cyan-300/40 hover:text-cyan-100"
           >
-            GitHub: Universal Skill Bridge
+            USB on GitHub
           </a>
         </div>
 

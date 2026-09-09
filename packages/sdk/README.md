@@ -1,4 +1,4 @@
-# @peepsick/usb-sdk — Universal Skill Bridge SDK
+# @peepsick/usb-sdk — Universal Systems Bridge SDK
 
 > Build agents that discover, score, evolve and share USB skills.
 
@@ -83,6 +83,7 @@ class SkillRegistry {
   get(slug: string): Promise<Skill | null>
   search(query: string, limit?: number): Promise<Skill[]>
   renderInstallScript(filter: object): Promise<string>
+  installScriptSha256(filter: object): Promise<string>
   install(filter: object): Promise<{ ok: true; output: string } | { ok: false; error: string }>
 }
 
@@ -96,6 +97,13 @@ class Agent {
   start(): Promise<void>
 }
 ```
+
+`install(filter)` fetches the install script, verifies its SHA-256 against
+`installScriptSha256(filter)` for the same filter expression, and only then
+executes it through a local `bash`. POSIX-only by design — it needs `bash` on
+PATH (macOS, Linux, or WSL). The advertised hash exists to catch truncation,
+proxy/cache corruption and broken deploys, not to defend against a compromised
+registry.
 
 ## License
 

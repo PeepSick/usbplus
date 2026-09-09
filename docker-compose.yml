@@ -1,6 +1,6 @@
 name: usb
 
-# Docker Compose for USB — Universal Skill Bridge (self-host).
+# Docker Compose for USB — Universal Systems Bridge (self-host).
 #
 #   docker compose up -d
 #   open http://localhost:3000

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 /**
- * Edge middleware that hardens every response from the Universal Skill Bridge.
+ * Edge middleware that hardens every response from the Universal Systems Bridge.
  *
  * Headers applied (all responses, static + dynamic):
  *   - Content-Security-Policy       (XSS mitigation, frame-ancestors 'none')
