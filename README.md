@@ -5,8 +5,8 @@
 </p>
 
 <p align="center">
-  <b>One skill format. Every agent runtime.</b><br>
-  Write once. Install anywhere. Verify what it actually does.
+  <b>One bridge for AI capabilities, runtimes and trust.</b><br>
+  Find them in any repo. Verify what they actually do. Install them anywhere.
 </p>
 
 <p align="center">
@@ -31,29 +31,12 @@
 </p>
 
 <p align="center">
-  <sub>Build in public · Pre-revenue · 529 skills · 16 provider targets</sub>
+  <sub>v1.0.2 · 529 skills · 16 runtime targets · Trust Layer: <code>secscan</code> + <code>mcprobe</code> · MIT</sub>
 </p>
-
-USB grew from **Universal Skill Bridge** — write a skill once, install it into any
-of 16 AI runtimes — into **Universal Systems Bridge**. The 529-skill catalog and
-the installer you already use are unchanged. What the v1 series adds is a
-**Trust Layer**: tooling that verifies whether a skill, MCP server, agent or
-command actually does what it declares — deterministically, before you run or
-ship it. Two editions, one codebase:
-
-| Edition | Includes | Made for |
-|---|---|---|
-| **Skill Bridge** | 529 skills · 16 runtime targets · sha256-verified installer | Anyone who wants proven skills installed into their agent runtime |
-| **Systems Bridge** *(this project)* | Skill Bridge **plus** the Trust Layer — `secscan` contract verification, `mcprobe` runtime observation, an MCP server | Teams that build, trust, or audit agent capabilities |
-
-The install surface is identical in both — the Trust Layer is additive tooling and
-never changes how skills install. New here? Start at **Quickstart**. Already a
-Skill Bridge user? Everything you run still works; `secscan` and `mcprobe` are
-just new commands to meet.
 
 ---
 
-<sub><b>Contents</b> · <a href="#quickstart">Quickstart</a> · <a href="#who-is-this-for">Who is this for?</a> · <a href="#why-usb">Why USB?</a> · <a href="#architecture">Architecture</a> · <a href="#supported-targets">Targets</a> · <a href="#installing-skills">Installing</a> · <a href="#cli-reference">CLI</a> · <a href="#the-trust-layer">Trust Layer</a> · <a href="#api">API</a> · <a href="#local-development">Local dev</a> · <a href="#contributing">Contributing</a></sub>
+<sub><b>Contents</b> · <a href="#quickstart">Quickstart</a> · <a href="#why-a-systems-bridge">Why a systems bridge?</a> · <a href="#the-trust-layer">Trust Layer</a> · <a href="#how-it-works">How it works</a> · <a href="#supported-targets">Targets</a> · <a href="#installing-skills">Installing</a> · <a href="#cli-reference">CLI</a> · <a href="#api">API</a> · <a href="#who-ships-with-usb">Who ships</a> · <a href="#local-development">Local dev</a> · <a href="#contributing">Contributing</a></sub>
 
 ## Quickstart
 
@@ -63,7 +46,7 @@ npm install -g @peepsick/usb-cli
 usb install
 ```
 
-USB detects every AI runtime installed on your machine and installs natively where it can — `SKILL.md` skills for Claude Code, a `.mdc` rule for Cursor. If it finds more than one, it asks which:
+`usb install` bridges your machine to the catalog: it detects installed AI runtimes and installs natively where it can — `SKILL.md` skills for Claude Code, a `.mdc` rule for Cursor. More than one runtime found? It asks which:
 
 <p align="center">
   <img src="public/usb-multiselect-demo.gif" alt="USB demo: npm install, usb install, runtime auto-detection, picking a target, and a successful install" width="900">
@@ -85,102 +68,25 @@ $ usb install web-dev --target=claude
 📝 Local registry: ~/.ai-skills/universal-skill-bridge-catalog/installed.json
 ```
 
-## Who is this for?
+<sub>Upgrading from Universal Skill Bridge (v0.4.x)? Every command you run
+still works — `secscan` and `mcprobe` are new, additive commands.</sub>
 
-- ✅ **Claude Code users** — installs into `~/.claude/skills/` as loadable `SKILL.md` skills
-- ✅ **Cursor users** — writes a `.mdc` rule into your project's `.cursor/rules/`
-- ✅ **AI teams** — one shared skill catalog instead of copy-pasted prompts across repos
-- ✅ **MCP developers** — USB speaks MCP natively (`usb_search`, `usb_render_install`, ...)
-- ✅ **Framework authors** — `@peepsick/usb-sdk` gives you a typed `Agent` base class to build on
+## Why a systems bridge?
 
-## Why USB?
-
-Every agent runtime invents its own way to package capabilities: Claude Code has skills, Cursor has rules, LangChain has tools, MCP has servers. There's no shared unit you can install once and reuse everywhere — so the same "audit this Dockerfile" or "harden this API" logic gets rewritten from scratch for every framework.
+Agent capabilities multiply in the dark: a skill pasted from a gist, an MCP
+server wired into a repo config, a prompt template copied between teams. Two
+gaps repeat everywhere — there is no shared unit you can install once and
+reuse in every runtime, and nothing tells you what the thing you are about
+to install actually does. The catalog closes the first gap; the Trust Layer
+closes the second.
 
 | | Without USB | With USB |
 |---|---|---|
-| Distribution | Copy-paste prompts between repos | `usb install <skill>` |
-| Portability | Rewritten per framework | One skill, 16 targets — 4 native installs, 11 portable bundles, `auto` detection |
-| Discovery | Scattered gists and Notion docs | `usb search`, `/api/skills`, MCP tools |
-| Trust | Blind `curl \| bash` | Download → verify sha256 → read → run |
-
-## Architecture
-
-One skill definition. USB compiles it into every runtime's native format.
-
-```mermaid
-flowchart LR
-    S[Skill] --> C{USB Compiler}
-    C --> R1[Claude Code]
-    C --> R2[Cursor]
-    C --> R3[MCP]
-    C --> R4[OpenAI]
-    C --> R5[LangChain]
-    C --> R6[LeoSis]
-    C --> R7[+ 10 more]
-```
-
-You write it once. USB handles packaging, install paths, and sha256-verified delivery for all 16 targets.
-
-## Supported targets
-
-Targets come in two tiers, and it's worth being precise about which is which.
-
-**Installs into the runtime** — the runtime loads these on its own, no wiring:
-
-`claude` · `cursor` · `leosis` · `hermes`
-
-**Emits a portable bundle** — skill markdown plus a JSON adapter descriptor under `~/.ai-skills/adapters/<target>/`, ready to feed into your own agent code:
-
-`openai` · `anthropic` · `langchain` · `mcp` · `openrouter` · `groq` · `mistral` · `ollama` · `lm-studio` · `vllm` · `generic`
-
-`auto` detects the runtime from your environment; `generic` falls back to plain markdown + a JSON manifest for anything unrecognized. Catalog: 529 skills — 9 hand-written core skills plus 65 engineering domains × 8 workflows (Audit, Plan, Build, Script, Diagnose, Harden, Explain, Tune).
-
-## Installing skills
-
-**npm (recommended)**:
-
-```bash
-npm install -g @peepsick/usb-cli
-
-usb install intent-router     # a single skill
-usb install web-dev           # a preset bundle
-usb install --target=claude   # force a specific runtime target
-```
-
-**Inspect-then-install** — no npm/Node required, verifies the script before running it:
-
-```bash
-curl -fsSL https://usbplus.peepsicklabs.com/api/install?target=auto -o install.sh
-EXPECTED=$(curl -fsSL https://usbplus.peepsicklabs.com/api/install-sha256?target=auto)
-echo "$EXPECTED  install.sh" | sha256sum -c -   # mismatch = tampering or a stale CDN
-less install.sh                                  # read what it actually does
-bash install.sh
-```
-
-Trust the publisher and skip the review step: `curl -fsSL https://usbplus.peepsicklabs.com/api/install?target=auto | bash`
-
-## CLI reference
-
-| Command | Description |
-|---|---|
-| `usb` | Open the interactive picker — browse domains, categories, presets, skills |
-| `usb install [preset\|domain\|skill]` | Install a curated preset, a whole domain (8 workflows), or a single skill |
-| `usb install` | Install the whole pack (529 skills) |
-| `usb install --target=<name>` | Force a specific provider target |
-| `usb install --dry-run` | Print the install script without executing it |
-| `usb search <query>` | Search the skill catalog |
-| `usb list` | List every skill in the catalog |
-| `usb info <skill>` | Show details for one skill |
-| `usb secscan [paths\|--system\|--repo]` | Skill Contract Verifier — security-scan skills (below) |
-| `usb mcprobe [target]` | Runtime observation of MCP servers (interactive consent) |
-| `usb mcp` | Start the stdio MCP server for AI agents |
-| `usb version` | Print version, latest release, and update check (`/api/version`) |
-
-```bash
-usb install --dry-run                  # print the install script, do NOT execute
-less <(usb install --dry-run web-dev)  # dry-run a preset and pipe to less
-```
+| Discovery | Capabilities scattered across gists, repos and configs | One catalog: `usb search`, `/api/skills`, MCP tools |
+| Supply chain | Blind `curl \| bash` | Download → verify sha256 → read → run |
+| Contract drift | A description is the only documentation | `usb secscan`: declared vs. observed, file:line evidence, exit codes for CI |
+| Runtime claims | A README's promise about `tools/list` | `usb mcprobe`: live protocol observation — consented, never calls a tool |
+| Portability | Rewrite per framework | One skill → 16 targets: 4 native installs, 11 portable bundles, `auto` detection |
 
 ## The Trust Layer
 
@@ -399,6 +305,96 @@ deterministic and never runs anything; mcprobe runs, is consented, and is
 honestly non-deterministic. Design details and the full report contract
 are in [docs/mcprobe.md](docs/mcprobe.md).
 
+## How it works
+
+Two lanes share one skill record: **verify** what a capability claims against
+what it observably does, then **install** it into the runtime of your choice.
+Neither lane needs the other to run — but they describe the same artifacts,
+so what you verify is what you ship.
+
+```mermaid
+flowchart LR
+    subgraph verify["Verify lane"]
+        R[Repo or path] --> D[Discovery<br/>skills · MCP configs<br/>agents · commands]
+        D --> K[Contract core]
+        K --> E[Declared vs observed<br/>file:line evidence]
+        E --> J[One deterministic verdict<br/>exit 0 / 1 / 2]
+    end
+    subgraph install["Install lane"]
+        C[Catalog<br/>529 skills] --> X[Compiler]
+        X --> N[Native installs<br/>claude · cursor<br/>leosis · hermes]
+        X --> B[Portable bundle<br/>+ 11 targets]
+    end
+    J -. same skill record .-> C
+```
+
+The verify lane never executes what it scans; the install lane packages,
+hashes and delivers what the catalog serves. A skill is written once — USB
+handles the verdict, the packaging, the install paths and sha256-verified
+delivery for every target.
+
+## Supported targets
+
+Sixteen targets, two tiers:
+
+**Installs into the runtime** — the runtime loads these on its own, no wiring:
+
+`claude` · `cursor` · `leosis` · `hermes`
+
+**Emits a portable bundle** — skill markdown plus a JSON adapter descriptor under `~/.ai-skills/adapters/<target>/`, ready to feed into your own agent code:
+
+`openai` · `anthropic` · `langchain` · `mcp` · `openrouter` · `groq` · `mistral` · `ollama` · `lm-studio` · `vllm` · `generic`
+
+`auto` detects the runtime from your environment; `generic` falls back to plain markdown + a JSON manifest for anything unrecognized. Catalog: 529 skills — 9 hand-written core skills plus 65 engineering domains × 8 workflows (Audit, Plan, Build, Script, Diagnose, Harden, Explain, Tune).
+
+## Installing skills
+
+**Three ways in, ordered by how much you verify:**
+
+**npm** — the full CLI, every command:
+
+```bash
+npm install -g @peepsick/usb-cli
+
+usb install intent-router     # a single skill
+usb install web-dev           # a preset bundle
+usb install --target=claude   # force a specific runtime target
+```
+
+**Inspect-then-install** — no Node required; verify the bytes before you run them:
+
+```bash
+curl -fsSL https://usbplus.peepsicklabs.com/api/install?target=auto -o install.sh
+EXPECTED=$(curl -fsSL https://usbplus.peepsicklabs.com/api/install-sha256?target=auto)
+echo "$EXPECTED  install.sh" | sha256sum -c -   # mismatch = tampering or a stale CDN
+less install.sh                                  # read what it actually does
+bash install.sh
+```
+
+Already trust the publisher? One line, no review step: `curl -fsSL https://usbplus.peepsicklabs.com/api/install?target=auto | bash`
+
+## CLI reference
+
+| Command | Description |
+|---|---|
+| `usb` | Open the interactive picker — browse domains, categories, presets, skills |
+| `usb install [preset\|domain\|skill]` | Install a curated preset, a whole domain (8 workflows), or a single skill |
+| `usb install` | Install the whole pack (529 skills) |
+| `usb install --target=<name>` | Force a specific provider target |
+| `usb install --dry-run` | Print the install script without executing it |
+| `usb search <query>` | Search the skill catalog |
+| `usb list` | List every skill in the catalog |
+| `usb info <skill>` | Show details for one skill |
+| `usb secscan [paths\|--system\|--repo]` | Skill Contract Verifier — security-scan skills (see **The Trust Layer** above) |
+| `usb mcprobe [target]` | Runtime observation of MCP servers (interactive consent) |
+| `usb mcp` | Start the stdio MCP server for AI agents |
+| `usb version` | Print version, latest release, and update check (`/api/version`) |
+
+```bash
+usb install --dry-run                  # print the install script, do NOT execute
+less <(usb install --dry-run web-dev)  # dry-run a preset and pipe to less
+```
+
 ## API
 
 | Endpoint | Purpose |
@@ -425,11 +421,19 @@ USB ships **two MCP surfaces** — different transports, different jobs:
 | Catalog MCP | HTTP JSON-RPC 2.0 over `/api/mcp` | `usb_search`, `usb_get_skill`, `usb_audit_skill`, `usb_render_install` | Remote catalog — find skills, audit a definition, render install scripts |
 | CLI MCP | stdio (`usb mcp`) | `usb_scan`, `usb_mcprobe` | Local security — contract-scan skill dirs/repos, probe MCP servers |
 
+## Who ships with USB
+
+- ✅ **Agent engineers** — land a skill in Claude Code, Cursor, LeoSis or Hermes without touching install paths
+- ✅ **Security & platform teams** — CI gates on `usb secscan --baseline`: known findings acknowledged, only new contract violations block (exit 1)
+- ✅ **MCP server authors** — configs and server contracts scanned like skills; releases observed with `usb mcprobe`
+- ✅ **Framework authors** — `@peepsick/usb-sdk` gives you a typed `Agent` base class to build on
+- ✅ **Auditors** — `--json` reports, path-stable fingerprints, byte-identical reruns
+
 ## Local development
 
 ```bash
 git clone https://github.com/PeepSick/usbplus.git
-cd usb
+cd usbplus
 docker compose up -d
 ```
 
@@ -470,8 +474,9 @@ PR; a second workflow repeats the live-site checks daily on a schedule.
 
 **v1.0.2** — current release. Universal Systems Bridge: the 529-skill catalog, the
 16-target installer, and the Trust Layer (`secscan` contract verification,
-`mcprobe` runtime observation, MCP server). The Skill Bridge surface — same CLI,
-same skills — remains fully supported.
+`mcprobe` runtime observation, MCP server). **Lineage:** the project shipped v0.x
+as Universal Skill Bridge; that line is frozen and stays online at
+[PeepSick/usb](https://github.com/PeepSick/usb) for existing installs.
 
 ### Roadmap
 
@@ -536,7 +541,7 @@ PeepSick Labs is an early-stage AI infrastructure studio, currently pre-incorpor
 
 | Layer | Role |
 |---|---|
-| **USB** | Installs skills (skill layer for AI agents — this project) |
+| **USB** | Bridges capabilities — discover, verify, install (this project) |
 | **Foundry** | Builds agents (multi-agent orchestration & cognitive runtime) |
 | **Leosis** | Powers intelligence (OpenAI-compatible LLM provider) |
 
@@ -556,4 +561,4 @@ forks must use a different name. See [TRADEMARK.md](./TRADEMARK.md).
 
 </details>
 
-<sub>Building in public · Pre-incorporation · No legal entity formed yet · 2026</sub>
+<sub>USB · Universal Systems Bridge v1.0.2 · Building in public · Pre-incorporation · No legal entity formed yet · 2026</sub>
