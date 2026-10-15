@@ -6,6 +6,7 @@ Locks docs/mcprobe.md section 8:
   - normal probe -> complete report, redaction enforced
   - repeated cursor -> partial observation, pagination_limit
   - malformed page -> protocol_error, exit 1
+  - relative args -> child runs in the CONFIG dir (spawn cwd contract)
 
 Run: python3 scripts/check-mcprobe.py
 """
@@ -136,6 +137,42 @@ def main():
               and unit.get("observation", {}).get("reason")
               == "protocol_error",
               f"rc={r.returncode} hs={hs}")
+
+        # D2) cwd contract: the child runs in the CONFIG dir, so its own
+        #     relative args resolve (docs/mcprobe.md: spawn(command, args,
+        #     env) # cwd: config dir). Locks the fix: before it the child
+        #     spawned in mcprobe's cwd, missed server.py and died on the
+        #     handshake. The stub asserts its cwd against a config-declared
+        #     env var, so cwd=config dir is locked exactly - not "works".
+        rootD2 = tmp / "relcwd"
+        rootD2.mkdir(parents=True)
+        stub_py = posix(STUB)
+        (rootD2 / "server.py").write_text(
+            "import os, sys, runpy\n"
+            "assert os.path.basename(os.getcwd()) == "
+            "os.environ['USB_EXPECT_CWD'], 'cwd=' + os.getcwd()\n"
+            "sys.argv = [" + json.dumps(stub_py) + "]\n"
+            "runpy.run_path(" + json.dumps(stub_py) +
+            ", run_name='__main__')\n",
+            encoding="utf-8", newline="\n")
+        (rootD2 / ".mcp.json").write_text(json.dumps(
+            {"mcpServers": {"relcwd": {
+                "command": sys.executable.replace("\\", "/"),
+                "args": ["server.py"],
+                "env": {"STUB_MODE": "normal",
+                        "USB_EXPECT_CWD": rootD2.name}}}}),
+            encoding="utf-8", newline="\n")
+        r = run(["--yes", "--json", str(rootD2)])
+        rep = parse_report(r.stdout)
+        unit = rep["reports"][0] if rep else {}
+        hs = unit.get("handshake", {})
+        names = [t["name"] for t in unit.get("tools", [])]
+        check("cwd contract: relative args resolve in the config dir",
+              r.returncode == 0 and hs.get("initialize") == "ok"
+              and hs.get("tools_list") == "ok"
+              and unit.get("observation", {}).get("complete") is True
+              and names == ["stub_tool_1", "stub_tool_2", "stub_tool_3"],
+              f"rc={r.returncode} hs={hs} tools={names}")
 
         # ---- remote transport (streamable HTTP + SSE + auth) ----------
         state = {"session": True, "last_session_echo": None}

@@ -76,7 +76,7 @@ export function getOriginFromRequest(request: Request): string {
 
 export async function ensureSkillRegistrySeeded(): Promise<number> {
   const existing = await db
-    .select({ id: skillPacks.id })
+    .select({ id: skillPacks.id, version: skillPacks.version })
     .from(skillPacks)
     .where(eq(skillPacks.slug, DEFAULT_PACK.slug))
     .limit(1);
@@ -112,6 +112,24 @@ export async function ensureSkillRegistrySeeded(): Promise<number> {
 
   if (!packId) {
     throw new Error("Skill pack seed could not be created.");
+  }
+
+  // The pack row is seeded once, but the catalog version tracks the
+  // release: when DEFAULT_PACK moves (e.g. 1.0.2 -> 1.0.3), reconcile the
+  // row so a live deployment serves the version of the code running it.
+  if (existing[0] && existing[0].version !== DEFAULT_PACK.version) {
+    await db
+      .update(skillPacks)
+      .set({
+        name: DEFAULT_PACK.name,
+        description: DEFAULT_PACK.description,
+        version: DEFAULT_PACK.version,
+        author: DEFAULT_PACK.author,
+        targets: DEFAULT_TARGETS,
+        adapters: DEFAULT_ADAPTERS,
+        updatedAt: new Date(),
+      })
+      .where(eq(skillPacks.id, packId));
   }
 
   // Optimize skill check by counting

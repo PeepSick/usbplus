@@ -1,6 +1,14 @@
-# Release Notes — USB v1.0.2
+# Release Notes — USB v1.0.3
 
-**Release date:** 2026-10-15
+**Release date:** 2026-10-16
+
+## What's new in v1.0.3
+
+- **mcprobe cwd contract** — stdio MCP servers now spawn in the config file's directory (as `docs/mcprobe.md` documents), so a server declared with relative args resolves its own scripts; locked by a new end-to-end regression
+- `usb secscan --write-baseline FILE` accepts the space form of the flag
+- Bare `?core=true` returns exactly the 9 core skills the API documents
+- `/api/skills` reconciles the seeded pack row with the shipped catalog version, so live deployments serve the current pack version
+- README: the Quickstart now carries the v1 surface — Trust Layer one-liners and a real `secscan` demo
 
 ## What is USB?
 
@@ -61,8 +69,8 @@ usb install --target=<your-runtime>
 
 | Package | Version | Where |
 |---------|---------|-------|
-| `@peepsick/usb-cli` | 1.0.2 | [npm](https://www.npmjs.com/package/@peepsick/usb-cli) |
-| `@peepsick/usb-sdk` | 1.0.2 | [npm](https://www.npmjs.com/package/@peepsick/usb-sdk) |
+| `@peepsick/usb-cli` | 1.0.3 | [npm](https://www.npmjs.com/package/@peepsick/usb-cli) |
+| `@peepsick/usb-sdk` | 1.0.3 | [npm](https://www.npmjs.com/package/@peepsick/usb-sdk) |
 | Community agents (`packages/community/*`) | source | this repo — publish to npm yourself |
 
 The community packages (`@peepsick/usb-community-*`, e.g. the OAuth agent under

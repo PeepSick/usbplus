@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# v1.0.2 release-candidate CLI + Trust Layer e2e matrix against the LOCAL server.
+# v1.0.3 release-candidate CLI + Trust Layer e2e matrix against the LOCAL server.
 # Run:  bash tmp-e2e/cli_matrix.sh
 # Requires: the local app on :3000 with a seeded DB, git-bash (curl/python3).
 set -u
@@ -26,8 +26,8 @@ echo "== E. CLI against local catalog =="
 export NO_COLOR=1
 
 out=$("${USB[@]}" version 2>&1); rc=$?
-if [ $rc -eq 0 ] && printf '%s' "$out" | grep -q '"current"[[:space:]]*:[[:space:]]*"1\.0.2"'; then
-  pass "E1 usb version -> current 1.0.2"
+if [ $rc -eq 0 ] && printf '%s' "$out" | grep -q '"current"[[:space:]]*:[[:space:]]*"1\.0.3"'; then
+  pass "E1 usb version -> current 1.0.3"
 else fail "E1 usb version" "rc=$rc $(printf '%s' "$out" | head -3)"; fi
 
 out=$("${USB[@]}" list 2>&1); rc=$?

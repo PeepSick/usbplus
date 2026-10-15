@@ -1,4 +1,4 @@
-"""v1.0.2 release-candidate HTTP test matrix against the local server.
+"""v1.0.3 release-candidate HTTP test matrix against the local server.
 
 Run:  python3 tmp-e2e/http_matrix.py http://127.0.0.1:3000
 Exit 0 = all pass. Prints a PASS/FAIL line per check plus a summary.
@@ -57,7 +57,7 @@ health = json.loads(get("/api/health"))
 check("A1 health ok", health.get("ok") is True, str(health))
 
 ver = json.loads(get("/api/version"))
-check("A2 version current=1.0.2", ver.get("current") == "1.0.2", str(ver.get("current")))
+check("A2 version current=1.0.3", ver.get("current") == "1.0.3", str(ver.get("current")))
 check("A3 version has minSupported + update fields",
       all(k in ver for k in ("latest", "minSupported", "updateAvailable")),
       ",".join(sorted(ver.keys())))
@@ -68,7 +68,7 @@ skills = full["skills"]
 slugs_all = [s["slug"] for s in skills]
 check("B1 catalog = 529 skills", len(skills) == 529, str(len(skills)))
 pack = full.get("pack") or {}
-check("B2 pack version 1.0.2", pack.get("version") == "1.0.2", str(pack))
+check("B2 pack version 1.0.3", pack.get("version") == "1.0.3", str(pack))
 check("B3 bundle schemaVersion skill-bridge/v1",
       full.get("schemaVersion") == "skill-bridge/v1", str(full.get("schemaVersion")))
 check("B4 slugs unique", len(set(slugs_all)) == len(slugs_all),

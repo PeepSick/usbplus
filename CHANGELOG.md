@@ -4,6 +4,19 @@ All notable changes to USB — Universal Systems Bridge will be documented in th
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.0.3] — 2026-10-16
+
+### Added
+- `scripts/check-mcprobe.py` case **D2 — cwd contract**: a stdio server declared with relative args must probe end-to-end with its cwd equal to the config directory; the stub asserts its cwd against a config-declared env var, so the contract is locked exactly
+
+### Fixed
+- `mcprobe` stdio servers now spawn with **cwd = the config file's directory** (as `docs/mcprobe.md` documents: `spawn(command, args, env) # cwd: config dir`). Before, the child searched *mcprobe's* cwd for its own relative args and died on the handshake
+- `usb secscan --write-baseline FILE` now consumes the file in the space form exactly like the engine's optional-value argument; previously the file name was silently treated as a scan root and the baseline landed elsewhere
+- `/api/skills` reconciles the seeded `skill_packs` row with the shipped catalog version: a deployment seeded at an older release now serves the current pack version on first use (before, the row kept its seed-time version forever — version checks and install scripts reported a stale pack version)
+
+### Changed
+- README: the Quickstart carries the v1 surface — `usb secscan` / `usb mcprobe` one-liners plus a real streaming `secscan` demo (replacing the v0.x runtime-picker gif); contact addresses moved to `info@peepsicklabs.com`
+
 ## [1.0.2] — 2026-10-15
 
 ### Added

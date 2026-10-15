@@ -404,12 +404,25 @@ def probe_stdio(target: dict, timeout: float) -> dict:
     env.update({str(k): str(v) for k, v in declared_env.items()})
     secrets = [(str(k), str(v)) for k, v in declared_env.items()]
 
+    # docs/mcprobe.md: spawn(command, args, env) # cwd: config dir.
+    # The child resolves its OWN relative args (scripts, data files, .env)
+    # against its cwd, so it must run in the directory of the config file
+    # that declares it - not in mcprobe's own cwd.
     cwd = None
-    for a in raw_args:
-        candidate = Path.cwd().joinpath(a)
-        if candidate.is_dir():
-            cwd = str(candidate)
-            break
+    cfg = target["locator"].split("#", 1)[0]
+    if cfg:
+        cfg_path = Path(cfg)
+        if not cfg_path.is_absolute():
+            cfg_path = Path.cwd() / cfg_path
+        if cfg_path.parent.is_dir():
+            cwd = str(cfg_path.parent)
+    if cwd is None:
+        # locator without a usable config path: keep the legacy heuristic
+        for a in raw_args:
+            candidate = Path.cwd().joinpath(a)
+            if candidate.is_dir():
+                cwd = str(candidate)
+                break
 
     report = {
         "locator": target["locator"],
