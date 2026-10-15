@@ -12,28 +12,28 @@
       "declared": {
         "categories": [],
         "description_chars": 0,
-        "text": "C:\\usbv2\\contracts\\fixtures\\trees\\skills-project/.cursor/mcp.json"
+        "text": "/mnt/c/usbv2/contracts/fixtures/trees/skills-project/.cursor/mcp.json"
       },
       "evidence_by_rule": {
         "S101": [
           {
-            "line": 6,
-            "quote": "}"
+            "line": 5,
+            "quote": "\"args\": [\"-y\", \"@example/docs\"],"
           }
         ]
       },
       "identity": {
         "kind": "mcp-server",
-        "name": "C:\\usbv2\\contracts\\fixtures\\trees\\skills-project/.cursor/mcp.json",
-        "source": "C:\\usbv2\\contracts\\fixtures\\trees\\skills-project/.cursor/mcp.json",
+        "name": "/mnt/c/usbv2/contracts/fixtures/trees/skills-project/.cursor/mcp.json",
+        "source": "/mnt/c/usbv2/contracts/fixtures/trees/skills-project/.cursor/mcp.json",
         "source_kind": "local"
       },
       "observed_capabilities": [],
       "structural_findings": [
         {
-          "fingerprint": "5b41645757a3be42",
-          "line": 6,
-          "quote": "}",
+          "fingerprint": "62ab7ccd04373f94",
+          "line": 5,
+          "quote": "\"args\": [\"-y\", \"@example/docs\"],",
           "rule": "S101",
           "severity": "high",
           "title": "MCP config is not valid JSON"
@@ -64,7 +64,7 @@
       "identity": {
         "kind": "mcp-server",
         "name": "bad-tools",
-        "source": "C:\\usbv2\\contracts\\fixtures\\trees\\skills-project/.mcp.json#mcpServers/bad-tools",
+        "source": "/mnt/c/usbv2/contracts/fixtures/trees/skills-project/.mcp.json#mcpServers/bad-tools",
         "source_kind": "local"
       },
       "observed_capabilities": [],
@@ -122,7 +122,7 @@
       "identity": {
         "kind": "mcp-server",
         "name": "deploy-helper",
-        "source": "C:\\usbv2\\contracts\\fixtures\\trees\\skills-project/.mcp.json#mcpServers/deploy-helper",
+        "source": "/mnt/c/usbv2/contracts/fixtures/trees/skills-project/.mcp.json#mcpServers/deploy-helper",
         "source_kind": "local"
       },
       "observed_capabilities": [],
@@ -163,7 +163,7 @@
       "identity": {
         "kind": "mcp-server",
         "name": "filesystem",
-        "source": "C:\\usbv2\\contracts\\fixtures\\trees\\skills-project/.mcp.json#mcpServers/filesystem",
+        "source": "/mnt/c/usbv2/contracts/fixtures/trees/skills-project/.mcp.json#mcpServers/filesystem",
         "source_kind": "local"
       },
       "observed_capabilities": [],
@@ -222,7 +222,7 @@
       "identity": {
         "kind": "mcp-server",
         "name": "issue-tracker",
-        "source": "C:\\usbv2\\contracts\\fixtures\\trees\\skills-project/.mcp.json#mcpServers/issue-tracker",
+        "source": "/mnt/c/usbv2/contracts/fixtures/trees/skills-project/.mcp.json#mcpServers/issue-tracker",
         "source_kind": "local"
       },
       "observed_capabilities": [
@@ -280,7 +280,7 @@
       "identity": {
         "kind": "mcp-server",
         "name": "reporter",
-        "source": "C:\\usbv2\\contracts\\fixtures\\trees\\skills-project/.mcp.json#mcpServers/reporter",
+        "source": "/mnt/c/usbv2/contracts/fixtures/trees/skills-project/.mcp.json#mcpServers/reporter",
         "source_kind": "local"
       },
       "observed_capabilities": [
@@ -340,7 +340,7 @@
       "identity": {
         "kind": "mcp-server",
         "name": "weather-bot",
-        "source": "C:\\usbv2\\contracts\\fixtures\\trees\\skills-project/.mcp.json#mcpServers/weather-bot",
+        "source": "/mnt/c/usbv2/contracts/fixtures/trees/skills-project/.mcp.json#mcpServers/weather-bot",
         "source_kind": "local"
       },
       "observed_capabilities": [],
@@ -390,7 +390,7 @@
       "identity": {
         "kind": "mcp-server",
         "name": "bootstrap",
-        "source": "C:\\usbv2\\contracts\\fixtures\\trees\\skills-project/.vscode/mcp.json#mcpServers/bootstrap",
+        "source": "/mnt/c/usbv2/contracts/fixtures/trees/skills-project/.vscode/mcp.json#mcpServers/bootstrap",
         "source_kind": "local"
       },
       "observed_capabilities": [
@@ -433,7 +433,7 @@
       "identity": {
         "kind": "agent",
         "name": "orchestrator",
-        "source": "C:\\usbv2\\contracts\\fixtures\\trees\\skills-project/agents/orchestrator.md",
+        "source": "/mnt/c/usbv2/contracts/fixtures/trees/skills-project/agents/orchestrator.md",
         "source_kind": "local"
       },
       "observed_capabilities": [],
@@ -458,7 +458,7 @@
       "identity": {
         "kind": "command",
         "name": "release-notes",
-        "source": "C:\\usbv2\\contracts\\fixtures\\trees\\skills-project/commands/release-notes.md",
+        "source": "/mnt/c/usbv2/contracts/fixtures/trees/skills-project/commands/release-notes.md",
         "source_kind": "local"
       },
       "observed_capabilities": [],
@@ -485,7 +485,7 @@
       "identity": {
         "kind": "claude",
         "name": "api-health-checker",
-        "source": "C:\\usbv2\\contracts\\fixtures\\trees\\skills-project/skills/api-checker/SKILL.md",
+        "source": "/mnt/c/usbv2/contracts/fixtures/trees/skills-project/skills/api-checker/SKILL.md",
         "source_kind": "local"
       },
       "observed_capabilities": [
@@ -523,7 +523,7 @@
       "identity": {
         "kind": "claude",
         "name": "broken-thing",
-        "source": "C:\\usbv2\\contracts\\fixtures\\trees\\skills-project/skills/broken-thing/SKILL.md",
+        "source": "/mnt/c/usbv2/contracts/fixtures/trees/skills-project/skills/broken-thing/SKILL.md",
         "source_kind": "local"
       },
       "observed_capabilities": [],
@@ -577,7 +577,7 @@
       "identity": {
         "kind": "claude",
         "name": "gallery-renderer",
-        "source": "C:\\usbv2\\contracts\\fixtures\\trees\\skills-project/skills/gallery-renderer/SKILL.md",
+        "source": "/mnt/c/usbv2/contracts/fixtures/trees/skills-project/skills/gallery-renderer/SKILL.md",
         "source_kind": "local"
       },
       "observed_capabilities": [
@@ -692,7 +692,7 @@
       "identity": {
         "kind": "claude",
         "name": "meeting-notes-plus",
-        "source": "C:\\usbv2\\contracts\\fixtures\\trees\\skills-project/skills/meeting-notes-plus/SKILL.md",
+        "source": "/mnt/c/usbv2/contracts/fixtures/trees/skills-project/skills/meeting-notes-plus/SKILL.md",
         "source_kind": "local"
       },
       "observed_capabilities": [
@@ -735,7 +735,7 @@
       "identity": {
         "kind": "claude",
         "name": "notes-writer",
-        "source": "C:\\usbv2\\contracts\\fixtures\\trees\\skills-project/skills/notes-writer-copy/SKILL.md",
+        "source": "/mnt/c/usbv2/contracts/fixtures/trees/skills-project/skills/notes-writer-copy/SKILL.md",
         "source_kind": "local"
       },
       "observed_capabilities": [],
@@ -769,7 +769,7 @@
       "identity": {
         "kind": "claude",
         "name": "notes-writer",
-        "source": "C:\\usbv2\\contracts\\fixtures\\trees\\skills-project/skills/notes-writer/SKILL.md",
+        "source": "/mnt/c/usbv2/contracts/fixtures/trees/skills-project/skills/notes-writer/SKILL.md",
         "source_kind": "local"
       },
       "observed_capabilities": [],
@@ -823,7 +823,7 @@
       "identity": {
         "kind": "claude",
         "name": "ping-checker",
-        "source": "C:\\usbv2\\contracts\\fixtures\\trees\\skills-project/skills/ping-checker/SKILL.md",
+        "source": "/mnt/c/usbv2/contracts/fixtures/trees/skills-project/skills/ping-checker/SKILL.md",
         "source_kind": "local"
       },
       "observed_capabilities": [
@@ -880,7 +880,7 @@
       "identity": {
         "kind": "claude",
         "name": "pushy-helper",
-        "source": "C:\\usbv2\\contracts\\fixtures\\trees\\skills-project/skills/pushy-helper/SKILL.md",
+        "source": "/mnt/c/usbv2/contracts/fixtures/trees/skills-project/skills/pushy-helper/SKILL.md",
         "source_kind": "local"
       },
       "observed_capabilities": [],
@@ -910,7 +910,7 @@
       "identity": {
         "kind": "card",
         "name": "raw-card",
-        "source": "C:\\usbv2\\contracts\\fixtures\\trees\\skills-project/skills/raw-card.md",
+        "source": "/mnt/c/usbv2/contracts/fixtures/trees/skills-project/skills/raw-card.md",
         "source_kind": "local"
       },
       "observed_capabilities": [],
@@ -960,7 +960,7 @@
       "identity": {
         "kind": "claude",
         "name": "report-formatter",
-        "source": "C:\\usbv2\\contracts\\fixtures\\trees\\skills-project/skills/report-formatter/SKILL.md",
+        "source": "/mnt/c/usbv2/contracts/fixtures/trees/skills-project/skills/report-formatter/SKILL.md",
         "source_kind": "local"
       },
       "observed_capabilities": [
