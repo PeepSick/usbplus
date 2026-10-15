@@ -50,7 +50,7 @@ export const PRESETS: Record<string, { label: string; description: string; domai
     domains: [],
   },
   "web-dev": {
-    label: "Web Dev Pack (~40 skills)",
+    label: "Web Dev Pack (73 skills)",
     description: "React, Next.js, TypeScript, CSS, browser automation — front-end focused.",
     domains: [
       "react-state",
@@ -64,7 +64,7 @@ export const PRESETS: Record<string, { label: string; description: string; domai
     ],
   },
   "backend": {
-    label: "Backend Pack (~40 skills)",
+    label: "Backend Pack (73 skills)",
     description: "Node.js, Python, FastAPI, SQL, Redis — server-side focused.",
     domains: [
       "node-error-handling",
@@ -78,7 +78,7 @@ export const PRESETS: Record<string, { label: string; description: string; domai
     ],
   },
   "infra": {
-    label: "Infra & DevOps Pack (~40 skills)",
+    label: "Infra & DevOps Pack (73 skills)",
     description: "Docker, Kubernetes, Terraform, GitHub Actions, AWS, Azure — platform focused.",
     domains: [
       "docker-multistage",
@@ -92,7 +92,7 @@ export const PRESETS: Record<string, { label: string; description: string; domai
     ],
   },
   "security": {
-    label: "Security Pack (~50 skills)",
+    label: "Security Pack (73 skills)",
     description: "OAuth, RLS, prompt injection, secrets, hardening — defensive focused.",
     domains: [
       "oauth-flows",
@@ -106,7 +106,7 @@ export const PRESETS: Record<string, { label: string; description: string; domai
     ],
   },
   "data": {
-    label: "Data & AI Pack (~40 skills)",
+    label: "Data & AI Pack (73 skills)",
     description: "SQL, RAG, vector search, OpenAPI, GraphQL, prompt engineering — data heavy.",
     domains: [
       "sql-query-optimization",
@@ -140,6 +140,17 @@ export function applyFilter(
   if (options.slug) {
     const wanted = new Set(parseList(options.slug));
     result = result.filter((s) => wanted.has(s.slug));
+    if (result.length === 0) {
+      // `usb install <domain>` is documented in the CLI and sends a bare
+      // domain as slug=. Exact-match finds nothing, so retry the same values
+      // as domain selectors (slug === domain, or slug under `<domain>-…`).
+      // A typo still yields zero — the fallback can't invent skills — and it
+      // runs before every other filter, so combined filters stay intact.
+      const domains = parseList(options.slug);
+      result = skills.filter((s) =>
+        domains.some((d) => s.slug === d || s.slug.startsWith(`${d}-`)),
+      );
+    }
   }
 
   if (options.domain) {

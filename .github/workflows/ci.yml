@@ -57,3 +57,6 @@ jobs:
 
       - name: mcprobe conformance
         run: python3 scripts/check-mcprobe.py
+
+      - name: MCP stdio conformance
+        run: python3 scripts/check-mcp.py

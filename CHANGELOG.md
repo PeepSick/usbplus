@@ -4,6 +4,24 @@ All notable changes to USB — Universal Systems Bridge will be documented in th
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.0.2] — 2026-10-15
+
+### Added
+- `usb install <domain>` now works as documented: a bare domain sent as `slug=` falls back to a domain-wide install (all 8 workflows) across `/api/install`, `/api/install-sha256`, `/api/skills` and the MCP catalog — hash verification included
+- `usb secscan --emit-contracts <file>` forwarded from the CLI wrapper (contract artifacts without invoking the engine directly)
+- README: dedicated **mcprobe** documentation — consent model, transports, redaction, report contract and exit codes
+
+### Changed
+- README restructured for the release: contents navigation, secscan's deep-dive collapsed into an expandable section, preset counts corrected (73 skills each), portable-target count corrected (11 + `auto`), `usb version` behavior documented
+- Preset labels state the exact count (`Web Dev Pack (73 skills)`) instead of rough estimates
+- `curl -fsSL https://usb.peepsicklabs.com/usb` now serves the same CLI as the npm package — Trust Layer commands included; a missing engine file points to `npm install -g @peepsick/usb-cli` instead of failing opaquely
+- Engine-missing errors for `mcprobe`/`mcp` name the missing file and the install path
+
+### Fixed
+- `.github/workflows/ci.yml`: removed an invalid second workflow document appended to the file (Actions rejected the whole workflow); added `scripts/check-mcp.py` (stdio MCP conformance) to CI
+- `CONTRIBUTING.md` duplicate section removed
+- Removed stray artifacts that never belonged to the published tree (unrelated-project `docs/` stubs, placeholder `tests/` that broke `typecheck`, a corrupted README duplicate, a stale `usbv2.zip`)
+
 ## [1.0.1] — 2026-08-31
 
 ### Fixed

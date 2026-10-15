@@ -1,6 +1,6 @@
-# Release Notes — USB v1.0.1
+# Release Notes — USB v1.0.2
 
-**Release date:** 2026-08-31
+**Release date:** 2026-10-15
 
 ## What is USB?
 
@@ -32,13 +32,15 @@ USB discovers AI capabilities inside repositories and verifies whether their obs
 ### Filter System
 
 Install exactly what you need. The CLI positional argument selects a **preset
-name** (`web-dev`, `backend`, `infra`, `security`, `data`, `core-only`) or an
-**exact skill slug**; the interactive menu (`usb`) and the HTTP API / SDK expose
-the full filter vocabulary (`slug`, `domain`, `category`, `preset`, `core`,
-`exclude`) and let you combine it freely:
+name** (`web-dev`, `backend`, `infra`, `security`, `data`, `core-only`), a
+**domain** (`react-state` — all 8 workflows), or an **exact skill slug**; the
+interactive menu (`usb`) and the HTTP API / SDK expose the full filter
+vocabulary (`slug`, `domain`, `category`, `preset`, `core`, `exclude`) and let
+you combine it freely:
 
 ```bash
 usb install web-dev                  # curated preset (its domains + the 9 core skills)
+usb install react-state              # one domain — all 8 of its workflows
 usb install intent-router            # a single skill by exact slug
 usb install --dry-run web-dev        # preview the script without executing it
 usb install --target=claude web-dev  # force a specific runtime
@@ -59,8 +61,8 @@ usb install --target=<your-runtime>
 
 | Package | Version | Where |
 |---------|---------|-------|
-| `@peepsick/usb-cli` | 1.0.1 | [npm](https://www.npmjs.com/package/@peepsick/usb-cli) |
-| `@peepsick/usb-sdk` | 1.0.1 | [npm](https://www.npmjs.com/package/@peepsick/usb-sdk) |
+| `@peepsick/usb-cli` | 1.0.2 | [npm](https://www.npmjs.com/package/@peepsick/usb-cli) |
+| `@peepsick/usb-sdk` | 1.0.2 | [npm](https://www.npmjs.com/package/@peepsick/usb-sdk) |
 | Community agents (`packages/community/*`) | source | this repo — publish to npm yourself |
 
 The community packages (`@peepsick/usb-community-*`, e.g. the OAuth agent under

@@ -318,7 +318,8 @@ cmd_secscan() {
     exit 2
   }
   [ -f "$USB_SECSCAN_ENGINE" ] || {
-    err "secscan engine not found at $USB_SECSCAN_ENGINE (reinstall @peepsick/usb-cli)"
+    err "secscan engine not found at $USB_SECSCAN_ENGINE"
+    err "the security engines ship with the npm package — npm install -g @peepsick/usb-cli"
     exit 2
   }
 
@@ -335,7 +336,12 @@ cmd_secscan() {
         ;;
       --write-baseline=*) py_args+=("--write-baseline=${1#--write-baseline=}") ;;
       --write-baseline)   py_args+=("--write-baseline") ;;
-      --system|--all) py_args+=("--system") ;;
+      --emit-contracts=*) py_args+=("--emit-contracts=${1#--emit-contracts=}") ;;
+      --emit-contracts)
+        shift
+        [ $# -gt 0 ] || { err "--emit-contracts needs a file path to write"; exit 2; }
+        case "$1" in /*) py_args+=("--emit-contracts" "$(secscan_to_native_path "$1")") ;; *) py_args+=("--emit-contracts" "$1") ;; esac
+        ;;
       --repo=*)       repos+=("${1#--repo=}") ;;
       --repo)
         shift
@@ -672,11 +678,19 @@ case "${1:-}" in
     command -v python3 >/dev/null 2>&1 || {
       err "mcprobe needs python3 in PATH"; exit 2; }
     MCP_DIR="$(cd "$(dirname "$USB_SECSCAN_ENGINE")" && pwd)"
+    [ -f "$MCP_DIR/usb-mcprobe.py" ] || {
+      err "mcprobe engine not found at $MCP_DIR/usb-mcprobe.py"
+      err "the security engines ship with the npm package — npm install -g @peepsick/usb-cli"
+      exit 2; }
     python3 "$(secscan_to_native_path "$MCP_DIR")/usb-mcprobe.py" "$@" ;;
   mcp)            shift
     command -v python3 >/dev/null 2>&1 || {
       err "mcp server needs python3 in PATH"; exit 2; }
     MCP_DIR="$(cd "$(dirname "$USB_SECSCAN_ENGINE")" && pwd)"
+    [ -f "$MCP_DIR/usb-mcp.py" ] || {
+      err "mcp server engine not found at $MCP_DIR/usb-mcp.py"
+      err "the stdio MCP server ships with the npm package — npm install -g @peepsick/usb-cli"
+      exit 2; }
     python3 "$(secscan_to_native_path "$MCP_DIR")/usb-mcp.py" "$@" ;;
   version|-V|--version) cmd_version ;;
   -h|--help|help) usage ;;

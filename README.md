@@ -53,6 +53,8 @@ just new commands to meet.
 
 ---
 
+<sub><b>Contents</b> · <a href="#quickstart">Quickstart</a> · <a href="#who-is-this-for">Who is this for?</a> · <a href="#why-usb">Why USB?</a> · <a href="#architecture">Architecture</a> · <a href="#supported-targets">Targets</a> · <a href="#installing-skills">Installing</a> · <a href="#cli-reference">CLI</a> · <a href="#the-trust-layer">Trust Layer</a> · <a href="#api">API</a> · <a href="#local-development">Local dev</a> · <a href="#contributing">Contributing</a></sub>
+
 ## Quickstart
 
 ```bash
@@ -77,7 +79,7 @@ Real installer output — not mocked up (`web-dev` = 8 domains × 8 workflows + 
 
 ```bash
 $ usb install web-dev --target=claude
-✅ universal-skill-bridge-catalog v1.0.1 installed for target: claude (73 skills)
+✅ universal-skill-bridge-catalog v1.0.2 installed for target: claude (73 skills)
 📦 Portable pack: ~/.ai-skills/universal-skill-bridge-catalog
 🔌 Target files: ~/.claude/skills
 📝 Local registry: ~/.ai-skills/universal-skill-bridge-catalog/installed.json
@@ -98,7 +100,7 @@ Every agent runtime invents its own way to package capabilities: Claude Code has
 | | Without USB | With USB |
 |---|---|---|
 | Distribution | Copy-paste prompts between repos | `usb install <skill>` |
-| Portability | Rewritten per framework | One skill, 16 targets — 4 installed natively, 12 as a portable bundle |
+| Portability | Rewritten per framework | One skill, 16 targets — 4 native installs, 11 portable bundles, `auto` detection |
 | Discovery | Scattered gists and Notion docs | `usb search`, `/api/skills`, MCP tools |
 | Trust | Blind `curl \| bash` | Download → verify sha256 → read → run |
 
@@ -163,7 +165,7 @@ Trust the publisher and skip the review step: `curl -fsSL https://usb.peepsickla
 | Command | Description |
 |---|---|
 | `usb` | Open the interactive picker — browse domains, categories, presets, skills |
-| `usb install [preset\|skill]` | Install a curated preset or single skill into the detected runtime |
+| `usb install [preset\|domain\|skill]` | Install a curated preset, a whole domain (8 workflows), or a single skill |
 | `usb install` | Install the whole pack (529 skills) |
 | `usb install --target=<name>` | Force a specific provider target |
 | `usb install --dry-run` | Print the install script without executing it |
@@ -173,19 +175,29 @@ Trust the publisher and skip the review step: `curl -fsSL https://usb.peepsickla
 | `usb secscan [paths\|--system\|--repo]` | Skill Contract Verifier — security-scan skills (below) |
 | `usb mcprobe [target]` | Runtime observation of MCP servers (interactive consent) |
 | `usb mcp` | Start the stdio MCP server for AI agents |
-| `usb version` | Print the pack/CLI version |
+| `usb version` | Print version, latest release, and update check (`/api/version`) |
 
 ```bash
 usb install --dry-run                  # print the install script, do NOT execute
 less <(usb install --dry-run web-dev)  # dry-run a preset and pipe to less
 ```
 
-## Security scanning skills
+## The Trust Layer
+
+Installing a skill is easy; trusting one is not. The v1 series adds two
+commands that answer the two questions the install surface alone cannot:
+
+| | Question | Tool | Nature |
+|---|---|---|---|
+| **Contracts** | *Does this skill do what it declares?* | `usb secscan` | Static, deterministic — never executes what it scans |
+| **Runtime** | *What does this MCP server actually do when it starts?* | `usb mcprobe` | Live observation, explicit consent — never calls a tool |
+
+### secscan — Skill Contract Verifier
 
 Before installing skills you did not write, ask the only question that
-matters: **does this skill do what it declares?** `usb secscan` is a Skill
-Contract Verifier that answers it per skill - statically, deterministically,
-and without executing anything it scans:
+matters: **does this skill do what it declares?** `usb secscan` answers it
+per skill - statically, deterministically, and without executing anything
+it scans:
 
 ```bash
 usb secscan                       # project-local skills (.claude/skills, skills, .cursor/rules)
@@ -254,6 +266,9 @@ Fingerprints hash rule+evidence-text, so they survive line edits and temp-clone
 path changes; entries whose finding disappeared are pruned on the next
 `--write-baseline`.
 
+<details>
+<summary><b>How deep the verification goes</b> — discovery, MCP configs, declared tool lists, implementation source</summary>
+
 Discovery knows the difference between a claim and its supporting material:
 a bundle's reference docs (`skills/<name>/references/*.md`, `cli.md`, ...)
 are part of that bundle's claim, not claims of their own, while standalone
@@ -308,6 +323,8 @@ skills. Launch lines that cannot be resolved inside the tree (`npx -y
 authority scope as `opaque`: USB does not pretend to analyze what it
 cannot see.
 
+</details>
+
 Rule catalog:
 
 | Group | Rules | Question |
@@ -323,6 +340,56 @@ Requires `python3` (no grep fallback for security work). Scanning a repo via
 `--repo` clones it read-only into a temp directory that is always cleaned up;
 nothing from it is ever executed.
 
+### mcprobe — Runtime Observation of MCP Servers
+
+Static analysis stops where a server starts. `usb mcprobe` closes that gap:
+it finds every MCP server declared in your configs, completes the protocol
+handshake, and reports what the server actually exposes — **it never calls
+a tool**. Probing means running untrusted code or reaching the network, so
+mcprobe is a separate, explicitly consented command:
+
+```bash
+usb mcprobe                      # dry run: prints what WOULD be contacted, contacts nothing
+usb mcprobe --yes .              # consent, then observe every MCP server found
+usb mcprobe --yes --timeout 10 . # per-phase deadline (default 30s)
+```
+
+Without `--yes` nothing is contacted — and piped stdin counts as refusal,
+so automation cannot fake an interactive confirmation. The protocol scope
+is exactly `initialize` → `initialized` → `tools/list` → shutdown:
+registration of capabilities is observed, invocation is permanently out of
+scope. Local servers receive only the environment variables their config
+entry declares, and the report is redacted before it is written — launch
+lines, env values and header values never appear (their key names do):
+
+```json
+{
+  "schema": "usb-mcprobe-report/v1",
+  "mode": "runtime-observation",
+  "deterministic": false,
+  "target": { "locator": ".mcp.json#mcpServers/notes", "transport": "stdio", "contact": "local-process" },
+  "handshake": { "initialize": "ok", "tools_list": "ok" },
+  "server_info": { "name": "notes-server", "version": "1.4.0" },
+  "observation": { "complete": true, "reason": null },
+  "tools": [ { "name": "create_note", "description": "…", "input_schema_keys": ["title", "body"] } ]
+}
+```
+
+Transports: `stdio`, streamable HTTP (session id echoed, session closed on
+exit) and SSE entries; legacy bare-SSE servers are reported unsupported.
+Auth is detected, never bypassed: `401`, or `403` with
+`WWW-Authenticate`, reports `auth_required`; a `403` without it is
+`bot_blocked` (WAF), and no auth flow is attempted in v1. Pagination is
+bounded (10 pages / 1000 tools) — hitting a bound reports
+`"complete": false` with a reason instead of pretending a server exposed
+nothing. Exit codes: `0` all contacted, `1` any protocol error, timeout,
+auth challenge or bot-block, `2` refusal or no targets.
+
+The two halves stay deliberately separate audit chains: secscan is
+deterministic and never runs anything; mcprobe runs, is consented, and is
+honestly non-deterministic. Design details and the full report contract
+are in [docs/mcprobe.md](docs/mcprobe.md).
+
 ## API
 
 | Endpoint | Purpose |
@@ -333,6 +400,7 @@ nothing from it is ever executed.
 | `/api/audit/<slug>` | Audit a single skill definition |
 | `/api/version` | CLI/catalog version info |
 | `/api/health` | Health check |
+| `/api/installations` | Opt-in anonymous install logging — off unless `USB_LOG_INSTALLATIONS=on` |
 | `/api/mcp` | MCP server — HTTP JSON-RPC 2.0, tools: `usb_search`, `usb_get_skill`, `usb_audit_skill`, `usb_render_install` |
 
 ```bash
@@ -364,7 +432,8 @@ USB is built in public and contributions are genuinely welcome — bug reports,
 docs fixes, new runtime adapters, new skill domains, or security hardening.
 You don't need to write code to help. Start with
 [CONTRIBUTING.md](CONTRIBUTING.md); security issues go to
-[info@peepsickai.com](mailto:info@peepsickai.com) instead of the public tracker.
+[info@peepsickai.com](mailto:info@peepsickai.com) instead of the public
+tracker — see [SECURITY.md](SECURITY.md) for the policy.
 
 Before opening a PR that touches the CLI, installer, or this README, run
 `bash scripts/verify-readme.sh` (README examples against the live catalog),
@@ -372,15 +441,16 @@ Before opening a PR that touches the CLI, installer, or this README, run
 pty), `python3 scripts/check-target-formats.py` (the installed layout against
 what each runtime actually loads), `python3 scripts/check-encoding.py`
 (full-catalog encoding scan), `python3 scripts/check-links.py`
-(broken internal links), and `python3 scripts/check-secscan.py`
-(the secscan contract-verifier suite, offline). CI runs all of these on
-every PR and daily on a schedule, plus the conformance runners:
-`run_conformance.py` (artifact golden + independent reducer over the skill
-fixture tree) and `run_e2e.py` — the end-to-end reference corpus under
-`contracts/fixtures/e2e/acme-agent/`, which locks the whole chain
-(discovery → configs → skills → MCP adapters → declared tools →
-permissions → authority → reducer → verdicts → exit code) in one pass with
-path-normalized byte-stable goldens.
+(broken internal links), `python3 scripts/check-secscan.py` (the secscan
+contract-verifier suite, offline) and `python3 scripts/check-mcp.py` (the
+stdio MCP server's tool and consent conformance). CI runs typecheck, lint
+and build plus the secscan, MCP, `run_conformance.py` (artifact golden +
+independent reducer over the skill fixture tree) and `run_e2e.py` — the
+end-to-end reference corpus under `contracts/fixtures/e2e/acme-agent/`,
+which locks the whole chain (discovery → configs → skills → MCP adapters →
+declared tools → permissions → authority → reducer → verdicts → exit code)
+in one pass with path-normalized byte-stable goldens — on every push and
+PR; a second workflow repeats the live-site checks daily on a schedule.
 
 ---
 
@@ -389,7 +459,7 @@ path-normalized byte-stable goldens.
 
 ### Status
 
-**v1.0.1** — current release. Universal Systems Bridge: the 529-skill catalog, the
+**v1.0.2** — current release. Universal Systems Bridge: the 529-skill catalog, the
 16-target installer, and the Trust Layer (`secscan` contract verification,
 `mcprobe` runtime observation, MCP server). The Skill Bridge surface — same CLI,
 same skills — remains fully supported.
@@ -428,16 +498,17 @@ shared contract core. Phased, design-first:
    verdict from a fixed vocabulary (`matches-declaration`,
    `purpose-mismatch`, `excessive-authority`, `unverifiable`). Never
    "safe/unsafe"
-5. **MCP contracts** — the first new adapter after the core: config-layer
-   evidence first (transport, command line, environment), tool-graph and
-   implementation-source adapters next. Same discipline as phases 1–2:
-   built against real repositories — OpenWork's `.opencode` configs are
-   the first target corpus
+5. ✅ **MCP contracts** (shipped) — config-layer evidence (transport, command
+   line, environment), declared tool lists at depth stage 2, and
+   implementation-source registration idioms at depth stage 3 — built against
+   real repositories, with OpenWork's `.opencode` configs as the first target
+   corpus (`usb secscan` handles `.mcp.json`, `.cursor/mcp.json`,
+   `.vscode/mcp.json`, `--system` covers user-scope configs)
 6. **Agent & command contracts** — dedicated adapters on the same core
    (today they are verified through the skill adapter; this gives them
    their own declared-vs-observed contracts)
-7. **Runtime observation** — static verdicts plus observed execution =
-   continuous trust
+7. ✅ **Runtime observation** (shipped as `usb mcprobe`) — static verdicts
+   plus observed execution = continuous trust
 
 - Skill marketplace (built on the trust layer, not before it)
 - Verified skill badges (fingerprint-signed verdicts from phase 5)
@@ -469,6 +540,10 @@ PeepSick Labs is an early-stage AI infrastructure studio, currently pre-incorpor
 ### License
 
 MIT — free to use, modify, and redistribute, including commercially.
+
+The MIT license covers the code only. The "USB" / "Universal Systems
+Bridge" name and PeepSick Labs branding are **not** covered — rebranded
+forks must use a different name. See [TRADEMARK.md](./TRADEMARK.md).
 
 </details>
 

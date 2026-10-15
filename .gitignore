@@ -54,6 +54,7 @@ temp/
 /install-test-*.sh
 /usb-deploy-bundle.tar.gz
 /usb-deploy-bundle.zip
+/usbv2.zip
 
 # Internal agent/dev log - not for the public repo
 /MEMORIES.md
