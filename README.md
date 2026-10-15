@@ -46,11 +46,7 @@ npm install -g @peepsick/usb-cli
 usb install
 ```
 
-`usb install` bridges your machine to the catalog: it detects installed AI runtimes and installs natively where it can — `SKILL.md` skills for Claude Code, a `.mdc` rule for Cursor. More than one runtime found? It asks which:
-
-<p align="center">
-  <img src="public/usb-multiselect-demo.gif" alt="USB demo: npm install, usb install, runtime auto-detection, picking a target, and a successful install" width="900">
-</p>
+`usb install` bridges your machine to the catalog: it detects installed AI runtimes and installs natively where it can — `SKILL.md` skills for Claude Code, a `.mdc` rule for Cursor. More than one runtime? It asks which one to install into.
 
 ```bash
 usb search postgres                  # find a skill
@@ -70,6 +66,18 @@ $ usb install web-dev --target=claude
 
 <sub>Upgrading from Universal Skill Bridge (v0.4.x)? Every command you run
 still works — `secscan` and `mcprobe` are new, additive commands.</sub>
+
+**New in v1 — the Trust Layer.** Installation is step one; proving what
+you run is the next:
+
+```bash
+usb secscan   # declared vs. observed — verdicts with file:line evidence, exit codes for CI
+usb mcprobe   # observe MCP servers at startup — consented, never calls a tool
+```
+
+<p align="center">
+  <img src="public/usb-secscan-demo.gif" alt="USB demo: usb secscan streaming verdicts over ten real skills — purpose-mismatch, structural issues, authority signals — and a summary with exit code 1" width="900">
+</p>
 
 ## Why a systems bridge?
 
@@ -445,7 +453,7 @@ USB is built in public and contributions are genuinely welcome — bug reports,
 docs fixes, new runtime adapters, new skill domains, or security hardening.
 You don't need to write code to help. Start with
 [CONTRIBUTING.md](CONTRIBUTING.md); security issues go to
-[info@peepsickai.com](mailto:info@peepsickai.com) instead of the public
+[info@peepsicklabs.com](mailto:info@peepsicklabs.com) instead of the public
 tracker — see [SECURITY.md](SECURITY.md) for the policy.
 
 Before opening a PR that touches the CLI, installer, or this README, run
@@ -548,7 +556,7 @@ PeepSick Labs is an early-stage AI infrastructure studio, currently pre-incorpor
 ### Contact
 
 - Web: [usbplus.peepsicklabs.com](https://usbplus.peepsicklabs.com)
-- Email: [info@peepsickai.com](mailto:info@peepsickai.com)
+- Email: [info@peepsicklabs.com](mailto:info@peepsicklabs.com)
 - GitHub: [github.com/PeepSick](https://github.com/PeepSick)
 
 ### License
