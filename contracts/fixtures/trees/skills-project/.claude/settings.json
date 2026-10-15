@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build)",
+      "mcp__filesystem__write_file",
+      "mcp__issue-tracker"
+    ],
+    "deny": ["mcp__deploy-helper__run_deploy"]
+  }
+}
