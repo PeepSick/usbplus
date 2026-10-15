@@ -1,0 +1,7 @@
+{
+  "dialect": "postgresql",
+  "schema": "./src/db/schema.ts",
+  "dbCredentials": {
+    "url": "postgresql://usb:usb_test_pw@127.0.0.1:55432/usb"
+  }
+}
