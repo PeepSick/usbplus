@@ -1,12 +1,12 @@
 usb-secscan v1.5.0 - skill contract verifier (static, nothing is executed)
 
 sources:
-  local   <TREE>
-  local   <TREE>/broken/mcp.json
-  local   <TOOLGRAPH>
+  local   contracts/fixtures/e2e/acme-agent
+  local   contracts/fixtures/e2e/acme-agent/broken/mcp.json
+  local   contracts/fixtures/e2e/toolgraph
 
   .claude/settings.local.json  [mcp-server]  contract: UNVERIFIABLE
-    HIGH   S101 <TREE>/.claude/settings.local.json is not valid JSON (line 1)
+    HIGH   S101 contracts/fixtures/e2e/acme-agent/.claude/settings.local.json is not valid JSON (line 1)
             { "permissions": { "allow": [
             why: Expecting value: line 1 column 30 (char 29) - the runtime ignores these permission rules entirely
 

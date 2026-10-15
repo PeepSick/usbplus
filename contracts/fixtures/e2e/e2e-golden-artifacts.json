@@ -12,7 +12,7 @@
       "declared": {
         "categories": [],
         "description_chars": 0,
-        "text": "<TREE>/.claude/settings.local.json"
+        "text": "contracts/fixtures/e2e/acme-agent/.claude/settings.local.json"
       },
       "evidence_by_rule": {
         "S101": [
@@ -24,8 +24,8 @@
       },
       "identity": {
         "kind": "mcp-server",
-        "name": "<TREE>/.claude/settings.local.json",
-        "source": "<TREE>/.claude/settings.local.json",
+        "name": "contracts/fixtures/e2e/acme-agent/.claude/settings.local.json",
+        "source": "contracts/fixtures/e2e/acme-agent/.claude/settings.local.json",
         "source_kind": "local"
       },
       "observed_capabilities": [],
@@ -36,7 +36,7 @@
           "quote": "{ \"permissions\": { \"allow\": [",
           "rule": "S101",
           "severity": "high",
-          "title": "<TREE>/.claude/settings.local.json is not valid JSON"
+          "title": "contracts/fixtures/e2e/acme-agent/.claude/settings.local.json is not valid JSON"
         }
       ],
       "undeclared_categories": [],
@@ -51,7 +51,7 @@
       "declared": {
         "categories": [],
         "description_chars": 0,
-        "text": "<TREE>/.cursor/mcp.json"
+        "text": "contracts/fixtures/e2e/acme-agent/.cursor/mcp.json"
       },
       "evidence_by_rule": {
         "S101": [
@@ -63,8 +63,8 @@
       },
       "identity": {
         "kind": "mcp-server",
-        "name": "<TREE>/.cursor/mcp.json",
-        "source": "<TREE>/.cursor/mcp.json",
+        "name": "contracts/fixtures/e2e/acme-agent/.cursor/mcp.json",
+        "source": "contracts/fixtures/e2e/acme-agent/.cursor/mcp.json",
         "source_kind": "local"
       },
       "observed_capabilities": [],
@@ -112,7 +112,7 @@
       "identity": {
         "kind": "mcp-server",
         "name": "dangerous",
-        "source": "<TREE>/.mcp.json#mcpServers/dangerous",
+        "source": "contracts/fixtures/e2e/acme-agent/.mcp.json#mcpServers/dangerous",
         "source_kind": "local"
       },
       "observed_capabilities": [],
@@ -150,7 +150,7 @@
       "identity": {
         "kind": "mcp-server",
         "name": "deploy-helper",
-        "source": "<TREE>/.mcp.json#mcpServers/deploy-helper",
+        "source": "contracts/fixtures/e2e/acme-agent/.mcp.json#mcpServers/deploy-helper",
         "source_kind": "local"
       },
       "observed_capabilities": [],
@@ -199,7 +199,7 @@
       "identity": {
         "kind": "mcp-server",
         "name": "issue-watcher",
-        "source": "<TREE>/.mcp.json#mcpServers/issue-watcher",
+        "source": "contracts/fixtures/e2e/acme-agent/.mcp.json#mcpServers/issue-watcher",
         "source_kind": "local"
       },
       "observed_capabilities": [
@@ -262,7 +262,7 @@
       "identity": {
         "kind": "mcp-server",
         "name": "report-service",
-        "source": "<TREE>/.mcp.json#mcpServers/report-service",
+        "source": "contracts/fixtures/e2e/acme-agent/.mcp.json#mcpServers/report-service",
         "source_kind": "local"
       },
       "observed_capabilities": [
@@ -327,7 +327,7 @@
       "identity": {
         "kind": "mcp-server",
         "name": "weather-bot",
-        "source": "<TREE>/.mcp.json#mcpServers/weather-bot",
+        "source": "contracts/fixtures/e2e/acme-agent/.mcp.json#mcpServers/weather-bot",
         "source_kind": "local"
       },
       "observed_capabilities": [],
@@ -377,7 +377,7 @@
       "identity": {
         "kind": "mcp-server",
         "name": "bootstrap",
-        "source": "<TREE>/.vscode/mcp.json#mcpServers/bootstrap",
+        "source": "contracts/fixtures/e2e/acme-agent/.vscode/mcp.json#mcpServers/bootstrap",
         "source_kind": "local"
       },
       "observed_capabilities": [
@@ -419,7 +419,7 @@
       "identity": {
         "kind": "agent",
         "name": "scout",
-        "source": "<TREE>/agents/scout.md",
+        "source": "contracts/fixtures/e2e/acme-agent/agents/scout.md",
         "source_kind": "local"
       },
       "observed_capabilities": [],
@@ -436,7 +436,7 @@
       "declared": {
         "categories": [],
         "description_chars": 0,
-        "text": "<TREE>/broken/mcp.json"
+        "text": "contracts/fixtures/e2e/acme-agent/broken/mcp.json"
       },
       "evidence_by_rule": {
         "S101": [
@@ -448,8 +448,8 @@
       },
       "identity": {
         "kind": "mcp-server",
-        "name": "<TREE>/broken/mcp.json",
-        "source": "<TREE>/broken/mcp.json",
+        "name": "contracts/fixtures/e2e/acme-agent/broken/mcp.json",
+        "source": "contracts/fixtures/e2e/acme-agent/broken/mcp.json",
         "source_kind": "local"
       },
       "observed_capabilities": [],
@@ -494,7 +494,7 @@
       "identity": {
         "kind": "command",
         "name": "deploy",
-        "source": "<TREE>/commands/deploy.md",
+        "source": "contracts/fixtures/e2e/acme-agent/commands/deploy.md",
         "source_kind": "local"
       },
       "observed_capabilities": [],
@@ -535,7 +535,7 @@
       "identity": {
         "kind": "command",
         "name": "state-relay",
-        "source": "<TREE>/commands/state-relay.md",
+        "source": "contracts/fixtures/e2e/acme-agent/commands/state-relay.md",
         "source_kind": "local"
       },
       "observed_capabilities": [
@@ -570,7 +570,7 @@
       "identity": {
         "kind": "claude",
         "name": "clean-reporter",
-        "source": "<TREE>/skills/clean-reporter/SKILL.md",
+        "source": "contracts/fixtures/e2e/acme-agent/skills/clean-reporter/SKILL.md",
         "source_kind": "local"
       },
       "observed_capabilities": [],
@@ -595,7 +595,7 @@
       "identity": {
         "kind": "claude",
         "name": "artifact-uploader",
-        "source": "<TREE>/skills/declared-uploader/SKILL.md",
+        "source": "contracts/fixtures/e2e/acme-agent/skills/declared-uploader/SKILL.md",
         "source_kind": "local"
       },
       "observed_capabilities": [],
@@ -636,7 +636,7 @@
       "identity": {
         "kind": "claude",
         "name": "quick-notes",
-        "source": "<TREE>/skills/undeclared-egress/SKILL.md",
+        "source": "contracts/fixtures/e2e/acme-agent/skills/undeclared-egress/SKILL.md",
         "source_kind": "local"
       },
       "observed_capabilities": [
@@ -724,7 +724,7 @@
       "identity": {
         "kind": "mcp-server",
         "name": "archive",
-        "source": "<TOOLGRAPH>/.mcp.json#mcpServers/archive",
+        "source": "contracts/fixtures/e2e/toolgraph/.mcp.json#mcpServers/archive",
         "source_kind": "local"
       },
       "observed_capabilities": [
@@ -800,7 +800,7 @@
       "identity": {
         "kind": "mcp-server",
         "name": "notes",
-        "source": "<TOOLGRAPH>/.mcp.json#mcpServers/notes",
+        "source": "contracts/fixtures/e2e/toolgraph/.mcp.json#mcpServers/notes",
         "source_kind": "local"
       },
       "observed_capabilities": [
@@ -844,7 +844,7 @@
       "identity": {
         "kind": "mcp-server",
         "name": "remote-registry",
-        "source": "<TOOLGRAPH>/.mcp.json#mcpServers/remote-registry",
+        "source": "contracts/fixtures/e2e/toolgraph/.mcp.json#mcpServers/remote-registry",
         "source_kind": "local"
       },
       "observed_capabilities": [],

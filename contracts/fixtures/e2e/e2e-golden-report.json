@@ -7,7 +7,7 @@
       "files_seen": 13,
       "kind": "local",
       "notes": [],
-      "path": "<TREE>",
+      "path": "contracts/fixtures/e2e/acme-agent",
       "skipped_binary": 0,
       "skipped_large": [],
       "truncated": false
@@ -18,7 +18,7 @@
       "files_seen": 0,
       "kind": "local",
       "notes": [],
-      "path": "<TREE>/broken/mcp.json",
+      "path": "contracts/fixtures/e2e/acme-agent/broken/mcp.json",
       "skipped_binary": 0,
       "skipped_large": [],
       "truncated": false
@@ -29,7 +29,7 @@
       "files_seen": 5,
       "kind": "local",
       "notes": [],
-      "path": "<TOOLGRAPH>",
+      "path": "contracts/fixtures/e2e/toolgraph",
       "skipped_binary": 0,
       "skipped_large": [],
       "truncated": false
@@ -52,14 +52,14 @@
           "quote": "{ \"permissions\": { \"allow\": [",
           "rule": "S101",
           "severity": "high",
-          "title": "<TREE>/.claude/settings.local.json is not valid JSON"
+          "title": "contracts/fixtures/e2e/acme-agent/.claude/settings.local.json is not valid JSON"
         }
       ],
       "format": "mcp-server",
-      "name": "<TREE>/.claude/settings.local.json",
+      "name": "contracts/fixtures/e2e/acme-agent/.claude/settings.local.json",
       "source": {
         "kind": "local",
-        "path": "<TREE>/.claude/settings.local.json"
+        "path": "contracts/fixtures/e2e/acme-agent/.claude/settings.local.json"
       },
       "verdict": "unverifiable"
     },
@@ -83,10 +83,10 @@
         }
       ],
       "format": "mcp-server",
-      "name": "<TREE>/.cursor/mcp.json",
+      "name": "contracts/fixtures/e2e/acme-agent/.cursor/mcp.json",
       "source": {
         "kind": "local",
-        "path": "<TREE>/.cursor/mcp.json"
+        "path": "contracts/fixtures/e2e/acme-agent/.cursor/mcp.json"
       },
       "verdict": "unverifiable"
     },
@@ -103,7 +103,7 @@
       "name": "dangerous",
       "source": {
         "kind": "local",
-        "path": "<TREE>/.mcp.json#mcpServers/dangerous"
+        "path": "contracts/fixtures/e2e/acme-agent/.mcp.json#mcpServers/dangerous"
       },
       "verdict": "matches-declaration"
     },
@@ -120,7 +120,7 @@
       "name": "deploy-helper",
       "source": {
         "kind": "local",
-        "path": "<TREE>/.mcp.json#mcpServers/deploy-helper"
+        "path": "contracts/fixtures/e2e/acme-agent/.mcp.json#mcpServers/deploy-helper"
       },
       "verdict": "matches-declaration"
     },
@@ -151,7 +151,7 @@
       "name": "issue-watcher",
       "source": {
         "kind": "local",
-        "path": "<TREE>/.mcp.json#mcpServers/issue-watcher"
+        "path": "contracts/fixtures/e2e/acme-agent/.mcp.json#mcpServers/issue-watcher"
       },
       "verdict": "purpose-mismatch"
     },
@@ -172,7 +172,7 @@
       "name": "report-service",
       "source": {
         "kind": "local",
-        "path": "<TREE>/.mcp.json#mcpServers/report-service"
+        "path": "contracts/fixtures/e2e/acme-agent/.mcp.json#mcpServers/report-service"
       },
       "verdict": "matches-declaration"
     },
@@ -199,7 +199,7 @@
       "name": "weather-bot",
       "source": {
         "kind": "local",
-        "path": "<TREE>/.mcp.json#mcpServers/weather-bot"
+        "path": "contracts/fixtures/e2e/acme-agent/.mcp.json#mcpServers/weather-bot"
       },
       "verdict": "excessive-authority"
     },
@@ -230,7 +230,7 @@
       "name": "bootstrap",
       "source": {
         "kind": "local",
-        "path": "<TREE>/.vscode/mcp.json#mcpServers/bootstrap"
+        "path": "contracts/fixtures/e2e/acme-agent/.vscode/mcp.json#mcpServers/bootstrap"
       },
       "verdict": "purpose-mismatch"
     },
@@ -249,7 +249,7 @@
       "name": "scout",
       "source": {
         "kind": "local",
-        "path": "<TREE>/agents/scout.md"
+        "path": "contracts/fixtures/e2e/acme-agent/agents/scout.md"
       },
       "verdict": "matches-declaration"
     },
@@ -273,10 +273,10 @@
         }
       ],
       "format": "mcp-server",
-      "name": "<TREE>/broken/mcp.json",
+      "name": "contracts/fixtures/e2e/acme-agent/broken/mcp.json",
       "source": {
         "kind": "local",
-        "path": "<TREE>/broken/mcp.json"
+        "path": "contracts/fixtures/e2e/acme-agent/broken/mcp.json"
       },
       "verdict": "unverifiable"
     },
@@ -295,7 +295,7 @@
       "name": "deploy",
       "source": {
         "kind": "local",
-        "path": "<TREE>/commands/deploy.md"
+        "path": "contracts/fixtures/e2e/acme-agent/commands/deploy.md"
       },
       "verdict": "matches-declaration"
     },
@@ -326,7 +326,7 @@
       "name": "state-relay",
       "source": {
         "kind": "local",
-        "path": "<TREE>/commands/state-relay.md"
+        "path": "contracts/fixtures/e2e/acme-agent/commands/state-relay.md"
       },
       "verdict": "purpose-mismatch"
     },
@@ -343,7 +343,7 @@
       "name": "clean-reporter",
       "source": {
         "kind": "local",
-        "path": "<TREE>/skills/clean-reporter/SKILL.md"
+        "path": "contracts/fixtures/e2e/acme-agent/skills/clean-reporter/SKILL.md"
       },
       "verdict": "matches-declaration"
     },
@@ -360,7 +360,7 @@
       "name": "artifact-uploader",
       "source": {
         "kind": "local",
-        "path": "<TREE>/skills/declared-uploader/SKILL.md"
+        "path": "contracts/fixtures/e2e/acme-agent/skills/declared-uploader/SKILL.md"
       },
       "verdict": "matches-declaration"
     },
@@ -391,7 +391,7 @@
       "name": "quick-notes",
       "source": {
         "kind": "local",
-        "path": "<TREE>/skills/undeclared-egress/SKILL.md"
+        "path": "contracts/fixtures/e2e/acme-agent/skills/undeclared-egress/SKILL.md"
       },
       "verdict": "purpose-mismatch"
     },
@@ -447,7 +447,7 @@
       "name": "archive",
       "source": {
         "kind": "local",
-        "path": "<TOOLGRAPH>/.mcp.json#mcpServers/archive"
+        "path": "contracts/fixtures/e2e/toolgraph/.mcp.json#mcpServers/archive"
       },
       "verdict": "purpose-mismatch"
     },
@@ -479,7 +479,7 @@
       "name": "notes",
       "source": {
         "kind": "local",
-        "path": "<TOOLGRAPH>/.mcp.json#mcpServers/notes"
+        "path": "contracts/fixtures/e2e/toolgraph/.mcp.json#mcpServers/notes"
       },
       "verdict": "purpose-mismatch"
     },
@@ -496,7 +496,7 @@
       "name": "remote-registry",
       "source": {
         "kind": "local",
-        "path": "<TOOLGRAPH>/.mcp.json#mcpServers/remote-registry"
+        "path": "contracts/fixtures/e2e/toolgraph/.mcp.json#mcpServers/remote-registry"
       },
       "verdict": "matches-declaration"
     }

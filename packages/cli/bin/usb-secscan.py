@@ -2209,14 +2209,34 @@ def split_typed(raw: str):
     return "local", raw
 
 
+def _display_label(raw: str) -> str:
+    """Fold a scan-target argument to a CWD-relative POSIX label when the
+    target lives under the current working directory.
+
+    Unit identities embed this label, so an absolute argument would bake
+    the machine's directory layout into reports, contract artifacts and
+    goldens - byte-unstable across machines. Targets outside the cwd have
+    no stable relative form and keep their absolute path."""
+    target = Path(raw).expanduser()
+    try:
+        rel = os.path.relpath(target)
+    except ValueError:  # different drive (Windows)
+        return str(target).replace("\\", "/")
+    if rel == ".." or rel.startswith(".." + os.sep):
+        return str(target).replace("\\", "/")
+    return (rel.replace("\\", "/") or ".")
+
+
 def gather_roots(args):
     """-> [(kind, display_label, Path)] in deterministic order."""
     roots = []
     for p in args.path:
         kind, target = split_typed(p)
-        roots.append((kind, target, Path(target).expanduser()))
+        roots.append((kind, _display_label(target),
+                      Path(target).expanduser()))
     for raw in args.targets:
-        roots.append(("local", raw, Path(raw).expanduser()))
+        roots.append(("local", _display_label(raw),
+                      Path(raw).expanduser()))
     if args.system:
         for display, target in system_sources():
             roots.append(("system", display, target))
