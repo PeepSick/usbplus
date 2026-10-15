@@ -23,7 +23,7 @@ export async function GET() {
   const updateAvailable =
     isSemver(current) && isSemver(latest) && compareSemver(latest, current) > 0;
   const baseUrl =
-    process.env.USB_BASE_URL ?? "https://usb.peepsicklabs.com";
+    process.env.USB_BASE_URL ?? "https://usbplus.peepsicklabs.com";
   const commitSha = process.env.USB_COMMIT_SHA ?? null;
 
   return new Response(

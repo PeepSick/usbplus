@@ -47,7 +47,7 @@ whatever you submit.
 You'll need Node.js 18+ and PostgreSQL.
 
 ```bash
-git clone https://github.com/PeepSick/usb.git
+git clone https://github.com/PeepSick/usbplus.git
 cd usb
 npm install
 

@@ -48,7 +48,7 @@ PINK     = (244, 114, 182)
 HILIGHT  = (251, 191, 36)
 SEL      = (244, 114, 182)
 
-INSTALL_CMD = 'curl -fsSL https://usb.peepsicklabs.com/api/install?target=auto | bash'
+INSTALL_CMD = 'curl -fsSL https://usbplus.peepsicklabs.com/api/install?target=auto | bash'
 
 DETECT_LINES = [
     ("🔍", "Detecting AI runtimes on this machine...",                 DIM),

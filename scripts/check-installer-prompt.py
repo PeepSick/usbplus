@@ -27,7 +27,7 @@ import sys
 import tempfile
 import time
 
-BASE_URL = (sys.argv[1] if len(sys.argv) > 1 else "https://usb.peepsicklabs.com").rstrip("/")
+BASE_URL = (sys.argv[1] if len(sys.argv) > 1 else "https://usbplus.peepsicklabs.com").rstrip("/")
 INSTALL_URL = f"{BASE_URL}/api/install?target=auto"
 
 # The picker only appears when several runtimes are detected, so every test

@@ -14,7 +14,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 - README restructured for the release: contents navigation, secscan's deep-dive collapsed into an expandable section, preset counts corrected (73 skills each), portable-target count corrected (11 + `auto`), `usb version` behavior documented
 - Preset labels state the exact count (`Web Dev Pack (73 skills)`) instead of rough estimates
-- `curl -fsSL https://usb.peepsicklabs.com/usb` now serves the same CLI as the npm package — Trust Layer commands included; a missing engine file points to `npm install -g @peepsick/usb-cli` instead of failing opaquely
+- `curl -fsSL https://usbplus.peepsicklabs.com/usb` now serves the same CLI as the npm package — Trust Layer commands included; a missing engine file points to `npm install -g @peepsick/usb-cli` instead of failing opaquely
 - Engine-missing errors for `mcprobe`/`mcp` name the missing file and the install path
 
 ### Fixed

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # usb — Universal Systems Bridge CLI
-# https://github.com/PeepSick/usb
+# https://github.com/PeepSick/usbplus
 #
 # Install:
-#   curl -fsSL https://usb.peepsicklabs.com/usb -o /usr/local/bin/usb && chmod +x /usr/local/bin/usb
+#   curl -fsSL https://usbplus.peepsicklabs.com/usb -o /usr/local/bin/usb && chmod +x /usr/local/bin/usb
 #
 # Usage:
 #   usb                            Open the interactive picker (no subcommand = menu)
@@ -27,12 +27,12 @@
 #   usb --help                     Show this help
 #
 # Environment:
-#   USB_BASE_URL    Override the catalog host (default https://usb.peepsicklabs.com)
+#   USB_BASE_URL    Override the catalog host (default https://usbplus.peepsicklabs.com)
 #   USB_TARGET      Default runtime target (default: auto)
 
 set -euo pipefail
 
-USB_BASE_URL="${USB_BASE_URL:-https://usb.peepsicklabs.com}"
+USB_BASE_URL="${USB_BASE_URL:-https://usbplus.peepsicklabs.com}"
 USB_TARGET="${USB_TARGET:-auto}"
 
 # --- pretty output helpers ---------------------------------------------------

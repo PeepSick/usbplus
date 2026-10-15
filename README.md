@@ -16,14 +16,14 @@
   <a href="https://www.npmjs.com/package/@peepsick/usb-cli">
     <img src="https://img.shields.io/npm/v/@peepsick/usb-cli.svg?style=flat-square&label=usb-cli">
   </a>
-  <a href="https://github.com/PeepSick/usb/blob/main/LICENSE">
-    <img src="https://img.shields.io/github/license/PeepSick/usb.svg?style=flat-square">
+  <a href="https://github.com/PeepSick/usbplus/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/PeepSick/usbplus.svg?style=flat-square">
   </a>
-  <a href="https://usb.peepsicklabs.com">
-    <img src="https://img.shields.io/website-up-down-green-red/https/usb.peepsicklabs.com.svg?style=flat-square&label=live">
+  <a href="https://usbplus.peepsicklabs.com">
+    <img src="https://img.shields.io/website-up-down-green-red/https/usbplus.peepsicklabs.com.svg?style=flat-square&label=live">
   </a>
-  <a href="https://github.com/PeepSick/usb/actions/workflows/readme-check.yml">
-    <img src="https://github.com/PeepSick/usb/actions/workflows/readme-check.yml/badge.svg">
+  <a href="https://github.com/PeepSick/usbplus/actions/workflows/readme-check.yml">
+    <img src="https://github.com/PeepSick/usbplus/actions/workflows/readme-check.yml/badge.svg">
   </a>
   <a href="https://www.npmjs.com/package/@peepsick/usb-sdk">
     <img src="https://img.shields.io/npm/dt/@peepsick/usb-sdk.svg?style=flat-square&label=downloads">
@@ -151,14 +151,14 @@ usb install --target=claude   # force a specific runtime target
 **Inspect-then-install** — no npm/Node required, verifies the script before running it:
 
 ```bash
-curl -fsSL https://usb.peepsicklabs.com/api/install?target=auto -o install.sh
-EXPECTED=$(curl -fsSL https://usb.peepsicklabs.com/api/install-sha256?target=auto)
+curl -fsSL https://usbplus.peepsicklabs.com/api/install?target=auto -o install.sh
+EXPECTED=$(curl -fsSL https://usbplus.peepsicklabs.com/api/install-sha256?target=auto)
 echo "$EXPECTED  install.sh" | sha256sum -c -   # mismatch = tampering or a stale CDN
 less install.sh                                  # read what it actually does
 bash install.sh
 ```
 
-Trust the publisher and skip the review step: `curl -fsSL https://usb.peepsicklabs.com/api/install?target=auto | bash`
+Trust the publisher and skip the review step: `curl -fsSL https://usbplus.peepsicklabs.com/api/install?target=auto | bash`
 
 ## CLI reference
 
@@ -413,7 +413,7 @@ are in [docs/mcprobe.md](docs/mcprobe.md).
 | `/api/mcp` | MCP server — HTTP JSON-RPC 2.0, tools: `usb_search`, `usb_get_skill`, `usb_audit_skill`, `usb_render_install` |
 
 ```bash
-curl -X POST https://usb.peepsicklabs.com/api/mcp \
+curl -X POST https://usbplus.peepsicklabs.com/api/mcp \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
@@ -428,7 +428,7 @@ USB ships **two MCP surfaces** — different transports, different jobs:
 ## Local development
 
 ```bash
-git clone https://github.com/PeepSick/usb.git
+git clone https://github.com/PeepSick/usbplus.git
 cd usb
 docker compose up -d
 ```
@@ -542,7 +542,7 @@ PeepSick Labs is an early-stage AI infrastructure studio, currently pre-incorpor
 
 ### Contact
 
-- Web: [usb.peepsicklabs.com](https://usb.peepsicklabs.com)
+- Web: [usbplus.peepsicklabs.com](https://usbplus.peepsicklabs.com)
 - Email: [info@peepsickai.com](mailto:info@peepsickai.com)
 - GitHub: [github.com/PeepSick](https://github.com/PeepSick)
 

@@ -20,8 +20,8 @@ We will respond within 48 hours and work with you to understand and address the 
 USB install scripts are SHA256-verified before execution:
 
 ```bash
-curl -fsSL https://usb.peepsicklabs.com/api/install?target=auto -o install.sh
-EXPECTED=$(curl -fsSL https://usb.peepsicklabs.com/api/install-sha256?target=auto)
+curl -fsSL https://usbplus.peepsicklabs.com/api/install?target=auto -o install.sh
+EXPECTED=$(curl -fsSL https://usbplus.peepsicklabs.com/api/install-sha256?target=auto)
 echo "$EXPECTED  install.sh" | sha256sum -c -
 ```
 
@@ -53,7 +53,7 @@ The following are in scope:
 
 - `@peepsick/usb-cli`
 - `@peepsick/usb-sdk`
-- `usb.peepsicklabs.com` website and API
+- `usbplus.peepsicklabs.com` website and API
 - Install scripts served by `/api/install`
 - MCP server endpoint `/api/mcp`
 

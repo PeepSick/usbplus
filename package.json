@@ -5,13 +5,13 @@
   "private": true,
   "license": "MIT",
   "author": "PeepSick Labs",
-  "homepage": "https://usb.peepsicklabs.com",
+  "homepage": "https://usbplus.peepsicklabs.com",
   "repository": {
     "type": "git",
-    "url": "https://github.com/PeepSick/usb.git"
+    "url": "https://github.com/PeepSick/usbplus.git"
   },
   "bugs": {
-    "url": "https://github.com/PeepSick/usb/issues"
+    "url": "https://github.com/PeepSick/usbplus/issues"
   },
   "scripts": {
     "dev": "next dev",

@@ -6,7 +6,7 @@ This directory holds community-maintained agents that build on top of
 
 ## Submit yours
 
-1. Fork [github.com/PeepSick/usb](https://github.com/PeepSick/usb)
+1. Fork [github.com/PeepSick/usbplus](https://github.com/PeepSick/usbplus)
 2. Create a folder here: `packages/community/<your-agent-name>/`
 3. Add `package.json`, `index.ts`, and a short `README.md`
 4. Open a PR — title format: `[community] <YourAgentName>`

@@ -72,6 +72,6 @@ part of the CLI release train.
 
 ## Links
 
-- Website: [usb.peepsicklabs.com](https://usb.peepsicklabs.com)
-- GitHub: [github.com/PeepSick/usb](https://github.com/PeepSick/usb)
+- Website: [usbplus.peepsicklabs.com](https://usbplus.peepsicklabs.com)
+- GitHub: [github.com/PeepSick/usbplus](https://github.com/PeepSick/usbplus)
 - npm: [@peepsick/usb-cli](https://www.npmjs.com/package/@peepsick/usb-cli)

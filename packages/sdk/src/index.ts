@@ -63,7 +63,7 @@ export type AgentTarget =
   | "generic";
 
 export type AgentOptions = {
-  /** USB catalog base URL. Default: https://usb.peepsicklabs.com */
+  /** USB catalog base URL. Default: https://usbplus.peepsicklabs.com */
   baseUrl?: string;
   /** Default runtime target. Default: auto (auto-detect on the server). */
   target?: AgentTarget;
@@ -82,7 +82,7 @@ export class SkillRegistry {
   private readonly installDir: string;
 
   constructor(options: AgentOptions = {}) {
-    this.baseUrl = (options.baseUrl ?? "https://usb.peepsicklabs.com").replace(/\/$/, "");
+    this.baseUrl = (options.baseUrl ?? "https://usbplus.peepsicklabs.com").replace(/\/$/, "");
     this.target = options.target ?? "auto";
     this.installDir = options.installDir ?? `${process.env.HOME ?? "/tmp"}/.ai-skills`;
   }

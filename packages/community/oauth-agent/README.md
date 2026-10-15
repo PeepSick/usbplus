@@ -1,6 +1,6 @@
 # @peepsick/usb-community-oauth-agent
 
-> OAuth + token rotation hardening built on [USB — Universal Systems Bridge](https://github.com/PeepSick/usb).
+> OAuth + token rotation hardening built on [USB — Universal Systems Bridge](https://github.com/PeepSick/usbplus).
 
 ## Install
 

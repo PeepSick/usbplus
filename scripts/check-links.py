@@ -21,7 +21,7 @@ from urllib.parse import urljoin, urlparse
 # see scripts/check-encoding.py for why this matters on Windows.
 sys.stdout.reconfigure(encoding="utf-8")
 
-BASE_URL = "https://usb.peepsicklabs.com"
+BASE_URL = "https://usbplus.peepsicklabs.com"
 ENTRY_PAGES = ["/", "/about", "/privacy", "/playground/intent-router"]
 HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; usb-ci-check/1.0)"}
 

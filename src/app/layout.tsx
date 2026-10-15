@@ -4,7 +4,7 @@ import { Footer } from "@/app/components/Footer";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://usb.peepsicklabs.com"),
+  metadataBase: new URL("https://usbplus.peepsicklabs.com"),
   title: "USB — Universal Systems Bridge | Plug-and-play AI agent capabilities",
   description:
     "One portable capability format for AI agents — installed with sha256-verified installers into 16 runtimes and verified by secscan, a deterministic skill contract verifier. 529 skills from a 65-domain × 8-workflow matrix.",

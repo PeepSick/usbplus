@@ -7,10 +7,10 @@
   "keywords": ["usb", "universal-skill-bridge", "agents", "community"],
   "license": "MIT",
   "author": "PeepSick Labs",
-  "homepage": "https://usb.peepsicklabs.com",
+  "homepage": "https://usbplus.peepsicklabs.com",
   "repository": {
     "type": "git",
-    "url": "https://github.com/PeepSick/usb.git",
+    "url": "https://github.com/PeepSick/usbplus.git",
     "directory": "packages/community"
   },
   "files": [

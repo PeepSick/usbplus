@@ -70,3 +70,6 @@ temp/
 /birbiletkes-*.zip
 
 __pycache__/
+
+# local benchmark playground (not release-gated)
+/bench/

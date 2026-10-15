@@ -26,7 +26,7 @@ import urllib.request
 # just makes local runs on Windows behave the same way.
 sys.stdout.reconfigure(encoding="utf-8")
 
-BASE_URL = "https://usb.peepsicklabs.com"
+BASE_URL = "https://usbplus.peepsicklabs.com"
 
 MOJIBAKE_MARKERS = [
     "Ã¢â‚¬",  # em/en-dash, curly quotes double-encoded

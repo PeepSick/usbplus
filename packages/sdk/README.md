@@ -48,7 +48,7 @@ The companion CLI (`usb`) covers the same operations in shell:
 
 ```bash
 npm install -g @peepsick/usb-cli
-# or, without npm: curl -fsSL https://usb.peepsicklabs.com/usb -o /usr/local/bin/usb && chmod +x /usr/local/bin/usb
+# or, without npm: curl -fsSL https://usbplus.peepsicklabs.com/usb -o /usr/local/bin/usb && chmod +x /usr/local/bin/usb
 
 usb install intent-router
 usb search oauth
@@ -73,7 +73,7 @@ export class MyOAuthAgent extends Agent {
 }
 ```
 
-Submit your agent as a PR to `github.com/PeepSick/usb` under `packages/community/`. Add a `package.json`, an `index.ts`, and a short `README.md` — see [`packages/community/README.md`](https://github.com/PeepSick/usb/tree/main/packages/community) for the manifest convention. Listing is currently manual (reviewed and merged like any PR), not yet automated.
+Submit your agent as a PR to `github.com/PeepSick/usbplus` under `packages/community/`. Add a `package.json`, an `index.ts`, and a short `README.md` — see [`packages/community/README.md`](https://github.com/PeepSick/usbplus/tree/main/packages/community) for the manifest convention. Listing is currently manual (reviewed and merged like any PR), not yet automated.
 
 ## API surface
 

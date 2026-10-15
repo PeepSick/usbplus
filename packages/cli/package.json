@@ -28,14 +28,14 @@
   ],
   "license": "MIT",
   "author": "PeepSick Labs",
-  "homepage": "https://usb.peepsicklabs.com",
+  "homepage": "https://usbplus.peepsicklabs.com",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/PeepSick/usb.git",
+    "url": "git+https://github.com/PeepSick/usbplus.git",
     "directory": "packages/cli"
   },
   "bugs": {
-    "url": "https://github.com/PeepSick/usb/issues"
+    "url": "https://github.com/PeepSick/usbplus/issues"
   },
   "engines": {
     "node": ">=18"

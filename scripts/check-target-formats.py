@@ -29,7 +29,7 @@ import subprocess
 import sys
 import tempfile
 
-BASE_URL = (sys.argv[1] if len(sys.argv) > 1 else "https://usb.peepsicklabs.com").rstrip("/")
+BASE_URL = (sys.argv[1] if len(sys.argv) > 1 else "https://usbplus.peepsicklabs.com").rstrip("/")
 
 failures = []
 

@@ -16,7 +16,7 @@ npm install -g @peepsick/usb-cli
 Or skip the package and grab the standalone bash script:
 
 ```bash
-curl -fsSL https://usb.peepsicklabs.com/usb -o /usr/local/bin/usb && chmod +x /usr/local/bin/usb
+curl -fsSL https://usbplus.peepsicklabs.com/usb -o /usr/local/bin/usb && chmod +x /usr/local/bin/usb
 ```
 
 ## Usage
@@ -103,7 +103,7 @@ pip install -r $(npm root -g)/@peepsick/usb-cli/requirements.txt
 ## How it works
 
 The CLI is a thin bash wrapper (~6 KB, zero dependencies beyond `curl` and
-`bash`) that talks to the public [USB catalog](https://usb.peepsicklabs.com).
+`bash`) that talks to the public [USB catalog](https://usbplus.peepsicklabs.com).
 No local state, no API keys, no telemetry by default.
 
 Python scripts (`usb-secscan.py`, `usb-mcprobe.py`, `usb-mcp.py`) handle
