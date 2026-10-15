@@ -11,9 +11,9 @@ sources:
             why: Expecting value: line 1 column 30 (char 29) - the runtime ignores these permission rules entirely
 
   .cursor/mcp.json  [mcp-server]  contract: UNVERIFIABLE
-    HIGH   S101 MCP config is not valid JSON (line 6)
-            }
-            why: Expecting property name enclosed in double quotes: line 6 column 5 (char 108) - the runtime will silently load zero servers from this file
+    HIGH   S101 MCP config is not valid JSON (line 5)
+            "args": ["-y", "@example/docs"],
+            why: Illegal trailing comma before end of object: line 5 column 38 (char 102) - the runtime will silently load zero servers from this file
 
   .mcp.json#mcpServers/dangerous  [mcp-server]  contract: MATCHES-DECLARATION
     ok - observed behavior is covered by the declared contract
@@ -86,6 +86,6 @@ sources:
     ok - observed behavior is covered by the declared contract
 
 summary: 18 skill(s) verified, 10 with findings | exit 1 - blocking findings present
-  verdicts: matches-declaration:8 Â· excessive-authority:1 (advisory) Â· purpose-mismatch:6 Â· unverifiable:3
+  verdicts: matches-declaration:8 · excessive-authority:1 (advisory) · purpose-mismatch:6 · unverifiable:3
   findings: high:9 medium:2 low:1 info:0
   authority signals: 0 across 0 skill(s) (always advisory)

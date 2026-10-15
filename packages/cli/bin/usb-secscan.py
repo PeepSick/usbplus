@@ -2105,10 +2105,10 @@ def write_baseline(path: Path, results, stale_fps=None):
         "pruned_stale": sorted(stale_fps or []),
         "entries": entries,
     }
-    path.write_text(
-        json.dumps(doc, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    # newline="\n": baselines are diffed across machines - LF always
+    with open(path, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(json.dumps(doc, ensure_ascii=False, indent=2,
+                            sort_keys=True) + "\n")
     return len(entries)
 
 
@@ -2429,10 +2429,11 @@ def emit_contracts(path: Path, results):
         "units": units_out,
     }
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(doc, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    # newline="\n": byte-determinism across platforms (a Windows write_text
+    # would emit CRLF and drift from the LF golden on every Linux CI run)
+    with open(path, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(json.dumps(doc, ensure_ascii=False, indent=2,
+                            sort_keys=True) + "\n")
 
 
 def main(argv=None):

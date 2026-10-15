@@ -73,10 +73,10 @@
       },
       "findings": [
         {
-          "detail": "Expecting property name enclosed in double quotes: line 6 column 5 (char 108) - the runtime will silently load zero servers from this file",
-          "fingerprint": "5b41645757a3be42",
-          "line": 6,
-          "quote": "}",
+          "detail": "Illegal trailing comma before end of object: line 5 column 38 (char 102) - the runtime will silently load zero servers from this file",
+          "fingerprint": "62ab7ccd04373f94",
+          "line": 5,
+          "quote": "\"args\": [\"-y\", \"@example/docs\"],",
           "rule": "S101",
           "severity": "high",
           "title": "MCP config is not valid JSON"
