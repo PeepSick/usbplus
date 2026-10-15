@@ -18,6 +18,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Engine-missing errors for `mcprobe`/`mcp` name the missing file and the install path
 
 ### Fixed
+- Bare `?core=true` now returns only the 9 core skills, as the API always documented (it previously returned the full pack; combined with another selection filter it still adds the core skills to that selection)
 - `.github/workflows/ci.yml`: removed an invalid second workflow document appended to the file (Actions rejected the whole workflow); added `scripts/check-mcp.py` (stdio MCP conformance) to CI
 - `CONTRIBUTING.md` duplicate section removed
 - Removed stray artifacts that never belonged to the published tree (unrelated-project `docs/` stubs, placeholder `tests/` that broke `typecheck`, a corrupted README duplicate, a stale `usbv2.zip`)

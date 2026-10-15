@@ -367,11 +367,20 @@ lines, env values and header values never appear (their key names do):
   "schema": "usb-mcprobe-report/v1",
   "mode": "runtime-observation",
   "deterministic": false,
-  "target": { "locator": ".mcp.json#mcpServers/notes", "transport": "stdio", "contact": "local-process" },
-  "handshake": { "initialize": "ok", "tools_list": "ok" },
-  "server_info": { "name": "notes-server", "version": "1.4.0" },
-  "observation": { "complete": true, "reason": null },
-  "tools": [ { "name": "create_note", "description": "…", "input_schema_keys": ["title", "body"] } ]
+  "reports": [
+    {
+      "locator": ".mcp.json#mcpServers/notes",
+      "transport": "stdio",
+      "contact": "local-process",
+      "handshake": { "initialize": "ok", "tools_list": "ok" },
+      "server_info": { "name": "notes-server", "version": "1.4.0" },
+      "observation": { "complete": true, "reason": null },
+      "tools": [ { "name": "create_note", "description": "…", "input_schema_keys": ["title", "body"] } ],
+      "launch_line_redacted": "…",
+      "session_id_present": null
+    }
+  ],
+  "summary": { "probed": 1, "failed": 0 }
 }
 ```
 

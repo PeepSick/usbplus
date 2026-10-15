@@ -39,6 +39,18 @@ const CORE_SKILLS = new Set<string>([
   "incident-debugger",
 ]);
 
+/** The eight workflow suffixes that form every `<domain>-<workflow>` slug. */
+const WORKFLOWS = [
+  "audit",
+  "plan",
+  "build",
+  "script",
+  "diagnose",
+  "harden",
+  "explain",
+  "tune",
+] as const;
+
 /**
  * Curated domain presets — hand-picked so a fresh user can install a useful
  * working set without thinking about taxonomy.
@@ -143,12 +155,23 @@ export function applyFilter(
     if (result.length === 0) {
       // `usb install <domain>` is documented in the CLI and sends a bare
       // domain as slug=. Exact-match finds nothing, so retry the same values
-      // as domain selectors (slug === domain, or slug under `<domain>-…`).
-      // A typo still yields zero — the fallback can't invent skills — and it
-      // runs before every other filter, so combined filters stay intact.
-      const domains = parseList(options.slug);
+      // as domain selectors — but only against domains that actually exist
+      // in the catalog (derived from `<domain>-<workflow>` slugs), so a typo
+      // or a bare prefix like `react` still yields zero. Runs before every
+      // other filter, so combined filters stay intact.
+      const wantedDomains = parseList(options.slug);
+      const knownDomains = new Set<string>();
+      for (const s of skills) {
+        for (const w of WORKFLOWS) {
+          if (s.slug.endsWith(`-${w}`)) {
+            knownDomains.add(s.slug.slice(0, -(w.length + 1)));
+          }
+        }
+      }
       result = skills.filter((s) =>
-        domains.some((d) => s.slug === d || s.slug.startsWith(`${d}-`)),
+        wantedDomains.some(
+          (d) => knownDomains.has(d) && (s.slug === d || s.slug.startsWith(`${d}-`)),
+        ),
       );
     }
   }
@@ -193,11 +216,21 @@ export function applyFilter(
   }
 
   if (options.core === true) {
-    const existingSlugs = new Set(result.map((s) => s.slug));
-    const cores = skills.filter(
-      (s) => CORE_SKILLS.has(s.slug) && !existingSlugs.has(s.slug),
+    const hasSelection = Boolean(
+      options.slug || options.domain || options.category || options.preset,
     );
-    result = [...result, ...cores];
+    if (!hasSelection) {
+      // Bare ?core=true means "only the 9 core skills", as the API documents.
+      // With another selection filter it stays additive: core skills are
+      // added to whatever the selection produced.
+      result = result.filter((s) => CORE_SKILLS.has(s.slug));
+    } else {
+      const existingSlugs = new Set(result.map((s) => s.slug));
+      const cores = skills.filter(
+        (s) => CORE_SKILLS.has(s.slug) && !existingSlugs.has(s.slug),
+      );
+      result = [...result, ...cores];
+    }
   }
 
   if (options.exclude) {

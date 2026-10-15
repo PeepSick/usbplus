@@ -335,7 +335,17 @@ cmd_secscan() {
         case "$1" in /*) py_args+=("--baseline" "$(secscan_to_native_path "$1")") ;; *) py_args+=("--baseline" "$1") ;; esac
         ;;
       --write-baseline=*) py_args+=("--write-baseline=${1#--write-baseline=}") ;;
-      --write-baseline)   py_args+=("--write-baseline") ;;
+      --write-baseline)
+        # The engine defines --write-baseline with an optional value; a space
+        # form must consume the next token exactly like the engine does,
+        # otherwise the file name silently becomes a scan root.
+        if [ $# -gt 1 ]; then
+          shift
+          case "$1" in /*) py_args+=("--write-baseline=$(secscan_to_native_path "$1")") ;; *) py_args+=("--write-baseline=$1") ;; esac
+        else
+          py_args+=("--write-baseline")
+        fi
+        ;;
       --emit-contracts=*) py_args+=("--emit-contracts=${1#--emit-contracts=}") ;;
       --emit-contracts)
         shift
