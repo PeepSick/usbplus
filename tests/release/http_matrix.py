@@ -157,8 +157,9 @@ if fallback_skills and domain_skills:
           f"only-fallback={sorted(fallback_skills - domain_skills)} only-domain={sorted(domain_skills - fallback_skills)}")
 
 # --- D. pages & HTTP MCP -----------------------------------------------------
-for page, marker in [("/", "Universal Systems Bridge"), ("/about", "PeepSick"),
-                     ("/privacy", "KVKK"), ("/playground/intent-router", "intent-router")]:
+# The landing is the only HTML page (about/privacy/playground were removed
+# when the site was slimmed down to the v1 surface).
+for page, marker in [("/", "Universal Systems Bridge")]:
     html = get(page)
     check(f"D page {page} 200 + marker", marker in html, html[:80])
 

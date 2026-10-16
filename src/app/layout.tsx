@@ -46,25 +46,6 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <head>
-        <script
-          src="https://cdn.jsdelivr.net/npm/mermaid@11.16.0/dist/mermaid.min.js"
-          integrity="sha384-T/0lMUdJpd2S1ZHtRiofG3htU3xPCrFVeAQ1UUE2TJwlEJSV5NUwn30kP28n238E"
-          crossOrigin="anonymous"
-          async
-        />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              document.addEventListener('DOMContentLoaded', function() {
-                if (window.mermaid) {
-                  window.mermaid.initialize({ startOnLoad: true, theme: 'dark', themeVariables: { primaryColor: '#0f172a', primaryTextColor: '#fff', primaryBorderColor: '#22d3ee', lineColor: '#22d3ee', secondaryColor: '#1e293b', tertiaryColor: '#0f172a' } });
-                }
-              });
-            `,
-          }}
-        />
-      </head>
       <body className="min-h-screen bg-slate-950 text-slate-100 antialiased">
         <div className="flex min-h-screen flex-col">
           {children}

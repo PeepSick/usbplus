@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Github, Mail } from "lucide-react";
+import { DEFAULT_PACK } from "@/lib/default-skillpack";
 
 export function Footer() {
   return (
@@ -7,15 +8,17 @@ export function Footer() {
       <div className="mx-auto max-w-7xl px-6 py-14">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <div className="flex items-center gap-2">
-              <img
-                src="/usb-logo.png"
-                alt="USB — Universal Systems Bridge"
-                className="h-9 w-auto drop-shadow-[0_0_20px_rgba(34,211,238,0.25)]"
-              />
+            <div className="flex items-baseline gap-2">
+              <span className="bg-gradient-to-r from-cyan-300 to-violet-400 bg-clip-text text-lg font-black tracking-tight text-transparent">
+                usb
+              </span>
+              <span className="text-[10px] uppercase tracking-[0.24em] text-slate-500">
+                Universal Systems Bridge
+              </span>
             </div>
             <p className="mt-3 text-sm leading-relaxed text-slate-400">
-              A plug-and-play systems bridge for AI agents — 529 skills (9 hand-written core + 520 generated from a 65-domain × 8-workflow matrix), verified by secscan and installable into any of 16 runtimes.
+              One portable capability format for AI agents — 529 secscan-verified skills,
+              sha256-signed installers, 16 runtime targets.
             </p>
             <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
               <img
@@ -35,10 +38,10 @@ export function Footer() {
               <li className="flex items-center gap-2">
                 <Mail className="h-4 w-4 flex-shrink-0 text-slate-500" />
                 <a
-                  href="mailto:info@peepsickai.com"
+                  href="mailto:info@peepsicklabs.com"
                   className="hover:text-cyan-300"
                 >
-                  info@peepsickai.com
+                  info@peepsicklabs.com
                 </a>
               </li>
             </ul>
@@ -50,21 +53,6 @@ export function Footer() {
             </h4>
             <ul className="mt-4 space-y-3 text-sm text-slate-300">
               <li>
-                <Link href="/" className="hover:text-cyan-300">
-                  Skill Catalog
-                </Link>
-              </li>
-              <li>
-                <Link href="/about" className="hover:text-cyan-300">
-                  About
-                </Link>
-              </li>
-              <li>
-                <Link href="/privacy" className="hover:text-cyan-300">
-                  Privacy &amp; KVKK
-                </Link>
-              </li>
-              <li>
                 <Link
                   href="/api/skills?target=generic"
                   className="hover:text-cyan-300"
@@ -73,22 +61,29 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link
-                  href="/api/version"
-                  className="hover:text-cyan-300"
-                >
+                <Link href="/api/version" className="hover:text-cyan-300">
                   Version API
                 </Link>
               </li>
               <li>
                 <a
-                  href="https://github.com/PeepSick"
+                  href="https://github.com/PeepSick/usbplus"
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex items-center gap-1.5 hover:text-cyan-300"
                 >
                   <Github className="h-4 w-4" />
                   GitHub
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://www.npmjs.com/package/@peepsick/usb-cli"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:text-cyan-300"
+                >
+                  npm — @peepsick/usb-cli
                 </a>
               </li>
             </ul>
@@ -101,7 +96,7 @@ export function Footer() {
             <ul className="mt-4 space-y-3 text-sm text-slate-300">
               <li>License: MIT</li>
               <li>© 2026 PeepSick Labs</li>
-              <li>Pack v1.0.1 · 529 skills</li>
+              <li>Catalog v{DEFAULT_PACK.version} · 529 skills</li>
               <li className="text-xs text-slate-500">
                 All skill content original. Inspired by{" "}
                 <a
