@@ -35,7 +35,8 @@ def run_engine(extra, outdir: Path):
     cmd = [sys.executable, str(ENGINE), "--json",
            "--emit-contracts", str(snap),
            *extra, str(TREE)]
-    r = subprocess.run(cmd, capture_output=True, text=True)
+    r = subprocess.run(cmd, capture_output=True, text=True,
+                       encoding="utf-8")
     try:
         data = json.loads(r.stdout)
     except json.JSONDecodeError:

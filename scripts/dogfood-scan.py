@@ -23,7 +23,7 @@ call = json.dumps({
 proc = subprocess.run(
     [sys.executable, str(MCP)],
     input=f"{init}\n{notif}\n{call}\n",
-    capture_output=True, text=True, timeout=90,
+    capture_output=True, text=True, encoding="utf-8", timeout=90,
 )
 
 for line in proc.stdout.strip().splitlines():

@@ -51,7 +51,8 @@ def mcp_call(stdin_text: str, timeout: int = 30) -> str:
     """Send a JSON-RPC message to the MCP server via stdin, read stdout."""
     proc = subprocess.run(
         [sys.executable, str(MCP_SERVER)],
-        input=stdin_text, capture_output=True, text=True, timeout=timeout,
+        input=stdin_text, capture_output=True, text=True,
+        encoding="utf-8", timeout=timeout,
     )
     return proc.stdout
 
@@ -142,7 +143,7 @@ def test_usb_scan():
     # First, verify secscan itself works on this fixture
     secscan_result = subprocess.run(
         [sys.executable, str(SECSCAN), "--json", str(tmp / "skills")],
-        capture_output=True, text=True, timeout=30,
+        capture_output=True, text=True, encoding="utf-8", timeout=30,
     )
     secscan_json = None
     if secscan_result.stdout.strip():

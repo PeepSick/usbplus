@@ -63,6 +63,7 @@ def test_non_interactive_does_not_loop():
             env={**os.environ, "HOME": home},
             capture_output=True,
             text=True,
+            encoding="utf-8",
             timeout=180,
             stdin=subprocess.DEVNULL,
         )

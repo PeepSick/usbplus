@@ -11,9 +11,9 @@ sources:
             why: Expecting value: line 1 column 30 (char 29) - the runtime ignores these permission rules entirely
 
   .cursor/mcp.json  [mcp-server]  contract: UNVERIFIABLE
-    HIGH   S101 MCP config is not valid JSON (line 5)
-            "args": ["-y", "@example/docs"],
-            why: Illegal trailing comma before end of object: line 5 column 38 (char 102) - the runtime will silently load zero servers from this file
+    HIGH   S101 MCP config is not valid JSON (line 4)
+            "command" "npx",
+            why: Expecting ':' delimiter: line 4 column 17 (char 57) - the runtime will silently load zero servers from this file
 
   .mcp.json#mcpServers/dangerous  [mcp-server]  contract: MATCHES-DECLARATION
     ok - observed behavior is covered by the declared contract

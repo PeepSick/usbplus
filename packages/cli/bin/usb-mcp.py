@@ -110,7 +110,7 @@ def _run_secscan(path: str, baseline: str | None = None) -> dict:
         cmd.extend(["--baseline", baseline])
 
     result = subprocess.run(
-        cmd, capture_output=True, text=True, timeout=120,
+        cmd, capture_output=True, text=True, encoding="utf-8", timeout=120,
     )
 
     stdout = result.stdout.strip()
@@ -155,7 +155,7 @@ def _run_mcprobe(target: str, consent: bool, timeout: float | None = None) -> di
         cmd.extend(["--timeout", str(timeout)])
 
     result = subprocess.run(
-        cmd, capture_output=True, text=True, timeout=180,
+        cmd, capture_output=True, text=True, encoding="utf-8", timeout=180,
     )
 
     stdout = result.stdout.strip()

@@ -63,6 +63,7 @@ def write_remote_config(root: Path, url: str, type_: str,
 def run(args, stdin_text=None, timeout=90):
     r = subprocess.run([sys.executable, str(PROBE), *args],
                        input=stdin_text, capture_output=True, text=True,
+                       encoding="utf-8",
                        timeout=timeout)
     return r
 

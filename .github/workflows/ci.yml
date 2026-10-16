@@ -46,6 +46,9 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install CLI Python dependencies
+        run: python3 -m pip install -r packages/cli/requirements.txt
+
       - name: Verify secscan (offline fixture suite)
         run: python3 scripts/check-secscan.py
 

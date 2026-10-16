@@ -50,7 +50,7 @@ def run_install(target, home, extra_args=None, cwd=None):
         url += "&" + extra_args
     script = os.path.join(home, "install.sh")
     fetch = subprocess.run(
-        ["curl", "-fsSL", url, "-o", script], capture_output=True, text=True, timeout=180
+        ["curl", "-fsSL", url, "-o", script], capture_output=True, text=True, encoding="utf-8", timeout=180
     )
     if fetch.returncode != 0:
         return None, f"could not fetch installer: {fetch.stderr.strip()}"
@@ -59,7 +59,7 @@ def run_install(target, home, extra_args=None, cwd=None):
         env={**os.environ, "HOME": home},
         cwd=cwd or home,
         capture_output=True,
-        text=True,
+        text=True, encoding="utf-8",
         timeout=300,
         stdin=subprocess.DEVNULL,
     )

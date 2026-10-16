@@ -65,7 +65,8 @@ def run_engine(args, outdir: Path):
         snap = None
     r = subprocess.run(cmd + [posix(TREE), posix(TREE / "broken/mcp.json"),
                               posix(TG_TREE)],
-                       capture_output=True, text=True)
+                       capture_output=True, text=True,
+                       encoding="utf-8")
     return r.returncode, r.stdout, snap
 
 

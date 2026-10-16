@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "docs-search": {
-      "command": "npx",
-      "args": ["-y", "@example/docs"],
+      "command" "npx",
+      "args": ["-y", "@example/docs"]
     }
   }
 }

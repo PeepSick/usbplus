@@ -73,10 +73,10 @@
       },
       "findings": [
         {
-          "detail": "Illegal trailing comma before end of object: line 5 column 38 (char 102) - the runtime will silently load zero servers from this file",
-          "fingerprint": "62ab7ccd04373f94",
-          "line": 5,
-          "quote": "\"args\": [\"-y\", \"@example/docs\"],",
+          "detail": "Expecting ':' delimiter: line 4 column 17 (char 57) - the runtime will silently load zero servers from this file",
+          "fingerprint": "bd4bc226b92292ce",
+          "line": 4,
+          "quote": "\"command\" \"npx\",",
           "rule": "S101",
           "severity": "high",
           "title": "MCP config is not valid JSON"

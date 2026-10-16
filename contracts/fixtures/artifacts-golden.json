@@ -17,8 +17,8 @@
       "evidence_by_rule": {
         "S101": [
           {
-            "line": 5,
-            "quote": "\"args\": [\"-y\", \"@example/docs\"],"
+            "line": 4,
+            "quote": "\"command\" \"npx\","
           }
         ]
       },
@@ -31,9 +31,9 @@
       "observed_capabilities": [],
       "structural_findings": [
         {
-          "fingerprint": "62ab7ccd04373f94",
-          "line": 5,
-          "quote": "\"args\": [\"-y\", \"@example/docs\"],",
+          "fingerprint": "bd4bc226b92292ce",
+          "line": 4,
+          "quote": "\"command\" \"npx\",",
           "rule": "S101",
           "severity": "high",
           "title": "MCP config is not valid JSON"

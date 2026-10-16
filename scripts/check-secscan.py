@@ -54,7 +54,8 @@ def report(name, ok, detail=""):
 
 def run(cmd, **kw):
     return subprocess.run(
-        [str(c) for c in cmd], capture_output=True, text=True, timeout=300,
+        [str(c) for c in cmd], capture_output=True, text=True,
+        encoding="utf-8", timeout=300,
         **kw,
     )
 
