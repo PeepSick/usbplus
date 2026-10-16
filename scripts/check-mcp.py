@@ -18,6 +18,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -47,14 +48,93 @@ def write_config(root: Path, command: str, args: list[str], env: dict | None = N
     )
 
 
+_last = {}
+
+
 def mcp_call(stdin_text: str, timeout: int = 30) -> str:
-    """Send a JSON-RPC message to the MCP server via stdin, read stdout."""
-    proc = subprocess.run(
+    """Send JSON-RPC messages to the MCP server, keep stdin OPEN until the
+    last response arrives, then close stdin and collect stdout.
+
+    subprocess.run(input=...) closes stdin immediately after writing, and the
+    MCP SDK cancels in-flight handlers the moment the transport closes
+    (lowlevel Server.run: `finally: tg.cancel_scope.cancel()`) - a handler
+    that has not responded yet loses its response entirely. The loser of that
+    race varies with machine speed and SDK version (6/10 failed runs
+    observed on mcp 1.30: init answered, the follow-up call never did).
+    Real clients keep stdin open while waiting for responses, so the harness
+    now does too - deterministic on every SDK and machine."""
+    t0 = time.monotonic()
+    want = None
+    for line in stdin_text.strip().splitlines():
+        if line.strip():
+            try:
+                want = json.loads(line).get("id")
+            except (json.JSONDecodeError, AttributeError):
+                continue
+    proc = subprocess.Popen(
         [sys.executable, str(MCP_SERVER)],
-        input=stdin_text, capture_output=True, text=True,
-        encoding="utf-8", timeout=timeout,
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE, text=True, encoding="utf-8",
     )
-    return proc.stdout
+    out_lines: list[str] = []
+    err_lines: list[str] = []
+
+    def pump(stream, buf):
+        for ln in stream:
+            buf.append(ln)
+
+    readers = [
+        threading.Thread(target=pump, args=(proc.stdout, out_lines),
+                         daemon=True),
+        threading.Thread(target=pump, args=(proc.stderr, err_lines),
+                         daemon=True),
+    ]
+    for t in readers:
+        t.start()
+    proc.stdin.write(stdin_text)
+    proc.stdin.flush()
+
+    deadline = t0 + timeout
+    got = False
+    while not got and time.monotonic() < deadline:
+        for ln in out_lines:
+            try:
+                msg = json.loads(ln)
+            except (json.JSONDecodeError, AttributeError):
+                continue
+            if msg.get("id") == want and ("result" in msg or "error" in msg):
+                got = True
+                break
+        if not got:
+            time.sleep(0.02)
+    try:
+        proc.stdin.close()
+    except OSError:
+        pass
+    try:
+        proc.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait()
+    for t in readers:
+        t.join(timeout=5)
+    stdout = "".join(out_lines)
+    _last.update(
+        rc=proc.returncode, secs=time.monotonic() - t0,
+        out=stdout, err="".join(err_lines),
+    )
+    return stdout
+
+
+def diag(tag: str):
+    """Dump the raw exchange of the last mcp_call. 'Response missing' alone
+    cannot distinguish 'server cancelled the in-flight handler on stdin EOF'
+    from 'server crashed' from 'server answered a JSON-RPC error instead' -
+    stdout/stderr/rc make the failure self-explanatory in any CI log."""
+    print(f"  [diag {tag}] rc={_last.get('rc')} "
+          f"elapsed={_last.get('secs', -1):.2f}s")
+    print(f"  [diag {tag}] stdout={(_last.get('out') or '')[:1600]!r}")
+    print(f"  [diag {tag}] stderr={(_last.get('err') or '')[:1600]!r}")
 
 
 def parse_jsonrpc_response(stdout: str):
@@ -108,6 +188,8 @@ def test_initialize_and_list_tools():
         except (json.JSONDecodeError, AttributeError):
             continue
 
+    if tools_response is None:
+        diag("tools-list")
     check("tools/list returns result", tools_response is not None,
           f"stdout: {stdout[:500]}")
 
@@ -184,6 +266,8 @@ def test_usb_scan():
         except (json.JSONDecodeError, AttributeError):
             continue
 
+    if response is None:
+        diag("usb-scan")
     check("usb_scan returns result", response is not None,
           f"stdout: {stdout[:500]}")
 
@@ -244,6 +328,8 @@ def test_mcprobe_consent_false():
         except (json.JSONDecodeError, AttributeError):
             continue
 
+    if response is None:
+        diag("consent=false")
     check("consent=false returns result", response is not None)
 
     if response:
@@ -306,6 +392,8 @@ def test_mcprobe_consent_true():
         except (json.JSONDecodeError, AttributeError):
             continue
 
+    if response is None:
+        diag("consent=true")
     check("consent=true returns result", response is not None)
 
     if response:
@@ -411,6 +499,8 @@ def test_error_results_structured():
         except (json.JSONDecodeError, AttributeError):
             continue
 
+    if response is None:
+        diag("usb_scan-nonexistent")
     check("error returns MCP result", response is not None)
     if response:
         content = response.get("result", {}).get("content", [])
@@ -447,6 +537,8 @@ def test_error_results_structured():
         except (json.JSONDecodeError, AttributeError):
             continue
 
+    if response2 is None:
+        diag("unknown-tool")
     check("unknown tool returns result", response2 is not None)
 
 

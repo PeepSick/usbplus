@@ -109,8 +109,14 @@ def _run_secscan(path: str, baseline: str | None = None) -> dict:
     if baseline:
         cmd.extend(["--baseline", baseline])
 
+    # stdin=DEVNULL: tool subprocesses must never inherit the MCP stdio
+    # transport - they could consume the agent's JSON-RPC messages, and a
+    # no-EOF stdin pipe inherited during interpreter startup stalls the
+    # child at random (observed: engine stuck in Py_Initialize imports,
+    # server then waits for a stdout EOF that never comes).
     result = subprocess.run(
         cmd, capture_output=True, text=True, encoding="utf-8", timeout=120,
+        stdin=subprocess.DEVNULL,
     )
 
     stdout = result.stdout.strip()
@@ -154,8 +160,12 @@ def _run_mcprobe(target: str, consent: bool, timeout: float | None = None) -> di
     if timeout is not None:
         cmd.extend(["--timeout", str(timeout)])
 
+    # stdin=DEVNULL: same rule as _run_secscan - never inherit the MCP
+    # transport into a tool subprocess. `--yes` already bypasses mcprobe's
+    # interactive stdin confirmation, so nothing reads stdin here.
     result = subprocess.run(
         cmd, capture_output=True, text=True, encoding="utf-8", timeout=180,
+        stdin=subprocess.DEVNULL,
     )
 
     stdout = result.stdout.strip()
