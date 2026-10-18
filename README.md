@@ -447,6 +447,11 @@ docker compose up -d
 
 Open <http://localhost:3000>. Stack: Next.js 16, React 19, Tailwind v4, PostgreSQL + Drizzle ORM.
 
+On first boot a one-shot `migrate` service waits for Postgres and runs
+`drizzle-kit push`, so the schema and the529-skill catalog are in place before
+the app starts — `/api/install` works straight away. Re-bootstrap from scratch
+with `docker compose down -v`.
+
 ## Contributing
 
 USB is built in public and contributions are genuinely welcome — bug reports,

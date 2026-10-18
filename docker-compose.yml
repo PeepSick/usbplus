@@ -32,14 +32,35 @@ services:
     ports:
       - "127.0.0.1:5433:5432"
 
+  # One-shot schema migration. The app cannot serve /api/install (or any
+  # catalog read) until the tables exist, and `next start` never creates
+  # them. This runs once, right after Postgres is healthy, using the build
+  # stage (which has the Drizzle source + drizzle-kit); the app then waits
+  # for it to finish.
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://usb:usb_secret_change_me@postgres:5432/usb
+      NEXT_TELEMETRY_DISABLED: "1"
+    # --force: auto-approves schema statements. On a fresh database there is
+    # nothing to lose; it keeps the run non-interactive (no TTY in a
+    # container). Wipe and re-bootstrap with `docker compose down -v`.
+    command: ["npx", "drizzle-kit", "push", "--force"]
+
   app:
     build:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
       DATABASE_URL: postgres://usb:usb_secret_change_me@postgres:5432/usb
       NEXT_TELEMETRY_DISABLED: "1"
