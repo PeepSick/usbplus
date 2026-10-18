@@ -1,8 +1,20 @@
-# Release Notes — USB v1.0.3
+# Release Notes — USB v1.0.4
 
-**Release date:** 2026-10-16
+**Release date:** 2026-10-19
+
+## What's new in v1.0.4
+
+Patch release focused on the first-run experience — five defects that each stopped a buyer at a different step, all now covered by regression checks.
+
+- **`npm install -g` failed on Windows.** The Node launcher picked the first `bash.exe` on PATH, which is the WSL stub (`C:\Windows\System32\bash.exe`) on most machines; WSL eats the script path's backslashes and every command died with `No such file or directory`. It now prefers Git for Windows' MSYS bash, skips WSL/Store stubs, and prints install instructions when only WSL exists
+- **`npm install -g` failed on macOS.** `bin/usb` was committed with CRLF line endings, so the published tarball shipped a `#!/usr/bin/env node\r` shebang. Linux ≥ 5.1 hides this by stripping the trailing CR; macOS does not. `bin/usb` is LF now, pinned by a scoped `.gitattributes` rule
+- **Installed skills failed their own Trust Layer scan.** The installer wrote the display title into the frontmatter `name:` field, but Claude Code and `usb secscan` (rule S004) both require slug format — so `usb secscan` right after `usb install` reported 529 MEDIUM findings over our own catalog. `name:` now carries the slug; the title stays as the H1. Verified 529/529 `matches-declaration`, exit 0
+- **Fresh self-host could not serve a single install.** `docker compose up -d` never created the database schema, so `/api/health` and `/api/version` looked healthy while every `/api/install` returned 500. Compose now runs a one-shot `migrate` service, and `drizzle.config.ts` reads `DATABASE_URL`
+- **`usb mcp` dumped a raw `ModuleNotFoundError`** instead of saying the `mcp` pip package is missing. The CLI now checks before starting and prints the install commands, including the PEP 668 form Debian/Ubuntu require
 
 ## What's new in v1.0.3
+
+**Release date:** 2026-10-16
 
 - **mcprobe cwd contract** — stdio MCP servers now spawn in the config file's directory (as `docs/mcprobe.md` documents), so a server declared with relative args resolves its own scripts; locked by a new end-to-end regression
 - `usb secscan --write-baseline FILE` accepts the space form of the flag
@@ -69,7 +81,7 @@ usb install --target=<your-runtime>
 
 | Package | Version | Where |
 |---------|---------|-------|
-| `@peepsick/usb-cli` | 1.0.3 | [npm](https://www.npmjs.com/package/@peepsick/usb-cli) |
+| `@peepsick/usb-cli` | 1.0.4 | [npm](https://www.npmjs.com/package/@peepsick/usb-cli) |
 | `@peepsick/usb-sdk` | 1.0.3 | [npm](https://www.npmjs.com/package/@peepsick/usb-sdk) |
 | Community agents (`packages/community/*`) | source | this repo — publish to npm yourself |
 

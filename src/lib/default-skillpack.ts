@@ -43,7 +43,7 @@ export const DEFAULT_PACK = {
   name: "Universal Systems Bridge Catalog",
   description:
     "A fully original, from-scratch catalog across 16 provider targets: 65 hand-researched engineering domains systematically expanded across 8 workflows (Audit, Plan, Build, Script, Diagnose, Harden, Explain, Tune) into 529 skills, plus 9 hand-written core orchestration skills. Every skill has a distinct trigger phrase, protocol prompt, input/output contract and examples — zero external dependencies.",
-  version: "1.0.3",
+  version: "1.0.4",
   author: "Universal Systems Bridge",
 };
 
