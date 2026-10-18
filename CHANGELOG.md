@@ -4,6 +4,11 @@ All notable changes to USB — Universal Systems Bridge will be documented in th
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.0.4] — 2026-10-19 (CLI-only release)
+
+### Fixed
+- **Windows launcher picked the WSL bash stub and every command failed.** `bin/usb` searched PATH for `bash.exe` first; on most Windows boxes the first hit is `C:\Windows\System32\bash.exe` (WSL) or the Microsoft Store stub. WSL forwards the script path to the Linux side, which eats the backslashes — `C:\Users\...\usb.sh` arrived as `C:Users...\usb.sh` and bash died with `No such file or directory` before any command ran. The launcher now prefers **Git for Windows' MSYS bash** (the only bash that understands `C:\...` script paths natively), falls back to any non-stub `bash.exe` on PATH (Cygwin, MSYS2), and — when only WSL is present — exits with install instructions instead of a cryptic path error
+
 ## [1.0.3] — 2026-10-16
 
 ### Added

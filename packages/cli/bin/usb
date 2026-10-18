@@ -21,32 +21,50 @@ const scriptPath = path.join(__dirname, "usb.sh");
 function findBash() {
   if (process.platform !== "win32") return "bash";
 
-  // 1. Already on PATH (covers WSL's bash.exe shim, custom setups).
-  const onPath = spawnSync("where", ["bash.exe"], { encoding: "utf8" });
-  if (onPath.status === 0) {
-    const first = onPath.stdout.split(/\r?\n/).find(Boolean);
-    if (first) return first.trim();
-  }
+  // WSL (System32) and the Microsoft Store (WindowsApps) ship bash.exe
+  // stubs that CANNOT run a Windows script path: they forward the argument
+  // to the Linux side, which eats the backslashes ("C:\Users\..." arrives as
+  // "C:Users...") and fails with a cryptic No-such-file error. Never pick
+  // those — we need a Windows-native (MSYS/Cygwin) bash.
+  const isStub = (p) =>
+    /[\\/]System32[\\/]bash\.exe$/i.test(p) ||
+    /[\\/]SysWOW64[\\/]bash\.exe$/i.test(p) ||
+    /[\\/]WindowsApps[\\/]bash\.exe$/i.test(p);
 
-  // 2. Common Git for Windows install locations.
-  const candidates = [
+  // 1. Git for Windows — the real thing; its MSYS bash understands
+  //    "C:\..." script paths natively. Preferred over anything on PATH.
+  const gitCandidates = [
     process.env.ProgramFiles && path.join(process.env.ProgramFiles, "Git", "bin", "bash.exe"),
     process.env.ProgramFiles && path.join(process.env.ProgramFiles, "Git", "usr", "bin", "bash.exe"),
     process.env["ProgramFiles(x86)"] && path.join(process.env["ProgramFiles(x86)"], "Git", "bin", "bash.exe"),
     process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, "Programs", "Git", "bin", "bash.exe"),
     process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, "Programs", "Git", "usr", "bin", "bash.exe"),
   ].filter(Boolean);
+  const gitBash = gitCandidates.find((p) => fs.existsSync(p));
+  if (gitBash) return gitBash;
 
-  return candidates.find((p) => fs.existsSync(p)) || null;
+  // 2. Any other bash on PATH that is not a WSL/Store stub (Cygwin, MSYS2…).
+  const onPath = spawnSync("where", ["bash.exe"], { encoding: "utf8" });
+  if (onPath.status === 0) {
+    const first = onPath.stdout
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .find((p) => !isStub(p));
+    if (first) return first.trim();
+  }
+
+  // 3. Only WSL was found — fail with instructions instead of a cryptic
+  //    path error from the Linux side.
+  return null;
 }
 
 const bash = findBash();
 
 if (!bash) {
-  console.error("usb: couldn't find bash.\n");
+  console.error("usb: couldn't find a Windows-native bash.\n");
   console.error("usb's CLI is a bash script. On Windows, install Git for Windows");
   console.error("(https://git-scm.com/download/win) — it ships bash.exe — or run");
-  console.error("usb from inside Git Bash / WSL.\n");
+  console.error("usb from inside WSL with the project checked out on the Linux side.\n");
   process.exit(1);
 }
 
