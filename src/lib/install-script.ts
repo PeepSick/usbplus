@@ -36,11 +36,17 @@ function toYamlInline(value: string, maxLength = 0): string {
   return `"${collapsed.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 }
 
+// The frontmatter `name:` must be the SLUG, not the display title: both
+// Claude Code and `usb secscan` (S004) require name to match
+// ^[a-z0-9][a-z0-9_-]{0,63}$. Writing the human title ("A/B Testing
+// Framework: Audit") here made every installed skill fail its own trust
+// scan with529 MEDIUM structural findings. The display title stays as the
+// H1 below.
 function toSkillMarkdown(skill: SkillBundle["skills"][number]): string {
   return `---
 description: ${toYamlInline(`${skill.description} ${skill.triggerPhrase}`, 400)}
 slug: ${skill.slug}
-name: ${skill.name}
+name: ${skill.slug}
 category: ${skill.category}
 risk: ${skill.metadata.risk}
 model_agnostic: ${skill.metadata.modelAgnostic}
