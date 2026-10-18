@@ -95,10 +95,23 @@ the `mcp` Python package.
 For the MCP server:
 
 ```bash
-pip install mcp
-# or
-pip install -r $(npm root -g)/@peepsick/usb-cli/requirements.txt
+python3 -m pip install mcp
+# or, from the installed package
+python3 -m pip install -r "$(npm root -g)/@peepsick/usb-cli/requirements.txt"
 ```
+
+On Debian/Ubuntu, Python is an *externally-managed environment* (PEP 668) and
+the commands above are refused with `error: externally-managed-environment`.
+Use one of:
+
+```bash
+python3 -m pip install --break-system-packages mcp   # system-wide
+python3 -m venv ~/.usb && ~/.usb/bin/pip install mcp # isolated
+```
+
+`usb mcp` checks for the package before starting and prints these commands if
+it is missing, instead of surfacing a `ModuleNotFoundError` traceback to the
+MCP client.
 
 ## How it works
 

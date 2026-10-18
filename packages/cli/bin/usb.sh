@@ -701,6 +701,21 @@ case "${1:-}" in
       err "mcp server engine not found at $MCP_DIR/usb-mcp.py"
       err "the stdio MCP server ships with the npm package — npm install -g @peepsick/usb-cli"
       exit 2; }
+    # `usb mcp` is the only command that needs a pip package (requirements.txt).
+    # Without it, usb-mcp.py dies with a raw ModuleNotFoundError traceback on
+    # the MCP client's stderr, which reads like a crashed server rather than a
+    # missing dependency. Detect it up front and print the exact install
+    # commands — including the PEP 668 form Debian/Ubuntu need, where a bare
+    # `pip install mcp` is refused as an externally-managed environment.
+    if ! python3 -c 'import mcp' >/dev/null 2>&1; then
+      MCP_REQ="$(dirname "$MCP_DIR")/requirements.txt"
+      err "the MCP stdio server needs the 'mcp' python package"
+      [ -f "$MCP_REQ" ] && err "  python3 -m pip install -r \"$MCP_REQ\""
+      err "  python3 -m pip install mcp"
+      err "  Debian/Ubuntu (PEP 668): python3 -m pip install --break-system-packages mcp"
+      err "  or run the server inside a virtualenv"
+      exit 2
+    fi
     python3 "$(secscan_to_native_path "$MCP_DIR")/usb-mcp.py" "$@" ;;
   version|-V|--version) cmd_version ;;
   -h|--help|help) usage ;;
