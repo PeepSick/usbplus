@@ -31,7 +31,7 @@
 </p>
 
 <p align="center">
-  <sub>v1.0.5 · 529 skills · 16 runtime targets · Trust Layer: <code>secscan</code> + <code>mcprobe</code> · MIT</sub>
+  <sub>v1.0.6 · 529 skills · 16 runtime targets · Trust Layer: <code>secscan</code> + <code>mcprobe</code> · MIT</sub>
 </p>
 
 ---
@@ -58,7 +58,7 @@ Real installer output — not mocked up (`web-dev` = 8 domains × 8 workflows + 
 
 ```bash
 $ usb install web-dev --target=claude
-✅ universal-skill-bridge-catalog v1.0.5 installed for target: claude (73 skills)
+✅ universal-skill-bridge-catalog v1.0.6 installed for target: claude (73 skills)
 📦 Portable pack: ~/.ai-skills/universal-skill-bridge-catalog
 🔌 Target files: ~/.claude/skills
 📝 Local registry: ~/.ai-skills/universal-skill-bridge-catalog/installed.json
@@ -385,7 +385,7 @@ Already trust the publisher? One line, no review step: `curl -fsSL https://usbpl
 
 | Command | Description |
 |---|---|
-| `usb` | Open the interactive picker — browse domains, categories, presets, skills |
+| `usb` | Open the interactive picker — browse domains, categories, presets, skills, or uninstall an installed skill |
 | `usb install [preset\|domain\|skill]` | Install a curated preset, a whole domain (8 workflows), or a single skill |
 | `usb install` | Install the whole pack (529 skills) |
 | `usb install --target=<name>` | Force a specific provider target |
@@ -486,7 +486,7 @@ PR; a second workflow repeats the live-site checks daily on a schedule.
 
 ### Status
 
-**v1.0.5** — current release. Universal Systems Bridge: the 529-skill catalog, the
+**v1.0.6** — current release. Universal Systems Bridge: the 529-skill catalog, the
 16-target installer, and the Trust Layer (`secscan` contract verification,
 `mcprobe` runtime observation, MCP server). **Lineage:** the project shipped v0.x
 as Universal Skill Bridge; that line is frozen and stays online at
@@ -575,4 +575,4 @@ forks must use a different name. See [TRADEMARK.md](./TRADEMARK.md).
 
 </details>
 
-<sub>USB · Universal Systems Bridge v1.0.5 · Building in public · Pre-incorporation · No legal entity formed yet · 2026</sub>
+<sub>USB · Universal Systems Bridge v1.0.6 · Building in public · Pre-incorporation · No legal entity formed yet · 2026</sub>

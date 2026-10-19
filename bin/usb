@@ -845,6 +845,156 @@ pick_preset() {
   printf '%s\n' "$entry" | cut -d'|' -f1
 }
 
+# --- installed-skill pickers (used by the interactive menu) -------------------
+
+# Names installed for one target, one per line, derived from the SAME
+# per-target paths `usb uninstall` deletes from — what this lists is exactly
+# what that command can remove. Pack-level single-file targets (cursor,
+# adapter JSONs) intentionally list nothing: there is no per-skill story
+# there, and the menu must not pretend otherwise.
+installed_skills_for_target() {
+  local target="$1"
+  local root="${AI_SKILL_HOME:-${HOME:-}/.ai-skills}"
+  local pack_slug="universal-skill-bridge-catalog"
+  local dir f name
+
+  case "$target" in
+    leosis)
+      dir="${LEOSIS_SKILLS_DIR:-${HOME:-}/.leosis/skills/$pack_slug}"
+      [ -d "$dir" ] || return 0
+      for f in "$dir"/*.md; do
+        [ -e "$f" ] || continue
+        basename "$f" .md
+      done
+      ;;
+    hermes)
+      dir="${HERMES_SKILLS_DIR:-${HOME:-}/.hermes/skills/$pack_slug}"
+      [ -d "$dir" ] || return 0
+      for f in "$dir"/*.md; do
+        [ -e "$f" ] || continue
+        basename "$f" .md
+      done
+      ;;
+    claude)
+      dir="${CLAUDE_SKILLS_DIR:-${HOME:-}/.claude/skills}"
+      [ -d "$dir" ] || return 0
+      # Both live layouts, same as uninstall's candidate list.
+      for f in "$dir/usb/skills"/*.md; do
+        [ -e "$f" ] || continue
+        basename "$f" .md
+      done
+      for f in "$dir"/*/SKILL.md; do
+        [ -e "$f" ] || continue
+        name="$(basename "$(dirname "$f")")"
+        [ "$name" = "usb" ] && continue  # the router itself is not a skill
+        printf '%s\n' "$name"
+      done
+      ;;
+    ollama|lm-studio|vllm)
+      dir="$root/adapters/$target"
+      [ -d "$dir" ] || return 0
+      for f in "$dir"/*.md; do
+        [ -e "$f" ] || continue
+        basename "$f" .md
+      done
+      ;;
+    *)
+      # generic and opencode share the portable pack dir.
+      dir="$root/$pack_slug/skills"
+      [ -d "$dir" ] || return 0
+      for f in "$dir"/*.md; do
+        [ -e "$f" ] || continue
+        basename "$f" .md
+      done
+      ;;
+  esac
+}
+
+# Targets that have at least one installed skill right now, one per line.
+detect_installed_targets() {
+  local t
+  for t in claude leosis hermes ollama lm-studio vllm generic; do
+    if [ -n "$(installed_skills_for_target "$t")" ]; then
+      printf '%s\n' "$t"
+    fi
+  done
+}
+
+# Menu flow for removing a skill: pick the runtime when more than one has
+# skills on disk, then the skill, then confirm. Prints "<slug> <target>" for
+# the caller to hand to cmd_uninstall — the actual deletion stays in that one
+# function with all its guardrails (charset, layout-only paths, frontmatter).
+# Prompts go to stderr because this picker's result is captured with $( ):
+# a menu printed to stdout would be swallowed before the user could read it.
+pick_uninstall() {
+  local targets=() t n
+  while IFS= read -r t; do
+    [ -n "$t" ] && targets+=("$t")
+  done < <(detect_installed_targets)
+
+  if [ ${#targets[@]} -eq 0 ]; then
+    info "Nothing installed yet — nothing to uninstall." >&2
+    return 1
+  fi
+
+  local target=""
+  if [ ${#targets[@]} -eq 1 ]; then
+    target="${targets[0]}"
+    info "Installed skills found for target: $target" >&2
+  else
+    printf '\n  Which runtime has the skill you want to remove?\n\n' >&2
+    local i=1
+    for t in "${targets[@]}"; do
+      n=$(installed_skills_for_target "$t" | sort -u | wc -l | tr -d ' ')
+      printf '  %s%3d)%s %-12s (%s skills)\n' "$CYA" "$i" "$RST" "$t" "$n" >&2
+      i=$((i + 1))
+    done
+    printf '\n  Number: ' >&2
+    local pick
+    read -r pick
+    pick="${pick%$'\r'}"
+    [[ "$pick" =~ ^[0-9]+$ ]] || return 1
+    [ "$pick" -ge 1 ] && [ "$pick" -le ${#targets[@]} ] || return 1
+    target="${targets[$((pick - 1))]}"
+  fi
+
+  local items
+  items=$(installed_skills_for_target "$target" | sort -u)
+  if [ -z "$items" ]; then
+    info "Nothing installed for '$target' — nothing to uninstall." >&2
+    return 1
+  fi
+
+  printf '\n  Installed skills for %s%s%s:\n\n' "$BOLD" "$target" "$RST" >&2
+  local i=1 slug
+  while IFS= read -r slug; do
+    printf '  %s%3d)%s %s\n' "$CYA" "$i" "$RST" "$slug" >&2
+    i=$((i + 1))
+  done <<< "$items"
+  printf '\n  Number: ' >&2
+  local pick
+  read -r pick
+  pick="${pick%$'\r'}"
+  [[ "$pick" =~ ^[0-9]+$ ]] || return 1
+  [ "$pick" -ge 1 ] && [ "$pick" -le $((i - 1)) ] || return 1
+  slug=$(printf '%s\n' "$items" | sed -n "${pick}p")
+
+  printf '\n  Remove %s%s%s from %s%s%s? [y/N]: ' \
+    "$BOLD" "$slug" "$RST" "$BOLD" "$target" "$RST" >&2
+  local ans
+  read -r ans
+  ans="${ans%$'\r'}"
+  case "$ans" in
+    y|Y|yes|Yes|YES)
+      printf '%s %s\n' "$slug" "$target"
+      ;;
+    *)
+      info "Cancelled — nothing removed." >&2
+      return 1
+      ;;
+  esac
+}
+
 # --- interactive picker ------------------------------------------------------
 cmd_interactive() {
   printf '\n'
@@ -868,9 +1018,10 @@ cmd_interactive() {
     "Pick a curated preset"
     "Just the 9 core skills"
     "Search by keyword"
+    "Uninstall an installed skill"
     "Exit"
   )
-  PS3=$'\n  Choose a number (1-8): '
+  PS3=$'\n  Choose a number (1-9): '
   select opt in "${choices[@]}"; do
     REPLY="${REPLY%$'\r'}"
     case "$REPLY" in
@@ -932,6 +1083,19 @@ cmd_interactive() {
         return 0
         ;;
       8)
+        # `set -e` would kill the whole menu on a cancelled picker (the
+        # substitution inherits the status), so the capture has to sit in a
+        # condition; cancel/EOF/nothing-installed simply fall through.
+        local picked
+        if picked=$(pick_uninstall); then
+          # "<slug> <target>" from the picker; cmd_uninstall keeps every
+          # safety rule in force, so the menu can never delete more than the
+          # command line could.
+          cmd_uninstall "${picked%% *}" --target "${picked##* }"
+        fi
+        return 0
+        ;;
+      9)
         printf '\n  Bye!\n\n'
         return 0
         ;;

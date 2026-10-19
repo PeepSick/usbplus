@@ -14,6 +14,9 @@
 #   - pack-level targets (cursor .mdc, adapter JSONs) refusing with the
 #     exact file instead of silently doing nothing
 #   - `--target <name>` in the space form, and --dry-run removing nothing
+#   - the interactive menu's uninstall entry (pick runtime -> pick skill ->
+#     confirm): the same guardrails, prompts on stderr so the UI survives
+#     the $( ) capture, and cancel keeping everything on disk
 #   - exit codes: 0 removed, 1 nothing found/kept, 2 usage or safety stop
 #
 # Deliberately no `set -e`: most cases ASSERT a non-zero exit status.
@@ -349,6 +352,90 @@ run 1 "J1 no files at all -> rc=1" -- \
 contains "J2 plain not-found message" "no installed copy"
 contains "J3 shows which paths were checked" "checked:"
 contains "J4 offers the install command" "usb install intent-router --target=claude"
+
+# --- K. interactive menu: uninstall entry --------------------------------------
+printf '\nK. interactive menu uninstall entry\n'
+
+# The interactive start greets via the catalog; a file:// stub answers
+# /api/version so this stays fully offline. The curl on PATH may be Windows'
+# native build (it resolves no MSYS paths), so there the stub URL is spelled
+# with a drive letter; on Linux file://$SB_ROOT is already /tmp/...
+MENU_STUB="$SB_ROOT/menu-stub"
+mkdir -p "$MENU_STUB/api"
+printf '{"ok":true,"current":"test"}\n' > "$MENU_STUB/api/version"
+if command -v cygpath >/dev/null 2>&1; then
+  export USB_BASE_URL="file:///$(cygpath -m "$MENU_STUB")"
+else
+  export USB_BASE_URL="file://$MENU_STUB"
+fi
+
+run_menu() { # run_menu <expected_rc> <description> <stdin input>
+  local want="$1" desc="$2" input="$3"
+  local out rc
+  out=$(printf '%s' "$input" | bash "$USB_SH" interactive 2>&1)
+  rc=$?
+  LAST_OUT="$out"
+  if [ "$rc" = "$want" ]; then
+    printf '  ok   %s\n' "$desc"
+  else
+    printf '  FAIL %s (want rc=%s, got rc=%s)\n' "$desc" "$want" "$rc"
+    printf '%s\n' "$out" | sed 's/^/         | /'
+    FAILED=1
+  fi
+}
+
+# K1: two runtimes on disk -> the menu asks which one, then which skill,
+# then confirms; the removal itself is cmd_uninstall's (guardrails intact).
+new_sandbox
+write_skill "$HOME/.claude/skills/intent-router/SKILL.md" intent-router
+write_skill "$HOME/.claude/skills/react-state-build/SKILL.md" react-state-build
+write_skill "$HOME/.leosis/skills/universal-skill-bridge-catalog/intent-router.md" intent-router
+K_CLAUDE="$HOME/.claude/skills/intent-router/SKILL.md"
+K_LEO="$HOME/.leosis/skills/universal-skill-bridge-catalog/intent-router.md"
+
+run_menu 0 "K1 menu removes the picked skill (8 -> runtime 1 -> skill 1 -> y)" \
+  $'8\n1\n1\ny\n'
+contains "K2 menu shows the runtime picker" "Which runtime"
+absent "$K_CLAUDE"
+present "$K_LEO"
+present "$HOME/.claude/skills/react-state-build/SKILL.md"
+contains "K3 confirms via cmd_uninstall's own summary" \
+  "uninstalled 'intent-router' from target 'claude'"
+
+# K4: answering N cancels and nothing moves.
+new_sandbox
+write_skill "$HOME/.leosis/skills/universal-skill-bridge-catalog/intent-router.md" intent-router
+K_KEEP="$HOME/.leosis/skills/universal-skill-bridge-catalog/intent-router.md"
+run_menu 0 "K4 confirm=N -> cancelled, rc=0" $'8\n1\nn\n'
+contains "K5 says it cancelled" "Cancelled — nothing removed."
+present "$K_KEEP"
+
+# K6: the menu's list is what is on disk, but a file that only LOOKS like
+# ours (wrong frontmatter slug) is still refused by the shared guardrail.
+new_sandbox
+write_skill "$HOME/.claude/skills/intent-router/SKILL.md" some-other-skill
+K_DECOY="$HOME/.claude/skills/intent-router/SKILL.md"
+run_menu 1 "K6 decoy through the menu -> refused, rc=1" $'8\n1\ny\n'
+contains "K7 explains the refusal" "frontmatter does not declare"
+present "$K_DECOY"
+
+# K8: the router is infrastructure, never a pickable skill; an empty answer
+# just leaves the menu.
+new_sandbox
+seed_claude_catalog
+run_menu 0 "K8 router not offered, EOF leaves cleanly" $'8\n'
+contains "K9 lists real skills" "1) intent-router"
+if printf '%s\n' "$LAST_OUT" | grep -qE '^ +[0-9]+\) usb$'; then
+  printf '  FAIL K10 the router itself was offered for uninstall\n'
+  FAILED=1
+else
+  printf '  ok   K10 the router is not in the list\n'
+fi
+
+# K12: nothing installed anywhere -> a friendly message, not an error.
+new_sandbox
+run_menu 0 "K12 empty machine -> friendly no-op" $'8\n'
+contains "K13 says there is nothing to uninstall" "Nothing installed yet"
 
 # --- summary ------------------------------------------------------------------
 printf '\n'

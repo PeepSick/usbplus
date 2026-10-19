@@ -1,6 +1,11 @@
-# Release Notes — USB v1.0.5
+# Release Notes — USB v1.0.6
 
 **Release date:** 2026-10-19
+
+## What's new in v1.0.6
+
+- **The interactive menu can uninstall.** `usb` with no arguments now offers `Uninstall an installed skill` (entry 8): pick the runtime when more than one has skills on disk, pick the skill from what is actually installed, confirm — and the removal runs through `cmd_uninstall` itself, so every 1.0.5 guardrail (catalog-shaped slug, layout-only candidate paths, frontmatter must declare the slug) applies to the menu path unchanged. The Claude router is never offered as a skill, pack-level single-file targets are not advertised as removable, and cancel or an empty machine leave cleanly. Locked by the new K section of `scripts/check-uninstall.sh` (13 offline assertions)
+- npm: `@peepsick/usb-cli` 1.0.6 (`@peepsick/usb-sdk` unchanged at 1.0.5)
 
 ## What's new in v1.0.5
 
@@ -91,7 +96,7 @@ usb install --target=<your-runtime>
 
 | Package | Version | Where |
 |---------|---------|-------|
-| `@peepsick/usb-cli` | 1.0.5 | [npm](https://www.npmjs.com/package/@peepsick/usb-cli) |
+| `@peepsick/usb-cli` | 1.0.6 | [npm](https://www.npmjs.com/package/@peepsick/usb-cli) |
 | `@peepsick/usb-sdk` | 1.0.5 | [npm](https://www.npmjs.com/package/@peepsick/usb-sdk) |
 | Community agents (`packages/community/*`) | source | this repo — publish to npm yourself |
 

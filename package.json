@@ -1,6 +1,6 @@
 {
   "name": "usb",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Universal Systems Bridge — one portable skill format for AI agents, installed into 16 agent runtimes and verified with deterministic security scanning (secscan).",
   "private": true,
   "license": "MIT",

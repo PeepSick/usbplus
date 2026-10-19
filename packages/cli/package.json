@@ -1,6 +1,6 @@
 {
   "name": "@peepsick/usb-cli",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Universal Systems Bridge CLI — install, search, inspect and security-scan (secscan) AI agent capabilities from your terminal.",
   "type": "module",
   "bin": {

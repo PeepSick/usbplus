@@ -75,10 +75,10 @@ check "usb install web-dev --dry-run"        "${USB[@]}" install web-dev --dry-r
 
 # The CLI's own menu shares the CRLF hazard: Windows terminals deliver Enter
 # as \r\n, leaving a trailing \r that stops `select` matching an option.
-# Option 8 (Exit) needs no follow-up input and no network side effects, so it
-# isolates that cleanly.
+# Option 9 (Exit, the last entry since uninstall took 8) needs no follow-up
+# input and no network side effects, so it isolates that cleanly.
 echo "── usb CLI: interactive menu accepts CRLF input"
-crlf_out=$(printf '8\r\n' | timeout 30 "${USB[@]}" i 2>&1)
+crlf_out=$(printf '9\r\n' | timeout 30 "${USB[@]}" i 2>&1)
 if [ $? != 0 ]; then
   echo "❌ FAILED (non-zero exit or hang on CRLF input)"
   echo "$crlf_out" | tail -20

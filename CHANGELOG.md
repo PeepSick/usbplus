@@ -4,6 +4,14 @@ All notable changes to USB — Universal Systems Bridge will be documented in th
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.0.6] — 2026-10-19
+
+### Added
+- **The interactive menu can uninstall** — `usb` with no arguments now offers `Uninstall an installed skill` (entry 8): when more than one runtime has skills on disk the menu asks which one, then lists what is actually installed for it, then asks for a yes/no confirmation. The removal itself is delegated to `cmd_uninstall`, so every 1.0.5 guardrail holds on the menu path with no exceptions — the slug charset check, candidate paths taken only from the target's own layout, and the frontmatter declaring the slug before anything is deleted. The listing mirrors the same per-target paths uninstall deletes from (claude both layouts, leosis/hermes flat, the ollama family, the portable pack), the Claude router is never offered — it is infrastructure, not a skill — and pack-level single-file targets stay unlisted rather than being advertised as removable. Cancel, empty input and an empty machine all leave cleanly (`set -e` would otherwise kill the whole menu on a picker's non-zero return); the picker's prompts go to stderr so they survive the `$( )` capture — the shipped catalog pickers print to stdout and are silently swallowed there, which is why their UI never reached the screen. Locked by the new K section of `scripts/check-uninstall.sh` (13 offline assertions, catalog reachable via a `file://` stub so the suite still runs without network)
+
+### Changed
+- npm: `@peepsick/usb-cli` 1.0.6; `@peepsick/usb-sdk` stays at 1.0.5 (nothing in it changed this release)
+
 ## [1.0.5] — 2026-10-19
 
 ### Added
