@@ -1,6 +1,6 @@
 {
   "name": "usb",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Universal Systems Bridge — one portable skill format for AI agents, installed into 16 agent runtimes and verified with deterministic security scanning (secscan).",
   "private": true,
   "license": "MIT",
@@ -15,6 +15,7 @@
   },
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node scripts/sync-cli.mjs",
     "build": "next build",
     "start": "next start",
     "db:push": "drizzle-kit push",

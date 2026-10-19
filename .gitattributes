@@ -3,3 +3,12 @@
 # there with "env: node^M: No such file or directory" — Linux >= 5.1 hides
 # the bug by stripping the trailing CR, macOS does not. Keep it LF.
 packages/cli/bin/usb text eol=lf
+
+# The shell CLI has the same shebang problem at the other end of a curl one
+# line (public/usb is what https://usbplus.peepsicklabs.com/usb serves), and
+# all three copies are byte-for-byte duplicates kept in sync by
+# scripts/sync-cli.mjs — a line-ending difference anywhere would show up as
+# phantom drift between them. Keep them LF too.
+packages/cli/bin/usb.sh text eol=lf
+public/usb text eol=lf
+bin/usb text eol=lf

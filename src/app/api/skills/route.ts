@@ -7,6 +7,12 @@ import {
 
 export const dynamic = "force-dynamic";
 
+// Every query parameter this endpoint understands. Anything else is a typo
+// the caller should hear about: before this check, `?q=postgres` was silently
+// dropped, so a client believed it had searched while the response held all
+// 529 skills — a wrong-but-200 answer is worse than an error.
+const KNOWN_PARAMS = ["target", "slug", "domain", "category", "preset", "core", "exclude"] as const;
+
 function prettyJson(
   data: unknown,
   status = 200,
@@ -25,6 +31,21 @@ function prettyJson(
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
+    const unknownParams = [...new Set(url.searchParams.keys())].filter(
+      (key) => !(KNOWN_PARAMS as readonly string[]).includes(key),
+    );
+    if (unknownParams.length > 0) {
+      return prettyJson(
+        {
+          ok: false,
+          error: `unknown query parameter${
+            unknownParams.length > 1 ? "s" : ""
+          }: ${unknownParams.map((key) => `"${key}"`).join(", ")}`,
+          accepted: KNOWN_PARAMS,
+        },
+        400,
+      );
+    }
     const target = normalizeTarget(url.searchParams.get("target"));
     const filter = parseFilterFromUrl(url);
     const fullBundle = await getSkillBundle(target, getOriginFromRequest(request));

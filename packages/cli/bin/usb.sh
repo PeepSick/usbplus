@@ -11,8 +11,10 @@
 #   usb install <domain>           Install one domain (8 workflows)
 #   usb install <preset>           Install a curated preset (web-dev, backend, security, ...)
 #   usb install                    Install the whole pack (529 skills)
-#   usb install --target=claude    Pick a runtime explicitly
+#   usb install --target=claude    Pick a runtime explicitly (space form works too)
 #   usb install --dry-run          Show the install script without executing
+#   usb uninstall <slug>           Remove an installed skill from a runtime (offline)
+#   usb uninstall --dry-run        Show what would be removed, remove nothing
 #   usb search <query>             Search the catalog
 #   usb info <slug>                Show details about one skill
 #   usb list                       List all skills
@@ -402,23 +404,33 @@ cmd_install() {
   local target="$USB_TARGET"
   local show_script=0
 
-  for arg in "$@"; do
-    case "$arg" in
-      --target=*)  target="${arg#--target=}" ;;
+  # A while/shift loop rather than `for arg in "$@"`: the space form
+  # (`--target claude`) has to consume the NEXT token, which a for-loop
+  # cannot skip — the value would fall through to the filter branch and turn
+  # into `slug=claude`, installing a skill nobody asked for.
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --target=*)  target="${1#--target=}" ;;
+      --target)
+        shift
+        [ $# -gt 0 ] || { err "--target needs a value (e.g. --target claude)"; exit 2; }
+        target="$1"
+        ;;
       --dry-run)   show_script=1 ;;
       --help|-h)   usage; exit 0 ;;
-      --*)         warn "Unknown flag: $arg" ;;
+      --*)         warn "Unknown flag: $1" ;;
       *)
         if [ -z "${filter_args:-}" ]; then
-          case "$arg" in
+          case "$1" in
             core-only|web-dev|backend|infra|security|data)
-              filter_args="preset=$arg" ;;
+              filter_args="preset=$1" ;;
             *)
-              filter_args="slug=$arg" ;;
+              filter_args="slug=$1" ;;
           esac
         fi
         ;;
     esac
+    shift
   done
 
   local url="$USB_BASE_URL/api/install?target=$target"
@@ -451,6 +463,262 @@ cmd_install() {
     exit "$rc"
   fi
   ok "Done."
+}
+
+# --- uninstall subcommand -----------------------------------------------------
+# The mirror of `usb install <slug>`: take one skill back out of a runtime
+# target. Entirely local — no network, no catalog — so it works offline and
+# never has to agree with a server about what is on this machine.
+#
+# This command deletes files, so three rules hold before any rm runs:
+#   1. The slug must be catalog-shaped ([a-z0-9-],1-64 chars, not leading
+#      dash) before it is used anywhere — no path separator or shell
+#      metacharacter can reach a path from user input.
+#   2. Only paths the target's own layout would have written are considered
+#      (the same `case "$TARGET"` shape as src/lib/install-script.ts).
+#   3. A file is removed only when its frontmatter declares exactly this
+#      slug. A hand-written note that happens to sit at a candidate path is
+#      reported and kept — a wrong deletion is unrecoverable, a missed one is
+#      a follow-up command.
+#
+# Targets that install the pack as ONE file (cursor's router .mdc, the
+# adapter JSONs for openai/langchain/mcp/...) have no per-skill file to
+# remove; those refuse and name the file instead of pretending to work.
+cmd_uninstall() {
+  local slug="" target="$USB_TARGET" dry=0
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --target=*) target="${1#--target=}" ;;
+      --target)
+        shift
+        [ $# -gt 0 ] || { err "--target needs a value (e.g. --target claude)"; exit 2; }
+        target="$1"
+        ;;
+      --dry-run)   dry=1 ;;
+      --help|-h)   usage; exit 0 ;;
+      --*)
+        # install only WARNS on an unknown flag (it has always done that and
+        # people pipe it), but here a typo like --taget=claude would silently
+        # retarget a deletion — an unknown flag must stop the command.
+        err "Unknown flag: $1"
+        exit 2
+        ;;
+      *)
+        if [ -n "$slug" ]; then
+          err "uninstall takes one slug at a time ('$slug' and '$1')"
+          err "run it once per skill:  usb uninstall $slug && usb uninstall $1"
+          exit 2
+        fi
+        slug="$1"
+        ;;
+    esac
+    shift
+  done
+
+  if [ -z "$slug" ]; then
+    err "uninstall needs a skill slug"
+    err "usage: usb uninstall <slug> [--target=<name>] [--dry-run]"
+    exit 2
+  fi
+  case "$slug" in
+    ''|*[!a-z0-9-]*)
+      err "invalid slug: '$slug' (only lowercase letters, digits and dashes)"
+      exit 2
+      ;;
+    -*)
+      err "invalid slug: '$slug' (cannot start with a dash)"
+      exit 2
+      ;;
+  esac
+  if [ "${#slug}" -gt 64 ]; then
+    err "invalid slug: '$slug' (max 64 characters)"
+    exit 2
+  fi
+
+  local root="${AI_SKILL_HOME:-${HOME:-}/.ai-skills}"
+  # DEFAULT_PACK.slug — the portable pack directory install always creates.
+  local pack_slug="universal-skill-bridge-catalog"
+  local pack_dir="$root/$pack_slug"
+
+  # Resolve `auto` from what is on disk. Unlike install this never opens a
+  # picker: a destructive command must not choose its target from a menu.
+  # One runtime found -> use it; several -> demand --target; none -> the
+  # same generic fallback install uses.
+  if [ "$target" = "auto" ]; then
+    local detected=()
+    if [ -n "${LEOSIS_SKILLS_DIR:-}" ] || [ -d "${HOME:-}/.leosis" ];    then detected+=("leosis"); fi
+    if [ -n "${CLAUDE_SKILLS_DIR:-}" ] || [ -d "${HOME:-}/.claude" ];    then detected+=("claude"); fi
+    if [ -n "${HERMES_SKILLS_DIR:-}" ] || [ -d "${HOME:-}/.hermes" ];    then detected+=("hermes"); fi
+    if [ -n "${CURSOR_RULES_DIR:-}" ]  || [ -d "${HOME:-}/.cursor" ];    then detected+=("cursor"); fi
+    if [ -n "${OPENCODE_DIR:-}" ]      || [ -d "${HOME:-}/.opencode" ];  then detected+=("opencode"); fi
+    if [ -n "${CODEX_HOME:-}" ]        || [ -d "${HOME:-}/.codex" ];     then detected+=("openai"); fi
+    if [ -d "${HOME:-}/.continue" ];                                 then detected+=("langchain"); fi
+    if [ -d "${HOME:-}/.aider" ];                                    then detected+=("anthropic"); fi
+    if [ -d "${HOME:-}/.vllm" ];                                     then detected+=("vllm"); fi
+    if [ -d "${HOME:-}/.ollama" ];                                   then detected+=("ollama"); fi
+    if [ -d "${HOME:-}/.lmstudio" ];                                 then detected+=("lm-studio"); fi
+    if [ -d "${HOME:-}/.openrouter" ];                               then detected+=("openrouter"); fi
+    if [ -d "${HOME:-}/.groq" ];                                     then detected+=("groq"); fi
+    if [ -d "${HOME:-}/.mistral" ];                                  then detected+=("mistral"); fi
+    if [ -d "${HOME:-}/.mcp" ];                                      then detected+=("mcp"); fi
+
+    local n="${#detected[@]}"
+    if [ "$n" -eq 0 ]; then
+      target="generic"
+      info "No AI runtime detected — using the portable pack (generic), like install would."
+    elif [ "$n" -eq 1 ]; then
+      target="${detected[0]}"
+      info "Auto-detected runtime: $target"
+    else
+      err "multiple runtimes detected on this machine: ${detected[*]}"
+      err "uninstall never guesses where to delete — pass --target=<name>"
+      exit 2
+    fi
+  fi
+
+  # Candidate files for this target — the per-target layout install writes.
+  local candidates=()
+  local pack_level_file=""
+  case "$target" in
+    leosis)
+      candidates+=("${LEOSIS_SKILLS_DIR:-${HOME:-}/.leosis/skills/$pack_slug}/$slug.md")
+      ;;
+    hermes)
+      candidates+=("${HERMES_SKILLS_DIR:-${HOME:-}/.hermes/skills/$pack_slug}/$slug.md")
+      ;;
+    claude)
+      # Both layouts are live: <=10 skills become <slug>/SKILL.md directories,
+      # the full catalog lands as reference files under usb/skills/ beside the
+      # router. Checking both lets either install shape be undone.
+      candidates+=("${CLAUDE_SKILLS_DIR:-${HOME:-}/.claude/skills}/usb/skills/$slug.md")
+      candidates+=("${CLAUDE_SKILLS_DIR:-${HOME:-}/.claude/skills}/$slug/SKILL.md")
+      ;;
+    cursor)
+      pack_level_file="${CURSOR_RULES_DIR:-$PWD/.cursor/rules}/$pack_slug.mdc"
+      ;;
+    openai|anthropic|openrouter|groq|mistral|langchain|mcp)
+      pack_level_file="$root/adapters/$target/$pack_slug.json"
+      ;;
+    ollama|lm-studio|vllm)
+      candidates+=("$root/adapters/$target/$slug.md")
+      ;;
+    *)
+      # generic, opencode and any unknown target install into the pack dir.
+      candidates+=("$pack_dir/skills/$slug.md")
+      ;;
+  esac
+
+  if [ -n "$pack_level_file" ]; then
+    err "target '$target' installs the pack as ONE file, so a single skill cannot be pulled out of it."
+    if [ -f "$pack_level_file" ]; then
+      err "to drop the whole pack install from this target:"
+      err "  rm \"$pack_level_file\""
+    fi
+    exit 2
+  fi
+
+  # The portable copy goes too: for generic it IS the install above (same
+  # path, deduplicated below), for other targets it is the source cache that
+  # `usb install` copies from — uninstall means the skill is gone from here.
+  local portable="$pack_dir/skills/$slug.md"
+  local c already=0
+  for c in ${candidates[@]+"${candidates[@]}"}; do
+    if [ "$c" = "$portable" ]; then already=1; fi
+  done
+  if [ "$already" = "0" ]; then candidates+=("$portable"); fi
+
+  local removed=0 refused=0
+  for c in ${candidates[@]+"${candidates[@]}"}; do
+    if [ ! -e "$c" ]; then continue; fi
+
+    if [ "$dry" = "1" ]; then
+      info "[dry-run] would remove $c"
+      removed=$((removed + 1))
+      continue
+    fi
+
+    if ! grep -Eq "^slug: ${slug}[[:space:]]*\$" "$c" 2>/dev/null; then
+      warn "kept $c — its frontmatter does not declare 'slug: $slug'"
+      refused=$((refused + 1))
+      continue
+    fi
+
+    rm -f "$c"
+    ok "removed $c"
+    removed=$((removed + 1))
+
+    # Claude's small layout stores the file inside its own <slug>/ directory;
+    # drop that directory too, but only when empty — anything the user kept
+    # next to SKILL.md keeps it alive.
+    case "$c" in
+      */SKILL.md) rmdir "${c%/SKILL.md}" 2>/dev/null || true ;;
+    esac
+  done
+
+  # The Claude router keeps an index of `slug1, slug2, ...` per category.
+  # With a reference file gone, take the slug out of that list as well — an
+  # index entry pointing at a deleted file is a broken skill. Four exact
+  # forms (first/middle/last/alone), never a loose match, so a slug that is
+  # the SUFFIX of another (`audit` inside `code-audit`) cannot be caught.
+  if [ "$dry" != "1" ] && [ "$removed" -gt 0 ]; then
+    local router="${CLAUDE_SKILLS_DIR:-${HOME:-}/.claude/skills}/usb/SKILL.md"
+    if [ -f "$router" ]; then
+      sed -i.bak \
+        -e "s/, ${slug}, /, /g" \
+        -e "s/^${slug}, //" \
+        -e "s/, ${slug}\$//" \
+        -e "s/^${slug}\$//" \
+        "$router" || warn "could not refresh the Claude router index"
+      rm -f "$router.bak"
+      info "refreshed the Claude router index"
+    fi
+  fi
+
+  # Keep the local registry honest — it counts what this pack has installed.
+  local record="$pack_dir/installed.json"
+  if [ "$dry" != "1" ] && [ "$removed" -gt 0 ] && [ -f "$record" ]; then
+    local cur new
+    cur=$(sed -n 's/.*"skill_count"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$record" | head -n 1)
+    if [ -n "$cur" ]; then
+      if [ "$cur" -gt 0 ]; then new=$((cur - 1)); else new=0; fi
+      if sed -i.bak "s/\"skill_count\"[[:space:]]*:[[:space:]]*${cur}/\"skill_count\": ${new}/" "$record"; then
+        info "registry now reports $new skill(s) installed"
+      else
+        warn "could not update $record"
+      fi
+      rm -f "$record.bak"
+    fi
+  fi
+
+  if [ "$dry" = "1" ]; then
+    if [ "$removed" -gt 0 ]; then
+      ok "dry-run: $removed file(s) would be removed for target '$target'"
+      exit 0
+    fi
+    err "nothing to remove: no installed copy of '$slug' for target '$target'"
+    exit 1
+  fi
+
+  if [ "$removed" -gt 0 ]; then
+    if [ "$refused" -gt 0 ]; then
+      warn "$refused file(s) kept because their frontmatter did not declare '$slug'"
+    fi
+    ok "uninstalled '$slug' from target '$target' ($removed file(s) removed)"
+    exit 0
+  fi
+
+  if [ "$refused" -gt 0 ]; then
+    err "nothing removed: $refused file(s) sit where '$slug' would live but do not declare it"
+    err "remove them by hand if they are yours"
+    exit 1
+  fi
+  err "no installed copy of '$slug' for target '$target' — checked:"
+  for c in ${candidates[@]+"${candidates[@]}"}; do
+    err "  $c"
+  done
+  err "install it first with:  usb install $slug --target=$target"
+  exit 1
 }
 
 # --- pickers (used by interactive menu) --------------------------------------
@@ -679,6 +947,7 @@ cmd_interactive() {
 
 case "${1:-}" in
   install)        shift; cmd_install "$@" ;;
+  uninstall)      shift; cmd_uninstall "$@" ;;
   i|interactive)  shift; cmd_interactive ;;
   search)         shift; cmd_search "$@" ;;
   info)           shift; cmd_info "$@" ;;

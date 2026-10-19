@@ -1,6 +1,6 @@
 {
   "name": "@peepsick/usb-sdk",
-  "version": "1.0.3",
+  "version": "1.0.5",
   "description": "Universal Systems Bridge SDK. Build agents that load, search and install USB skills from a typed registry.",
   "type": "module",
   "main": "./dist/index.js",

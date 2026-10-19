@@ -1,8 +1,18 @@
-# Release Notes — USB v1.0.4
+# Release Notes — USB v1.0.5
 
 **Release date:** 2026-10-19
 
+## What's new in v1.0.5
+
+- **`usb uninstall <slug>`** — the reverse of `usb install`, and the first command in the CLI that deletes files, so it is built around three safety rules: the slug must be catalog-shaped before it can touch a path, only paths the target's own layout would have written are considered, and a file is removed only when its frontmatter declares exactly that slug. Fully local (no network), supports `--dry-run`, covers claude's both layouts (with a re-index of the router's slug list), leosis/hermes flat installs, the ollama-family adapter dirs and the portable pack; single-file targets (cursor, adapter JSONs) refuse with the exact path instead of doing nothing, and `auto` refuses to guess between multiple runtimes
+- **`usb install --target claude` (space form) works.** Previously `--target` hit *Unknown flag* and the value was swallowed as `slug=claude`, so the command installed a skill nobody asked for while the requested runtime was ignored
+- **The served CLI was four days stale.** `public/usb` — what `curl https://usbplus.peepsicklabs.com/usb` serves — is a hand-made copy of `packages/cli/bin/usb.sh`, so the `usb mcp` dependency guard existed for npm users only. Copies are now rebuilt on every `npm run build` by `scripts/sync-cli.mjs`, and CI fails if they drift
+- **`/api/skills` rejects unknown query parameters** with a 400 naming them instead of silently returning all 529 skills (`?q=` used to "work" by doing nothing)
+- npm: `@peepsick/usb-cli` and `@peepsick/usb-sdk` ship together at 1.0.5 — including the SDK's exported `version` constant, which had been `1.0.1` while the package said `1.0.3`
+
 ## What's new in v1.0.4
+
+**Release date:** 2026-10-19
 
 Patch release focused on the first-run experience — five defects that each stopped a buyer at a different step, all now covered by regression checks.
 
@@ -81,8 +91,8 @@ usb install --target=<your-runtime>
 
 | Package | Version | Where |
 |---------|---------|-------|
-| `@peepsick/usb-cli` | 1.0.4 | [npm](https://www.npmjs.com/package/@peepsick/usb-cli) |
-| `@peepsick/usb-sdk` | 1.0.3 | [npm](https://www.npmjs.com/package/@peepsick/usb-sdk) |
+| `@peepsick/usb-cli` | 1.0.5 | [npm](https://www.npmjs.com/package/@peepsick/usb-cli) |
+| `@peepsick/usb-sdk` | 1.0.5 | [npm](https://www.npmjs.com/package/@peepsick/usb-sdk) |
 | Community agents (`packages/community/*`) | source | this repo — publish to npm yourself |
 
 The community packages (`@peepsick/usb-community-*`, e.g. the OAuth agent under

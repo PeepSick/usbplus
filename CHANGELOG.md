@@ -4,6 +4,21 @@ All notable changes to USB — Universal Systems Bridge will be documented in th
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.0.5] — 2026-10-19
+
+### Added
+- **`usb uninstall <slug>`** — the reverse of `usb install`. Fully local (no network, no catalog): it removes one skill from a runtime target, covering claude's both layouts (the ≤10 `/<slug>/SKILL.md` directories and the catalog's `usb/skills/` reference files, re-indexing the router's slug list so no entry points at a deleted file), leosis/hermes flat installs, the ollama/lm-studio/vllm adapter directories, and the portable pack itself for generic. Because it is the first command in the CLI that deletes files, three rules hold before any `rm`: the slug must be catalog-shaped (`[a-z0-9-]`, 1–64 chars, no leading dash) before it can reach a path; candidate paths come only from the target's own layout (mirroring `src/lib/install-script.ts`); and a file is removed only when its frontmatter declares exactly that slug — a hand-written note sitting at the same path is reported and kept, since a wrong deletion is unrecoverable and a missed one is a follow-up command. Targets installed as a single file (cursor's router `.mdc`, the openai/langchain/... adapter JSONs) refuse with the exact path instead of no-op'ing, and `auto` refuses to guess between multiple runtimes (destructive + ambiguous = stop and ask). `--dry-run` lists actions without deleting; exit codes follow the product contract (0 removed / 1 nothing found or kept / 2 usage or safety stop), locked by `scripts/check-uninstall.sh` — an offline suite of 40+ assertions against a sandboxed HOME
+- `usb install --target claude` accepts the **space form** of the flag. Before, `--target` fell into the unknown-flag branch and the value became `slug=claude`, so the command installed a skill nobody asked for while the requested runtime was silently ignored — `cmd_install` now parses with a while/shift loop that can consume the next token, exactly like `secscan --write-baseline FILE`
+
+### Fixed
+- **The served CLI (`https://usbplus.peepsicklabs.com/usb`) shipped a four-days-old build.** `public/usb` and `bin/usb` are byte-for-byte copies of `packages/cli/bin/usb.sh` maintained by hand, so the `usb mcp` dependency guard from 1.0.4 reached npm users only while the `curl | sh` one-liner — the README's "no review step" path — kept serving the traceback version. `scripts/sync-cli.mjs` rebuilds both copies in `prebuild` (so every local build, CI build and deploy regenerates them) and `--check` mode fails CI with the exact remediation when the committed copies drift. Pinned to LF alongside the npm launcher by `.gitattributes`
+- **`/api/skills` silently ignored unknown query parameters**: `?q=postgres` answered 200 with all 529 skills, so a client believed it had searched. Unknown parameter names now return 400 naming them and listing the accepted set (`target`, `slug`, `domain`, `category`, `preset`, `core`, `exclude`)
+- `tests/release/http_matrix.py` and `tests/release/cli_matrix.sh` hardcoded the release version in their assertions, so every release made them fail against the very server they exist to validate — both now read the `VERSION` file
+
+### Changed
+- npm: `@peepsick/usb-cli` and `@peepsick/usb-sdk` bump to 1.0.5 together with the site. The SDK's exported `version` constant had been `1.0.1` while the package declared `1.0.3` — a consumer checking it saw a version that never existed; both now report `1.0.5`
+- `.gitattributes` pins LF for `packages/cli/bin/usb.sh` and its two served copies, closing the class of bug where a CRLF shebang breaks execution on macOS
+
 ## [1.0.4] — 2026-10-19
 
 ### Fixed

@@ -1,10 +1,16 @@
-"""v1.0.3 release-candidate HTTP test matrix against the local server.
+"""Release-candidate HTTP test matrix against the local server.
 
 Run:  python3 tmp-e2e/http_matrix.py http://127.0.0.1:3000
 Exit 0 = all pass. Prints a PASS/FAIL line per check plus a summary.
+
+The expected release version is read from the VERSION file (repo root — the
+same working directory this harness already assumes) instead of a literal:
+hardcoded versions made this matrix fail on every release, against the very
+server it exists to validate.
 """
 import hashlib
 import json
+import os
 import re
 import sys
 import urllib.request
@@ -12,6 +18,14 @@ import urllib.request
 BASE = sys.argv[1].rstrip("/") if len(sys.argv) > 1 else "http://127.0.0.1:3000"
 FAILURES = []
 PASSES = 0
+
+
+def expected_version():
+    try:
+        with open(os.path.join(os.getcwd(), "VERSION"), encoding="utf-8") as f:
+            return f.read().strip()
+    except OSError:
+        return "unknown"
 
 
 def get(path, raw=False):
@@ -56,8 +70,9 @@ def report(name, status, expected_exit=None):
 health = json.loads(get("/api/health"))
 check("A1 health ok", health.get("ok") is True, str(health))
 
+EXPECTED = expected_version()
 ver = json.loads(get("/api/version"))
-check("A2 version current=1.0.3", ver.get("current") == "1.0.3", str(ver.get("current")))
+check(f"A2 version current={EXPECTED}", ver.get("current") == EXPECTED, str(ver.get("current")))
 check("A3 version has minSupported + update fields",
       all(k in ver for k in ("latest", "minSupported", "updateAvailable")),
       ",".join(sorted(ver.keys())))
@@ -68,7 +83,7 @@ skills = full["skills"]
 slugs_all = [s["slug"] for s in skills]
 check("B1 catalog = 529 skills", len(skills) == 529, str(len(skills)))
 pack = full.get("pack") or {}
-check("B2 pack version 1.0.3", pack.get("version") == "1.0.3", str(pack))
+check(f"B2 pack version {EXPECTED}", pack.get("version") == EXPECTED, str(pack))
 check("B3 bundle schemaVersion skill-bridge/v1",
       full.get("schemaVersion") == "skill-bridge/v1", str(full.get("schemaVersion")))
 check("B4 slugs unique", len(set(slugs_all)) == len(slugs_all),
