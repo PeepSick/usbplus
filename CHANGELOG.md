@@ -4,6 +4,22 @@ All notable changes to USB — Universal Systems Bridge will be documented in th
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.0.7] — 2026-10-21
+
+### Fixed
+- **`usb install <unknown-slug>` died on a raw `cp: cannot stat '.../skills/*.md'`.** The server answers an unknown slug with a valid installer for zero skills; the CLI now spots the empty installer before running it and says `no skill matches '<slug>' — try: usb search <keyword>` (exit 1)
+- **`usb install --target=<typo>` silently installed into `generic`.** The server maps unknown targets to `generic` and reports success, so `--target=cluade` looked fine. The CLI now rejects unknown targets with the valid list (exit 2). Skill names are also checked against the catalog slug charset before they reach the URL
+- **`usb install --dry-run` ignored a failed download** and exited 0 with nothing printed; it now reports the failure and exits 1
+- **Landing page's `curl …/usb | bash` was the wrong command**: `/usb` serves the CLI itself, so piping it to bash opened the interactive menu on a stdin that was already the script. The landing now shows `…/api/install?target=auto | bash`, matching the README. Its "100% offline engine" tile (install needs the network) became "65 engineering domains"
+- `/api/mcp` reported `serverInfo.version` `1.0.0` regardless of release; it now follows `DEFAULT_PACK.version`
+
+### Docs
+- `packages/cli/README.md`: `usb mcprobe` examples used `stdio:` / `https://` target syntax the command does not accept (targets are config paths or scan roots); "~6 KB" and "no local state" were wrong (the script is ~40 KB and installs write a registry)
+- `README.md`: "the529-skill" typo; "Sixteen targets" now says fifteen runtimes plus `auto`
+
+### Changed
+- npm: `@peepsick/usb-cli` 1.0.7; `@peepsick/usb-sdk` stays at 1.0.5
+
 ## [1.0.6] — 2026-10-19
 
 ### Added

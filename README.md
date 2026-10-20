@@ -31,7 +31,7 @@
 </p>
 
 <p align="center">
-  <sub>v1.0.6 · 529 skills · 16 runtime targets · Trust Layer: <code>secscan</code> + <code>mcprobe</code> · MIT</sub>
+  <sub>v1.0.7 · 529 skills · 16 runtime targets · Trust Layer: <code>secscan</code> + <code>mcprobe</code> · MIT</sub>
 </p>
 
 ---
@@ -58,7 +58,7 @@ Real installer output — not mocked up (`web-dev` = 8 domains × 8 workflows + 
 
 ```bash
 $ usb install web-dev --target=claude
-✅ universal-skill-bridge-catalog v1.0.6 installed for target: claude (73 skills)
+✅ universal-skill-bridge-catalog v1.0.7 installed for target: claude (73 skills)
 📦 Portable pack: ~/.ai-skills/universal-skill-bridge-catalog
 🔌 Target files: ~/.claude/skills
 📝 Local registry: ~/.ai-skills/universal-skill-bridge-catalog/installed.json
@@ -343,7 +343,7 @@ delivery for every target.
 
 ## Supported targets
 
-Sixteen targets, two tiers:
+Sixteen targets (fifteen runtimes plus `auto`), two tiers:
 
 **Installs into the runtime** — the runtime loads these on its own, no wiring:
 
@@ -449,7 +449,7 @@ docker compose up -d
 Open <http://localhost:3000>. Stack: Next.js 16, React 19, Tailwind v4, PostgreSQL + Drizzle ORM.
 
 On first boot a one-shot `migrate` service waits for Postgres and runs
-`drizzle-kit push`, so the schema and the529-skill catalog are in place before
+`drizzle-kit push`, so the schema and the 529-skill catalog are in place before
 the app starts — `/api/install` works straight away. Re-bootstrap from scratch
 with `docker compose down -v`.
 
@@ -486,7 +486,7 @@ PR; a second workflow repeats the live-site checks daily on a schedule.
 
 ### Status
 
-**v1.0.6** — current release. Universal Systems Bridge: the 529-skill catalog, the
+**v1.0.7** — current release. Universal Systems Bridge: the 529-skill catalog, the
 16-target installer, and the Trust Layer (`secscan` contract verification,
 `mcprobe` runtime observation, MCP server). **Lineage:** the project shipped v0.x
 as Universal Skill Bridge; that line is frozen and stays online at
@@ -575,4 +575,4 @@ forks must use a different name. See [TRADEMARK.md](./TRADEMARK.md).
 
 </details>
 
-<sub>USB · Universal Systems Bridge v1.0.6 · Building in public · Pre-incorporation · No legal entity formed yet · 2026</sub>
+<sub>USB · Universal Systems Bridge v1.0.7 · Building in public · Pre-incorporation · No legal entity formed yet · 2026</sub>

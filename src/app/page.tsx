@@ -3,7 +3,7 @@ import { Github, Terminal } from "lucide-react";
 
 const INSTALL_COMMANDS = [
   "npm install -g @peepsick/usb-cli",
-  "curl -fsSL https://usbplus.peepsicklabs.com/usb | bash",
+  "curl -fsSL https://usbplus.peepsicklabs.com/api/install?target=auto | bash",
 ] as const;
 
 /**
@@ -91,9 +91,9 @@ export default function HomePage() {
             </dd>
           </div>
           <div>
-            <dt className="font-mono text-2xl font-bold text-cyan-300">100%</dt>
+            <dt className="font-mono text-2xl font-bold text-cyan-300">65</dt>
             <dd className="mt-1 text-xs uppercase tracking-widest text-slate-500">
-              offline engine
+              engineering domains
             </dd>
           </div>
         </dl>

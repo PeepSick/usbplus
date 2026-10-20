@@ -433,6 +433,20 @@ cmd_install() {
     shift
   done
 
+  # The server maps an unknown target to `generic` and reports success, so a
+  # typo (`--target=cluade`) would install into the wrong place unnoticed.
+  case "$target" in
+    auto|claude|cursor|leosis|hermes|openai|anthropic|langchain|mcp|openrouter|groq|mistral|ollama|lm-studio|vllm|generic) ;;
+    *)
+      err "unknown target: $target"
+      err "valid targets: auto claude cursor leosis hermes openai anthropic langchain mcp openrouter groq mistral ollama lm-studio vllm generic"
+      exit 2 ;;
+  esac
+  # Same charset the catalog uses for slugs; also keeps user input out of the URL.
+  case "${filter_args#slug=}" in
+    *[!a-z0-9-]*) err "invalid skill name: ${filter_args#slug=} (expected a catalog slug like intent-router)"; exit 2 ;;
+  esac
+
   local url="$USB_BASE_URL/api/install?target=$target"
   if [ -n "${filter_args:-}" ]; then
     url="$url&$filter_args"
@@ -440,7 +454,7 @@ cmd_install() {
 
   if [ "$show_script" = "1" ]; then
     info "Dry run — installer script:"
-    curl -fsSL "$url"
+    curl -fsSL "$url" || { err "Could not download the installer from $url"; exit 1; }
     return 0
   fi
 
@@ -454,6 +468,13 @@ cmd_install() {
   if ! curl -fsSL "$url" -o "$script"; then
     rm -f "$script"
     err "Could not download the installer from $url"
+    exit 1
+  fi
+  # An unknown slug/preset yields a valid installer for zero skills, which
+  # would otherwise die on a raw `cp: cannot stat` — say what happened instead.
+  if grep -qE '^# skills:[[:space:]]+0[[:space:]]*$' "$script"; then
+    rm -f "$script"
+    err "no skill matches '${filter_args#*=}' — try: usb search <keyword>"
     exit 1
   fi
   bash "$script"

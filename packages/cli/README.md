@@ -67,13 +67,15 @@ usb secscan --baseline .usb-secscan-baseline.json   # only NEW findings block
 ### Runtime Observation (MCP Probe)
 
 ```bash
-usb mcprobe stdio:/path/to/server         # probe a local MCP server via stdio
-usb mcprobe https://example.com/mcp       # probe a remote MCP server via HTTP
-usb mcprobe --yes stdio:npx -y @scope/pkg # skip interactive consent prompt
+usb mcprobe                       # dry run: lists what WOULD be contacted, contacts nothing
+usb mcprobe --yes .               # consent, then probe every MCP server found under .
+usb mcprobe --yes ./.mcp.json     # probe the servers in one config file
+usb mcprobe --yes --timeout 10 .  # per-phase deadline (default 30s)
 ```
 
-`usb mcprobe` performs the MCP handshake, records exposed tools, and reports
-results. Requires `python3`. Non-deterministic by design — see `docs/mcprobe.md`.
+`usb mcprobe` discovers MCP servers in your configs (the same discovery as
+`secscan`), performs the MCP handshake, records exposed tools, and reports
+results. It never calls a tool, and without `--yes` it contacts nothing. Requires `python3`. Non-deterministic by design — see `docs/mcprobe.md`.
 
 ### MCP Server
 
@@ -115,9 +117,10 @@ MCP client.
 
 ## How it works
 
-The CLI is a thin bash wrapper (~6 KB, zero dependencies beyond `curl` and
-`bash`) that talks to the public [USB catalog](https://usbplus.peepsicklabs.com).
-No local state, no API keys, no telemetry by default.
+The CLI is a bash script (zero npm dependencies; needs `curl` and `bash`) that talks to the
+public [USB catalog](https://usbplus.peepsicklabs.com). Installs record what they
+placed in a local registry (`~/.ai-skills/.../installed.json`). No API keys, no telemetry
+by default.
 
 Python scripts (`usb-secscan.py`, `usb-mcprobe.py`, `usb-mcp.py`) handle
 security scanning and runtime observation. They use only Python 3 stdlib

@@ -15,6 +15,7 @@
 import { getSkillBundle, getOriginFromRequest, normalizeTarget } from "@/lib/skill-registry";
 import { applyFilter, parseFilterFromUrl } from "@/lib/filter";
 import { buildAuditReport } from "@/lib/audit";
+import { DEFAULT_PACK } from "@/lib/default-skillpack";
 import type { FilterableSkill } from "@/lib/filter";
 
 export const dynamic = "force-dynamic";
@@ -182,7 +183,7 @@ async function handleRpc(req: JsonRpcRequest, origin: string): Promise<JsonRpcRe
         return rpcOk(id, {
           protocolVersion: "2024-11-05",
           capabilities: { tools: {} },
-          serverInfo: { name: "usb", version: "1.0.0" },
+          serverInfo: { name: "usb", version: DEFAULT_PACK.version },
         });
 
       case "notifications/initialized":
@@ -255,7 +256,7 @@ export async function GET() {
     {
       ok: true,
       name: "usb-mcp",
-      version: "1.0.0",
+      version: DEFAULT_PACK.version,
       transport: "http",
       endpoint: "/api/mcp",
       methods: ["initialize", "tools/list", "tools/call", "ping"],

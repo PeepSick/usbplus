@@ -1,6 +1,13 @@
-# Release Notes — USB v1.0.6
+# Release Notes — USB v1.0.7
 
-**Release date:** 2026-10-19
+**Release date:** 2026-10-21
+
+## What's new in v1.0.7
+
+- **Clearer install failures.** `usb install <unknown-slug>` now says no skill matches and points at `usb search` instead of a raw `cp` error; `--target=<typo>` is rejected with the list of valid targets instead of silently installing into `generic`.
+- **Landing page fixed**: the curl one-liner now points at the installer (`/api/install?target=auto`), and the "offline engine" tile was replaced with the domain count.
+- **Docs**: `usb mcprobe` examples in the CLI README now use the syntax the command accepts. `/api/mcp` reports the real release version.
+- npm: `@peepsick/usb-cli` 1.0.7 (`@peepsick/usb-sdk` unchanged at 1.0.5)
 
 ## What's new in v1.0.6
 
@@ -96,7 +103,7 @@ usb install --target=<your-runtime>
 
 | Package | Version | Where |
 |---------|---------|-------|
-| `@peepsick/usb-cli` | 1.0.6 | [npm](https://www.npmjs.com/package/@peepsick/usb-cli) |
+| `@peepsick/usb-cli` | 1.0.7 | [npm](https://www.npmjs.com/package/@peepsick/usb-cli) |
 | `@peepsick/usb-sdk` | 1.0.5 | [npm](https://www.npmjs.com/package/@peepsick/usb-sdk) |
 | Community agents (`packages/community/*`) | source | this repo — publish to npm yourself |
 
