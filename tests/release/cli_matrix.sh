@@ -64,7 +64,7 @@ out=$("${USB[@]}" install react-state-audit --dry-run 2>&1); rc=$?
 out=$("${USB[@]}" install react --dry-run 2>&1); rc=$?
 [ $rc -eq 0 ] && check_eq "E9 bare prefix 'react' is NOT a domain -> 0" "$(skill_count "$out")" "0" || fail "E9 prefix not a domain" "rc=$rc"
 
-out=$(printf '8\r\n' | "${USB[@]}" i 2>&1); rc=$?
+out=$(printf '9\r\n' | "${USB[@]}" i 2>&1); rc=$?
 if [ $rc -eq 0 ] && printf '%s' "$out" | grep -q "Bye!"; then pass "E10 interactive menu accepts CRLF"
 else fail "E10 interactive CRLF" "rc=$rc $(printf '%s' "$out" | tail -2)"; fi
 
