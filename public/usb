@@ -443,8 +443,8 @@ cmd_install() {
       exit 2 ;;
   esac
   # Same charset the catalog uses for slugs; also keeps user input out of the URL.
-  case "${filter_args#slug=}" in
-    *[!a-z0-9-]*) err "invalid skill name: ${filter_args#slug=} (expected a catalog slug like intent-router)"; exit 2 ;;
+  case "$filter_args" in
+    slug=*[!a-z0-9-]*) err "invalid skill name: ${filter_args#slug=} (expected a catalog slug like intent-router)"; exit 2 ;;
   esac
 
   local url="$USB_BASE_URL/api/install?target=$target"
