@@ -4,7 +4,7 @@ All notable changes to USB — Universal Systems Bridge will be documented in th
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [1.0.8] — 2026-11-02
 
 ### Fixed
 - **`usb mcp` now refuses cleanly when the installed `mcp` SDK cannot run it.** A bare `pip install mcp` lands on the SDK's 2.x line, where the low-level `Server` the stdio server is built on no longer exists — users got a raw `AttributeError: 'Server' object has no attribute 'list_tools'`. The CLI now checks the Server API before launching, and `usb-mcp.py` prints the same exact advice when imported directly. Both dependency-guard install hints are pinned (`"mcp>=1.26.0,<2.0.0"`, matching `packages/cli/requirements.txt`) instead of an unpinned `pip install mcp` that would re-create the breakage. The served CLI copies (`public/usb`, `bin/usb`) were resynced to the source.
@@ -12,6 +12,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 - **docker-compose.yml host ports are overridable.** Postgres (`5433`) and web (`3000`) were hardcoded, colliding with common local dev databases; override with `USB_PG_HOST_PORT` / `USB_WEB_PORT`.
 - **`src/middleware.ts` → `src/proxy.ts`** to follow Next 16's renamed file convention (the old name emitted a deprecation warning on every build); exported function renamed accordingly, `config.matcher` unchanged.
+- npm: `@peepsick/usb-cli` 1.0.8; `@peepsick/usb-sdk` stays at 1.0.5 (nothing in it changed this release)
 
 ### Docs
 - Added `.env.example` and a README note that host-run `npm run dev` / `npm run build` need a reachable `DATABASE_URL` (the README "Local development" section), plus port-override hints for the compose stack.

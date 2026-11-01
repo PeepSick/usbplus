@@ -1,6 +1,12 @@
-# Release Notes — USB v1.0.7
+# Release Notes — USB v1.0.8
 
-**Release date:** 2026-10-21
+**Release date:** 2026-11-02
+
+## What's new in v1.0.8
+
+- **`usb mcp` survives the `mcp` SDK's 2.x line.** A bare `pip install mcp` lands on SDK 2.x, where the low-level `Server` the stdio server is built on no longer exists — users saw a raw `AttributeError: 'Server' object has no attribute 'list_tools'`. The CLI now checks the Server API before launching and `usb-mcp.py` prints the same exact advice when imported directly; every guard hint installs the pinned range (`"mcp>=1.26.0,<2.0.0"`) instead of creating the breakage it was fixing.
+- **Self-host: compose host ports are overridable.** Postgres (`5433`) and web (`3000`) were hardcoded and collide with common local dev databases; set `USB_PG_HOST_PORT` / `USB_WEB_PORT`. A `.env.example` documents the `DATABASE_URL` that host-run `npm run dev` / `npm run build` need.
+- npm: `@peepsick/usb-cli` 1.0.8 (`@peepsick/usb-sdk` unchanged at 1.0.5)
 
 ## What's new in v1.0.7
 
@@ -103,7 +109,7 @@ usb install --target=<your-runtime>
 
 | Package | Version | Where |
 |---------|---------|-------|
-| `@peepsick/usb-cli` | 1.0.7 | [npm](https://www.npmjs.com/package/@peepsick/usb-cli) |
+| `@peepsick/usb-cli` | 1.0.8 | [npm](https://www.npmjs.com/package/@peepsick/usb-cli) |
 | `@peepsick/usb-sdk` | 1.0.5 | [npm](https://www.npmjs.com/package/@peepsick/usb-sdk) |
 | Community agents (`packages/community/*`) | source | this repo — publish to npm yourself |
 
