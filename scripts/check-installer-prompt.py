@@ -16,6 +16,15 @@ The first bug survived an earlier "verified" test because that test ran
 users actually take. These tests therefore drive the *real* invocation,
 `curl ... | bash`, and feed CRLF specifically.
 
+A third environment gotcha is the test's own: in a shell that HAS a
+controlling terminal (a maintainer's box, WSL launched from a terminal),
+the installer finds `/dev/tty` readable and consults it by design before
+falling back — it then waits for a human and looks like a hang to
+stdin=DEVNULL. CI runners have no controlling tty, which is why this only
+passed there. The non-interactive test therefore detaches into a fresh
+session with `setsid` (when available) so the no-terminal branch is what
+is actually being exercised.
+
 Run: python3 scripts/check-installer-prompt.py [base_url]
 """
 
@@ -57,9 +66,13 @@ def test_non_interactive_does_not_loop():
     """No tty (CI, cron, `| bash` from a script): must fall back, never spin."""
     name = "curl | bash with no terminal falls back instead of looping"
     home = make_fake_home()
+    # A controlling tty would let the installer read /dev/tty (documented
+    # behavior before any fallback) and wait forever; `setsid` removes it,
+    # matching the CI-runner condition this case is meant to cover.
+    pre = ["setsid"] if shutil.which("setsid") else []
     try:
         proc = subprocess.run(
-            ["bash", "-c", f'curl -fsSL "{INSTALL_URL}" | bash'],
+            [*pre, "bash", "-c", f'curl -fsSL "{INSTALL_URL}" | bash'],
             env={**os.environ, "HOME": home},
             capture_output=True,
             text=True,
@@ -68,7 +81,8 @@ def test_non_interactive_does_not_loop():
             stdin=subprocess.DEVNULL,
         )
     except subprocess.TimeoutExpired:
-        report(name, False, "timed out — the picker is looping on a non-tty stdin again")
+        hint = "" if pre else " (setsid missing — running with a controlling tty can wait on /dev/tty)"
+        report(name, False, f"timed out — the picker is looping on a non-tty stdin again{hint}")
         shutil.rmtree(home, ignore_errors=True)
         return
     out = proc.stdout + proc.stderr
