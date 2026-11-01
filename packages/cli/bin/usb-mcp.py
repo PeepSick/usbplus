@@ -36,6 +36,26 @@ MCPROBE = Path(__file__).resolve().parent / "usb-mcprobe.py"
 
 server = Server(TOOL, version=VERSION)
 
+# This server is built on the low-level Server decorators (`@server.list_tools()`,
+# `@server.call_tool()`), exactly as pinned in requirements.txt (`mcp>=1.26.0,<2.0.0`).
+# The SDK's 2.x line still exposes a server under `mcp.server` but a different,
+# protocol-only one without those decorators — instead of crashing on a bare
+# AttributeError mid-decoration, say precisely what to fix:
+if not hasattr(server, "list_tools"):
+    import importlib.metadata as _metadata
+
+    try:
+        _version = _metadata.version("mcp")
+    except Exception:  # noqa: BLE001 - never let metadata lookup mask the message
+        _version = "unknown"
+    sys.stderr.write(
+        f"usb mcp: the installed 'mcp' SDK ({_version}) does not match the pinned "
+        f"range. Reinstall the supported version:\n"
+        '  python3 -m pip install "mcp>=1.26.0,<2.0.0"\n'
+        "  (exact pin: requirements.txt next to this script)\n"
+    )
+    raise SystemExit(1)
+
 
 # ---------------------------------------------------------------------------
 # Tool definitions

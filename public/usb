@@ -1161,13 +1161,26 @@ case "${1:-}" in
     # missing dependency. Detect it up front and print the exact install
     # commands — including the PEP 668 form Debian/Ubuntu need, where a bare
     # `pip install mcp` is refused as an externally-managed environment.
+    # The pinned range matters: the SDK's 2.x line changed the Server API, so
+    # an unpinned `pip install mcp` can land on a version the server cannot
+    # run on (its own import-time guard then prints the same advice).
     if ! python3 -c 'import mcp' >/dev/null 2>&1; then
       MCP_REQ="$(dirname "$MCP_DIR")/requirements.txt"
       err "the MCP stdio server needs the 'mcp' python package"
       [ -f "$MCP_REQ" ] && err "  python3 -m pip install -r \"$MCP_REQ\""
-      err "  python3 -m pip install mcp"
-      err "  Debian/Ubuntu (PEP 668): python3 -m pip install --break-system-packages mcp"
+      err "  python3 -m pip install \"mcp>=1.26.0,<2.0.0\""
+      err "  Debian/Ubuntu (PEP 668): python3 -m pip install --break-system-packages \"mcp>=1.26.0,<2.0.0\""
       err "  or run the server inside a virtualenv"
+      exit 2
+    fi
+    # An SDK that imports but lacks the low-level Server decorators (2.x)
+    # would otherwise crash mid-decoration; refuse here with the same advice.
+    if ! python3 -c 'import mcp; from mcp.server import Server; assert hasattr(Server, "list_tools")' >/dev/null 2>&1; then
+      err "the installed 'mcp' SDK does not match usb-mcp's pinned range"
+      MCP_REQ="$(dirname "$MCP_DIR")/requirements.txt"
+      [ -f "$MCP_REQ" ] && err "  python3 -m pip install -r \"$MCP_REQ\""
+      err "  python3 -m pip install \"mcp>=1.26.0,<2.0.0\""
+      err "  (the project's requirements.txt carries the exact pin)"
       exit 2
     fi
     python3 "$(secscan_to_native_path "$MCP_DIR")/usb-mcp.py" "$@" ;;
