@@ -167,20 +167,60 @@ else
 fi
 
 echo "== H. stdio MCP server wiring via the CLI =="
-tools=$(printf '%s\n%s\n' \
-  '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"t","version":"0"}}}' \
-  '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
-  | timeout 25 "${USB[@]}" mcp 2>"$WORK/mcp.err" | python3 -c "
-import sys, json
-last = None
-for line in sys.stdin:
-    line = line.strip()
-    if not line: continue
-    m = json.loads(line)
-    if m.get('id') == 2: last = m
-print(','.join(sorted(t['name'] for t in last['result']['tools'])))
-" 2>>"$WORK/mcp.err")
-check_eq "H1 usb mcp tools/list -> usb_scan,usb_mcprobe" "$tools" "usb_mcprobe,usb_scan"
+DRV="$WORK/mcp_driver.py"
+# The driver steps the SPEC-SHAPED dialog instead of firing initialize +
+# tools/list as one 3-line burst into a pipe: against an immediate EOF the
+# low-level SDK could drop the tools/list reply, which made H1 flip-flop
+# depending on which python3/SDK combo ran it. A real MCP client (and
+# scripts/dogfood-scan.py) step through exactly this: initialize reply ->
+# notifications/initialized -> tools/list reply.
+cat > "$DRV" <<'PY'
+import json, subprocess, sys
+
+proc = subprocess.Popen(
+    [sys.argv[1], "packages/cli/bin/usb.sh", "mcp"],
+    stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+    text=True, encoding="utf-8", errors="replace",
+)
+
+def send(obj):
+    proc.stdin.write(json.dumps(obj) + "\n")
+    proc.stdin.flush()
+
+def reply(want_id):
+    while True:
+        line = proc.stdout.readline()
+        if not line:
+            sys.stderr.write(proc.stderr.read())
+            raise SystemExit("server closed stdio before replying (stderr above)")
+        m = json.loads(line)
+        if m.get("id") == want_id:
+            return m
+
+send({"jsonrpc": "2.0", "id": 1, "method": "initialize",
+      "params": {"protocolVersion": "2024-11-05", "capabilities": {},
+                 "clientInfo": {"name": "cli-matrix", "version": "0"}}})
+reply(1)
+send({"jsonrpc": "2.0", "method": "notifications/initialized"})
+send({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
+print(",".join(sorted(t["name"] for t in reply(2)["result"]["tools"])))
+proc.stdin.close()
+proc.wait(timeout=15)
+if proc.returncode != 0:
+    sys.stderr.write(proc.stderr.read())
+    raise SystemExit("usb.sh mcp exited rc=%s" % proc.returncode)
+PY
+# Spawn through the same shell the matrix itself uses (absolute path), so the
+# driver never has to PATH-lookup `bash` from a foreign interpreter (a
+# Windows python under Git Bash inherits an MSYS-style PATH it cannot search).
+BASH_BIN="$(command -v bash)"
+if command -v cygpath >/dev/null 2>&1; then BASH_BIN="$(cygpath -m "$BASH_BIN")"; fi
+tools=$(timeout 120 "$PYBIN" "$DRV" "$BASH_BIN" 2>"$WORK/mcp.err")
+if [ "$tools" = "usb_mcprobe,usb_scan" ]; then
+  pass "H1 usb mcp tools/list -> usb_scan,usb_mcprobe"
+else
+  fail "H1 usb mcp tools/list -> usb_scan,usb_mcprobe" "got='$tools' driver-stderr=$(head -c 300 "$WORK/mcp.err")"
+fi
 
 echo
 echo "CLI matrix: passed=$PASSED failed=$FAILED"
