@@ -29,8 +29,10 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    # Host port stays overridable: dev machines routinely have another
+    # Postgres on 5433. Override with USB_PG_HOST_PORT=5544 docker compose up -d
     ports:
-      - "127.0.0.1:5433:5432"
+      - "127.0.0.1:${USB_PG_HOST_PORT:-5433}:5432"
 
   # One-shot schema migration. The app cannot serve /api/install (or any
   # catalog read) until the tables exist, and `next start` never creates
@@ -66,8 +68,9 @@ services:
       NEXT_TELEMETRY_DISABLED: "1"
       # Uncomment to enable anonymous installation telemetry:
       # USB_LOG_INSTALLATIONS: "on"
+    # Override with USB_WEB_PORT=3001 docker compose up -d
     ports:
-      - "3000:3000"
+      - "${USB_WEB_PORT:-3000}:3000"
 
 volumes:
   usb-pgdata:

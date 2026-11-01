@@ -453,6 +453,15 @@ On first boot a one-shot `migrate` service waits for Postgres and runs
 the app starts — `/api/install` works straight away. Re-bootstrap from scratch
 with `docker compose down -v`.
 
+If 5433 (Postgres) or 3000 (web) are already taken on your machine, override
+the host ports: `USB_PG_HOST_PORT=5544 USB_WEB_PORT=3001 docker compose up -d`.
+
+Running site code without Docker (`npm run dev`, `npm run build`) needs a
+reachable `DATABASE_URL` for its page-data collection step: copy
+`.env.example` to `.env` — it points at the Postgres the compose stack above
+publishes on the host. CI hands the build a dummy URL, since the build there
+only verifies compilation.
+
 ## Contributing
 
 USB is built in public and contributions are genuinely welcome — bug reports,
@@ -468,7 +477,8 @@ Before opening a PR that touches the CLI, installer, or this README, run
 pty), `python3 scripts/check-target-formats.py` (the installed layout against
 what each runtime actually loads), `python3 scripts/check-encoding.py`
 (full-catalog encoding scan), `python3 scripts/check-links.py`
-(broken internal links), `python3 scripts/check-secscan.py` (the secscan
+(broken internal references — anchors, assets and the API paths the page
+bundle calls), `python3 scripts/check-secscan.py` (the secscan
 contract-verifier suite, offline) and `python3 scripts/check-mcp.py` (the
 stdio MCP server's tool and consent conformance). CI runs typecheck, lint
 and build plus the secscan, MCP, `run_conformance.py` (artifact golden +

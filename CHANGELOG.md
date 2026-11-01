@@ -4,6 +4,24 @@ All notable changes to USB — Universal Systems Bridge will be documented in th
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+- **`usb mcp` now refuses cleanly when the installed `mcp` SDK cannot run it.** A bare `pip install mcp` lands on the SDK's 2.x line, where the low-level `Server` the stdio server is built on no longer exists — users got a raw `AttributeError: 'Server' object has no attribute 'list_tools'`. The CLI now checks the Server API before launching, and `usb-mcp.py` prints the same exact advice when imported directly. Both dependency-guard install hints are pinned (`"mcp>=1.26.0,<2.0.0"`, matching `packages/cli/requirements.txt`) instead of an unpinned `pip install mcp` that would re-create the breakage. The served CLI copies (`public/usb`, `bin/usb`) were resynced to the source.
+
+### Changed
+- **docker-compose.yml host ports are overridable.** Postgres (`5433`) and web (`3000`) were hardcoded, colliding with common local dev databases; override with `USB_PG_HOST_PORT` / `USB_WEB_PORT`.
+- **`src/middleware.ts` → `src/proxy.ts`** to follow Next 16's renamed file convention (the old name emitted a deprecation warning on every build); exported function renamed accordingly, `config.matcher` unchanged.
+
+### Docs
+- Added `.env.example` and a README note that host-run `npm run dev` / `npm run build` need a reachable `DATABASE_URL` (the README "Local development" section), plus port-override hints for the compose stack.
+
+### Tests
+- `cli_matrix.sh` H1 now steps the stdio MCP dialog like a real client — initialize reply, `notifications/initialized`, then tools/list reply, paced — instead of firing a raw 3-line JSON-RPC burst that could drop the reply depending on the python/SDK combination running the matrix.
+- `check-installer-prompt.py` detaches the non-interactive case with `setsid`: in a terminal-backed harness the installer reads `/dev/tty` by design before falling back, which the test miscounted as a hang (CI, with no controlling tty, passed).
+- `check-links.py` now probes every internal reference the landing actually carries — tag anchors, asset tags, and the internal API path literals the page bundle calls (`/api/health`, `/api/skills`, ...) — and fails when it finds nothing at all (bot-blocked fetch) instead of silently passing on zero links; fetching switched to curl for identical behavior on Linux CI, WSL and Windows.
+- Footer keeps the plain `<img>` with an explicit `@next/next/no-img-element` disable — the repo lints with zero warnings.
+
 ## [1.0.7] — 2026-10-21
 
 ### Fixed

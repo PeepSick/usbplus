@@ -2,6 +2,10 @@ import Link from "next/link";
 import { Github, Mail } from "lucide-react";
 import { DEFAULT_PACK } from "@/lib/default-skillpack";
 
+/* eslint-disable @next/next/no-img-element */
+// A plain <img> on purpose: the footer brand mark is one fixed-size
+// decorative PNG, and next/image would add an optimizer pipeline + size
+// contract for it. This disables the repo's only lint warning here.
 export function Footer() {
   return (
     <footer className="mt-auto border-t border-white/10 bg-slate-950/70 backdrop-blur-md">
