@@ -43,6 +43,31 @@ ENGINE = USB_SH.parent / "usb-secscan.py"
 failures = []
 
 
+def _windows_native_bash():
+    """Return a Bash that can execute Windows paths, not the WSL/Store stub."""
+    if os.name != "nt":
+        return shutil.which("bash") or "bash"
+
+    candidates = [
+        Path(os.environ.get("ProgramFiles", "")) / "Git" / "bin" / "bash.exe",
+        Path(os.environ.get("ProgramFiles", "")) / "Git" / "usr" / "bin" / "bash.exe",
+        Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Git" / "bin" / "bash.exe",
+        Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Git" / "usr" / "bin" / "bash.exe",
+    ]
+    for candidate in candidates:
+        if candidate.is_file():
+            return str(candidate)
+
+    for candidate in (shutil.which("bash.exe"), shutil.which("bash")):
+        if candidate and not re.search(r"[\\/]WindowsApps[\\/]|[\\/]System32[\\/]", candidate, re.I):
+            return candidate
+    return "bash"
+
+
+PYTHON = sys.executable
+BASH = _windows_native_bash()
+
+
 def report(name, ok, detail=""):
     print(f"-- {name}")
     if ok:
@@ -53,6 +78,11 @@ def report(name, ok, detail=""):
 
 
 def run(cmd, **kw):
+    cmd = list(cmd)
+    if cmd and cmd[0] == "python3":
+        cmd[0] = PYTHON
+    elif cmd and cmd[0] == "bash":
+        cmd[0] = BASH
     return subprocess.run(
         [str(c) for c in cmd], capture_output=True, text=True,
         encoding="utf-8", timeout=300,

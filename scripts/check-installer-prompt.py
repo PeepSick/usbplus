@@ -36,6 +36,11 @@ import sys
 import tempfile
 import time
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 BASE_URL = (sys.argv[1] if len(sys.argv) > 1 else "https://usbplus.peepsicklabs.com").rstrip("/")
 INSTALL_URL = f"{BASE_URL}/api/install?target=auto"
 
@@ -44,6 +49,28 @@ INSTALL_URL = f"{BASE_URL}/api/install?target=auto"
 FAKE_RUNTIME_DIRS = (".claude", ".hermes", ".cursor")
 
 failures = []
+
+
+def bash_command():
+    """Find Git Bash on Windows, avoiding WSL/Store bash stubs."""
+    if os.name != "nt":
+        return shutil.which("bash") or "bash"
+    candidates = [
+        os.path.join(os.environ.get("ProgramFiles", ""), "Git", "bin", "bash.exe"),
+        os.path.join(os.environ.get("ProgramFiles", ""), "Git", "usr", "bin", "bash.exe"),
+        os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "Git", "bin", "bash.exe"),
+        os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "Git", "usr", "bin", "bash.exe"),
+    ]
+    for candidate in candidates:
+        if os.path.isfile(candidate):
+            return candidate
+    for candidate in (shutil.which("bash.exe"), shutil.which("bash")):
+        if candidate and not any(part.lower() in candidate.lower().replace("/", "\\") for part in ("\\WindowsApps\\", "\\System32\\")):
+            return candidate
+    return "bash"
+
+
+BASH = bash_command()
 
 
 def make_fake_home():
@@ -72,11 +99,12 @@ def test_non_interactive_does_not_loop():
     pre = ["setsid"] if shutil.which("setsid") else []
     try:
         proc = subprocess.run(
-            [*pre, "bash", "-c", f'curl -fsSL "{INSTALL_URL}" | bash'],
+            [*pre, BASH, "-c", f'curl -fsSL "{INSTALL_URL}" | bash'],
             env={**os.environ, "HOME": home},
             capture_output=True,
             text=True,
             encoding="utf-8",
+            errors="replace",
             timeout=180,
             stdin=subprocess.DEVNULL,
         )
@@ -85,7 +113,7 @@ def test_non_interactive_does_not_loop():
         report(name, False, f"timed out — the picker is looping on a non-tty stdin again{hint}")
         shutil.rmtree(home, ignore_errors=True)
         return
-    out = proc.stdout + proc.stderr
+    out = (proc.stdout or "") + (proc.stderr or "")
     shutil.rmtree(home, ignore_errors=True)
 
     invalid = out.count("Invalid choice")
@@ -112,7 +140,7 @@ def test_interactive_crlf_selection():
     pid, fd = pty.fork()
     if pid == 0:
         os.environ["HOME"] = home
-        os.execvp("bash", ["bash", "-c", f'curl -fsSL "{INSTALL_URL}" | bash'])
+        os.execv(BASH, [BASH, "-c", f'curl -fsSL "{INSTALL_URL}" | bash'])
 
     out = b""
     sent = False

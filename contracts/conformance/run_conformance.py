@@ -25,6 +25,11 @@ ENGINE = ROOT / "packages/cli/bin/usb-secscan.py"
 TREE = HERE.parent / "fixtures/trees/skills-project"
 GOLDEN = HERE.parent / "fixtures/artifacts-golden.json"
 
+
+def normalized_bytes(path: Path) -> bytes:
+    """Read fixture output with platform line endings normalized."""
+    return path.read_bytes().replace(b"\r\n", b"\n")
+
 sys.path.insert(0, str(HERE))
 import reduce as reducer  # noqa: E402
 
@@ -57,7 +62,7 @@ def main():
         rc2, _report2, snap2 = run_engine([], tmp / "run2")
 
         print("-- determinism: two emissions byte-identical")
-        ok = snap1.read_bytes() == snap2.read_bytes()
+        ok = normalized_bytes(snap1) == normalized_bytes(snap2)
         print("OK" if ok else f"FAILED (rc {rc1}/{rc2})")
         if not ok:
             failures.append("determinism")
@@ -70,7 +75,7 @@ def main():
             shutil.copyfile(snap1, GOLDEN)
             print("updated (deliberate)")
         else:
-            ok = snap1.read_bytes() == GOLDEN.read_bytes()
+            ok = normalized_bytes(snap1) == normalized_bytes(GOLDEN)
             print("OK" if ok else "FAILED (drift vs committed golden)")
             if not ok:
                 failures.append("golden-drift")
