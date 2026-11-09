@@ -29,9 +29,35 @@ import subprocess
 import sys
 import tempfile
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 BASE_URL = (sys.argv[1] if len(sys.argv) > 1 else "https://usbplus.peepsicklabs.com").rstrip("/")
 
 failures = []
+
+
+def bash_command():
+    if os.name != "nt":
+        return shutil.which("bash") or "bash"
+    candidates = [
+        os.path.join(os.environ.get("ProgramFiles", ""), "Git", "bin", "bash.exe"),
+        os.path.join(os.environ.get("ProgramFiles", ""), "Git", "usr", "bin", "bash.exe"),
+        os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "Git", "bin", "bash.exe"),
+        os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "Git", "usr", "bin", "bash.exe"),
+    ]
+    for candidate in candidates:
+        if os.path.isfile(candidate):
+            return candidate
+    for candidate in (shutil.which("bash.exe"), shutil.which("bash")):
+        if candidate and not any(part.lower() in candidate.lower().replace("/", "\\") for part in ("\\WindowsApps\\", "\\System32\\")):
+            return candidate
+    return "bash"
+
+
+BASH = bash_command()
 
 
 def report(name, ok, detail=""):
@@ -55,7 +81,7 @@ def run_install(target, home, extra_args=None, cwd=None):
     if fetch.returncode != 0:
         return None, f"could not fetch installer: {fetch.stderr.strip()}"
     proc = subprocess.run(
-        ["bash", script],
+        [BASH, script],
         env={**os.environ, "HOME": home},
         cwd=cwd or home,
         capture_output=True,
@@ -64,8 +90,8 @@ def run_install(target, home, extra_args=None, cwd=None):
         stdin=subprocess.DEVNULL,
     )
     if proc.returncode != 0:
-        return None, f"installer exited {proc.returncode}: {(proc.stdout + proc.stderr)[-500:]}"
-    return proc.stdout + proc.stderr, None
+        return None, f"installer exited {proc.returncode}: {((proc.stdout or '') + (proc.stderr or ''))[-500:]}"
+    return (proc.stdout or "") + (proc.stderr or ""), None
 
 
 def frontmatter(path):

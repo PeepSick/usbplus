@@ -1,5 +1,12 @@
 # USB — Universal Systems Bridge
 
+USB is an open-source trust layer for AI capabilities.
+
+**Does this skill or MCP server actually do what it claims?** USB discovers skills,
+MCP servers, agents, and commands inside repositories, compares declared behavior
+with observable evidence using `secscan`, observes live MCP servers with `mcprobe`,
+and delivers inspectable artifacts across agent runtimes.
+
 <p align="center">
   <img src="public/usblg.png" alt="USB — Universal Systems Bridge" width="600">
 </p>
