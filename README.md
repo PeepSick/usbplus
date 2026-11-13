@@ -38,7 +38,7 @@ and delivers inspectable artifacts across agent runtimes.
 </p>
 
 <p align="center">
-  <sub>v1.0.8 · 529 skills · 16 runtime targets · Trust Layer: <code>secscan</code> + <code>mcprobe</code> · MIT</sub>
+  <sub>v1.1.0 · 529 skills · 16 runtime targets · Trust Layer: <code>secscan</code> + <code>mcprobe</code> · MIT</sub>
 </p>
 
 ---
@@ -65,7 +65,7 @@ Real installer output — not mocked up (`web-dev` = 8 domains × 8 workflows + 
 
 ```bash
 $ usb install web-dev --target=claude
-✅ universal-skill-bridge-catalog v1.0.8 installed for target: claude (73 skills)
+✅ universal-skill-bridge-catalog v1.1.0 installed for target: claude (73 skills)
 📦 Portable pack: ~/.ai-skills/universal-skill-bridge-catalog
 🔌 Target files: ~/.claude/skills
 📝 Local registry: ~/.ai-skills/universal-skill-bridge-catalog/installed.json
@@ -597,7 +597,7 @@ PR; a second workflow repeats the live-site checks daily on a schedule.
 
 ### Status
 
-**v1.0.8** — current release. Universal Systems Bridge: the 529-skill catalog, the
+**v1.1.0** — current release. Universal Systems Bridge: the 529-skill catalog, the
 16-target installer, and the Trust Layer (`secscan` contract verification,
 `mcprobe` runtime observation, MCP server). **Lineage:** the project shipped v0.x
 as Universal Skill Bridge; that line is frozen and stays online at
@@ -686,4 +686,4 @@ forks must use a different name. See [TRADEMARK.md](./TRADEMARK.md).
 
 </details>
 
-<sub>USB · Universal Systems Bridge v1.0.8 · Building in public · Pre-incorporation · No legal entity formed yet · 2026</sub>
+<sub>USB · Universal Systems Bridge v1.1.0 · Building in public · Pre-incorporation · No legal entity formed yet · 2026</sub>

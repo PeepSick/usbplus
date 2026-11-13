@@ -4,7 +4,7 @@ All notable changes to USB — Universal Systems Bridge will be documented in th
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [1.1.0] — 2026-11-13
 
 ### Added
 - **The Trust Layer gains an integrity half: `usb verify`, `usb lock`, `usb diff`.** secscan answers *what does this skill claim and do*; these answer *is the copy on disk still the one you installed, and what would an update change*. All three are local and never execute what they check.

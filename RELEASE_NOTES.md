@@ -1,6 +1,18 @@
-# Release Notes — USB v1.0.8
+# Release Notes — USB v1.1.0
 
-**Release date:** 2026-11-02
+**Release date:** 2026-11-13
+
+## What's new in v1.1.0
+
+**The Trust Layer gets an integrity half.** secscan answers *what does this skill claim and do*; the new commands answer *is the copy on disk still the one you installed, and what would an update change*. All local, none execute what they check.
+
+- **`usb verify` / `usb lock` / `usb install --locked` / `usb diff`.** Every install writes a SHA-256 manifest; verify reports modified / missing / unexpected files (exit 0/1/2); lock pins versions and `install --locked` refuses and installs nothing on drift; diff names added/removed capabilities between two skill versions.
+- **`usb repair`.** Restores drifted skill files byte-for-byte, only when the catalog still serves exactly what you installed; otherwise it refuses (that is an update).
+- **`usb hook install`.** A Claude Code SessionStart hook that stays silent unless installed skills drifted. Local-only, never blocks a session.
+- **Signed engines for curl installs.** A single-file `usb` fetches its python engines on first use, only after an Ed25519 signature and per-file SHA-256 check out (`usb engines status|update`). Fixes verify/lock/diff/secscan/mcprobe being unavailable after a curl install.
+- **`usb secscan --sarif FILE`** and a root `action.yml` for GitHub Code Scanning.
+- Tests: new offline suite `scripts/check-integrity.sh` (136 assertions), wired into CI together with `node scripts/sign-engines.mjs --check`.
+- npm: `@peepsick/usb-cli` 1.1.0 (`@peepsick/usb-sdk` unchanged at 1.0.5)
 
 ## What's new in v1.0.8
 
@@ -109,7 +121,7 @@ usb install --target=<your-runtime>
 
 | Package | Version | Where |
 |---------|---------|-------|
-| `@peepsick/usb-cli` | 1.0.8 | [npm](https://www.npmjs.com/package/@peepsick/usb-cli) |
+| `@peepsick/usb-cli` | 1.1.0 | [npm](https://www.npmjs.com/package/@peepsick/usb-cli) |
 | `@peepsick/usb-sdk` | 1.0.5 | [npm](https://www.npmjs.com/package/@peepsick/usb-sdk) |
 | Community agents (`packages/community/*`) | source | this repo — publish to npm yourself |
 
