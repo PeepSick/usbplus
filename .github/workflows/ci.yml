@@ -62,7 +62,13 @@ jobs:
       - name: usb uninstall safety suite (offline, sandboxed HOME)
         run: bash scripts/check-uninstall.sh
 
-      - name: usb verify/lock/diff integrity suite (offline, sandboxed HOME)
+      - name: Published engines are current and signed
+        # public/engines/* must be byte copies of packages/cli/bin/*.py with a
+        # valid signature; after touching an engine, re-run
+        # `node scripts/sign-engines.mjs` locally (needs the private key).
+        run: node scripts/sign-engines.mjs --check
+
+      - name: usb verify/lock/diff/repair/hook/sarif/engines suite (offline, sandboxed HOME)
         run: bash scripts/check-integrity.sh
 
   secscan:

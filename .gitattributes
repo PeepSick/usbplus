@@ -12,3 +12,6 @@ packages/cli/bin/usb text eol=lf
 packages/cli/bin/usb.sh text eol=lf
 public/usb text eol=lf
 bin/usb text eol=lf
+# Engines are hashed and signed byte-for-byte (scripts/sign-engines.mjs); never let git rewrite line endings.
+packages/cli/bin/*.py -text
+public/engines/* -text

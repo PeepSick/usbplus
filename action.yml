@@ -1,0 +1,87 @@
+name: "USB skill scan"
+description: >
+  Scan agent skills and MCP configs with usb secscan (static, deterministic,
+  never executes what it scans) and publish the findings to GitHub Code
+  Scanning as SARIF.
+author: "PeepSick"
+branding:
+  icon: shield
+  color: blue
+
+inputs:
+  path:
+    description: "File or directory to scan (a skills folder, .claude/skills, ...)."
+    required: false
+    default: "."
+  baseline:
+    description: "Baseline file written by `usb secscan --write-baseline`; only NEW findings gate the job."
+    required: false
+    default: ""
+  fail-on-findings:
+    description: "Fail the job when secscan exits 1 (medium/high findings)."
+    required: false
+    default: "true"
+  sarif-file:
+    description: "Where to write the SARIF report."
+    required: false
+    default: "usb-secscan.sarif"
+  upload-sarif:
+    description: "Upload the SARIF to GitHub Code Scanning (needs `security-events: write`)."
+    required: false
+    default: "true"
+  version:
+    description: "@peepsick/usb-cli version to install (an exact version is recommended)."
+    required: false
+    default: "latest"
+
+outputs:
+  exit-code:
+    description: "secscan exit code: 0 clean, 1 blocking findings, 2 operational error."
+    value: ${{ steps.scan.outputs.exit-code }}
+  sarif-file:
+    description: "Path of the written SARIF report."
+    value: ${{ inputs.sarif-file }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install usb
+      shell: bash
+      env:
+        USB_VERSION: ${{ inputs.version }}
+      run: npm install -g --no-audit --no-fund "@peepsick/usb-cli@${USB_VERSION}"
+
+    - name: Scan
+      id: scan
+      shell: bash
+      env:
+        SCAN_PATH: ${{ inputs.path }}
+        SCAN_BASELINE: ${{ inputs.baseline }}
+        SCAN_SARIF: ${{ inputs.sarif-file }}
+      run: |
+        args=("$SCAN_PATH" --sarif "$SCAN_SARIF")
+        if [ -n "$SCAN_BASELINE" ]; then args+=(--baseline "$SCAN_BASELINE"); fi
+        rc=0
+        usb secscan "${args[@]}" || rc=$?
+        echo "exit-code=$rc" >> "$GITHUB_OUTPUT"
+        # exit 1 (findings) is decided in the last step so the SARIF upload
+        # still happens; a real error (2) fails right here.
+        if [ "$rc" = "2" ]; then exit 2; fi
+
+    - name: Upload SARIF to Code Scanning
+      if: ${{ always() && inputs.upload-sarif == 'true' && hashFiles(inputs.sarif-file) != '' }}
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ inputs.sarif-file }}
+        category: usb-secscan
+
+    - name: Gate on findings
+      if: ${{ inputs.fail-on-findings == 'true' && steps.scan.outputs.exit-code == '1' }}
+      shell: bash
+      run: |
+        echo "::error::usb secscan reported medium/high findings (see Code Scanning or the job log)"
+        exit 1

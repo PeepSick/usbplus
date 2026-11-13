@@ -94,6 +94,13 @@ usb install --locked          # reproducible install; refuses + installs nothing
 usb diff intent-router        # installed copy vs latest catalog: capability/permission changes
 usb diff old.md new.md        # any two local skill files or directories
 usb diff old.md new.md --patch --json
+
+usb repair --dry-run          # restore drifted skill files byte-for-byte (refuses if the catalog moved on)
+usb repair                    # restore, then re-verify
+usb hook install              # Claude Code SessionStart hook: warn when installed skills drift
+usb hook status | usb hook uninstall
+usb engines status | update   # signed python engines (only used by single-file curl installs)
+usb secscan ./skills --sarif out.sarif   # also write SARIF 2.1.0 for GitHub Code Scanning
 ```
 
 Every install writes a SHA-256 manifest (`usb-manifest.json`) and a per-target
@@ -119,7 +126,7 @@ the `mcp` Python package.
 |---------|---------------|-------------------|
 | `usb secscan` | ✅ | None |
 | `usb mcprobe` | ✅ | None |
-| `usb verify` / `usb lock` / `usb diff` | ✅ | None |
+| `usb verify` / `usb lock` / `usb diff` / `usb repair` / `usb hook` | ✅ | None |
 | `usb mcp` | ✅ | `mcp` |
 
 For the MCP server:

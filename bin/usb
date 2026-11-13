@@ -32,6 +32,14 @@
 #   usb install --locked           Install only if the catalog still matches the lock
 #   usb diff <slug>                Capability/permission changes: installed vs latest
 #   usb diff <old> <new>           Compare two local skill files or directories
+#   usb repair [slug] [--dry-run]  Restore drifted skill files byte-for-byte (refuses
+#                                  when the catalog moved on - that is an update)
+#   usb hook install|uninstall|status
+#                                  Claude Code SessionStart hook: warn when installed
+#                                  skills drift from the manifest (local, silent if clean)
+#   usb secscan --sarif FILE       Also write findings as SARIF 2.1.0 (GitHub Code Scanning)
+#   usb engines [status|update]    Show/refresh the signed python engines a curl install
+#                                  fetches on first use (npm installs bundle them)
 #   usb mcp                        Start the MCP stdio server (for AI agents)
 #   usb version                    Show USB pack version
 #   usb --help                     Show this help
@@ -202,9 +210,6 @@ for s in d["bundle"]["skills"]:
 # yields a byte-identical report; exit 0 = clean/low/info only, 1 = medium or
 # high findings, 2 = operational error (bad path, unreachable repo).
 
-USB_SECSCAN_ENGINE="$(cd "$(dirname "$0")" && pwd)/usb-secscan.py"
-USB_INTEGRITY_ENGINE="$(cd "$(dirname "$0")" && pwd)/usb-integrity.py"
-USB_SECSCAN_WORKDIR=""
 
 # Hand paths to the engine in native form. Under Git Bash/MSYS the engine
 # runs as a native Windows python3, and MSYS's automatic argument conversion
@@ -224,6 +229,201 @@ secscan_cleanup() {
   if [ -n "$USB_SECSCAN_WORKDIR" ] && [ -d "$USB_SECSCAN_WORKDIR" ]; then
     rm -rf "$USB_SECSCAN_WORKDIR"
   fi
+}
+
+USB_SIGNING_PUBKEY_DEFAULT="e3745914bda4d27a1eda573dc58b2b2a02eb398be828ade515f34f30448ef3df"
+USB_SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+USB_SECSCAN_ENGINE="$USB_SELF_DIR/usb-secscan.py"
+USB_INTEGRITY_ENGINE="$USB_SELF_DIR/usb-integrity.py"
+USB_ENGINE_FILES="usb-secscan.py usb-integrity.py usb-mcprobe.py usb-mcp.py"
+USB_SECSCAN_WORKDIR=""
+
+# --- engine bootstrap ----------------------------------------------------------
+# The python engines ship in the npm package next to this script. A curl-
+# installed `usb` is a single file, so the engines are fetched on first use
+# from $USB_BASE_URL/engines/ into ~/.ai-skills/engines/ - but only after an
+# Ed25519 signature over engines.json (pubkey embedded above; the private key
+# never touches the server) and a SHA-256 per file check out. A compromised
+# host or CDN therefore cannot make `usb` run code it chose. The cache is
+# re-verified on every use, so local tampering is caught too.
+# Self-hosters sign with their own key and export USB_SIGNING_PUBKEY=<hex>.
+USB_ENGINE_PY=""
+read -r -d '' USB_ENGINE_PY <<'USB_ENGINE_PY_EOF' || true
+import base64, hashlib, json, sys
+p = 2**255 - 19
+d = -121665 * pow(121666, p - 2, p) % p
+q = 2**252 + 27742317777372353535851937790883648493
+def inv(x): return pow(x, p - 2, p)
+def recover_x(y, sign):
+    if y >= p: return None
+    x2 = (y * y - 1) * inv(d * y * y + 1) % p
+    if x2 == 0: return None if sign else 0
+    x = pow(x2, (p + 3) // 8, p)
+    if (x * x - x2) % p != 0: x = x * pow(2, (p - 1) // 4, p) % p
+    if (x * x - x2) % p != 0: return None
+    if (x & 1) != sign: x = p - x
+    return x
+gy = 4 * inv(5) % p
+gx = recover_x(gy, 0)
+G = (gx, gy, 1, gx * gy % p)
+def padd(P, Q):
+    A = (P[1] - P[0]) * (Q[1] - Q[0]) % p
+    B = (P[1] + P[0]) * (Q[1] + Q[0]) % p
+    C = 2 * P[3] * Q[3] * d % p
+    D = 2 * P[2] * Q[2] % p
+    E, F, G_, H = B - A, D - C, D + C, B + A
+    return (E * F % p, G_ * H % p, F * G_ % p, E * H % p)
+def pmul(s, P):
+    Q = (0, 1, 1, 0)
+    while s > 0:
+        if s & 1: Q = padd(Q, P)
+        P = padd(P, P)
+        s >>= 1
+    return Q
+def peq(P, Q):
+    return (P[0] * Q[2] - Q[0] * P[2]) % p == 0 and (P[1] * Q[2] - Q[1] * P[2]) % p == 0
+def decompress(s):
+    y = int.from_bytes(s, "little")
+    sign = y >> 255
+    y &= (1 << 255) - 1
+    x = recover_x(y, sign)
+    return None if x is None else (x, y, 1, x * y % p)
+def verify(pub, msg, sig):
+    if len(pub) != 32 or len(sig) != 64: return False
+    A = decompress(pub); R = decompress(sig[:32])
+    if A is None or R is None: return False
+    s = int.from_bytes(sig[32:], "little")
+    if s >= q: return False
+    h = int.from_bytes(hashlib.sha512(sig[:32] + pub + msg).digest(), "little") % q
+    return peq(pmul(s, G), padd(R, pmul(h, A)))
+cmd = sys.argv[1]
+try:
+    if cmd == "verify":
+        msg = open(sys.argv[2], "rb").read()
+        sig = base64.b64decode(open(sys.argv[3], "rb").read().strip())
+        sys.exit(0 if verify(bytes.fromhex(sys.argv[4]), msg, sig) else 1)
+    m = json.load(open(sys.argv[2], encoding="utf-8"))
+    if cmd == "check":
+        for name in sys.argv[4:]:
+            h = m["files"].get(name)
+            if not h or hashlib.sha256(open(sys.argv[3] + "/" + name, "rb").read()).hexdigest() != h:
+                sys.exit(1)
+        sys.exit(0)
+    if cmd == "version":
+        print(m["version"])
+        sys.exit(0)
+except SystemExit:
+    raise
+except Exception:
+    sys.exit(2)
+sys.exit(2)
+USB_ENGINE_PY_EOF
+
+usb_engine_py() { python3 -c "$USB_ENGINE_PY" "$@"; }
+
+usb_engine_dir() {
+  printf '%s\n' "${USB_ENGINE_DIR:-${AI_SKILL_HOME:-${HOME:-}/.ai-skills}/engines}"
+}
+
+usb_engines_bundled() {
+  local f
+  for f in $USB_ENGINE_FILES; do [ -f "$USB_SELF_DIR/$f" ] || return 1; done
+  return 0
+}
+
+# Verify a directory of engines against its signed manifest (offline).
+usb_engines_verify_dir() {
+  local dir="$1" pub="${USB_SIGNING_PUBKEY:-$USB_SIGNING_PUBKEY_DEFAULT}"
+  [ -f "$dir/engines.json" ] && [ -f "$dir/engines.json.sig" ] || return 1
+  usb_engine_py verify "$(secscan_to_native_path "$dir/engines.json")" \
+    "$(secscan_to_native_path "$dir/engines.json.sig")" "$pub" || return 1
+  # shellcheck disable=SC2086
+  usb_engine_py check "$(secscan_to_native_path "$dir/engines.json")" \
+    "$(secscan_to_native_path "$dir")" $USB_ENGINE_FILES
+}
+
+usb_engines_fetch() {
+  local dir="$1" tmp name
+  tmp=$(mktemp -d) || { err "Could not create a temp dir"; return 2; }
+  if ! curl -fsSL "$USB_BASE_URL/engines/engines.json" -o "$tmp/engines.json" \
+     || ! curl -fsSL "$USB_BASE_URL/engines/engines.json.sig" -o "$tmp/engines.json.sig"; then
+    err "could not download the engine manifest from $USB_BASE_URL/engines/"
+    rm -rf "$tmp"; return 2
+  fi
+  local pub="${USB_SIGNING_PUBKEY:-$USB_SIGNING_PUBKEY_DEFAULT}"
+  if ! usb_engine_py verify "$(secscan_to_native_path "$tmp/engines.json")" \
+       "$(secscan_to_native_path "$tmp/engines.json.sig")" "$pub"; then
+    err "engine manifest signature is INVALID - refusing to download or run engines"
+    err "(expected a manifest signed by key ${pub:0:16}...)"
+    rm -rf "$tmp"; return 2
+  fi
+  for name in $USB_ENGINE_FILES; do
+    if ! curl -fsSL "$USB_BASE_URL/engines/$name" -o "$tmp/$name"; then
+      err "could not download engine $name"
+      rm -rf "$tmp"; return 2
+    fi
+  done
+  # shellcheck disable=SC2086
+  if ! usb_engine_py check "$(secscan_to_native_path "$tmp/engines.json")" \
+       "$(secscan_to_native_path "$tmp")" $USB_ENGINE_FILES; then
+    err "downloaded engines do not match the signed manifest - refusing to install them"
+    rm -rf "$tmp"; return 2
+  fi
+  mkdir -p "$dir" || { rm -rf "$tmp"; err "cannot create $dir"; return 2; }
+  for name in $USB_ENGINE_FILES engines.json engines.json.sig; do
+    cp "$tmp/$name" "$dir/$name.new" && mv -f "$dir/$name.new" "$dir/$name" || {
+      err "could not write $dir/$name"; rm -rf "$tmp"; return 2; }
+  done
+  rm -rf "$tmp"
+  return 0
+}
+
+# Make USB_SECSCAN_ENGINE / USB_INTEGRITY_ENGINE point at usable engines:
+# bundled next to this script (npm, git checkout) or the verified cache.
+# USB_ENGINES_NO_FETCH=1 (session hook) never touches the network.
+usb_engines_ensure() {
+  usb_engines_bundled && return 0
+  command -v python3 >/dev/null 2>&1 || { err "python3 is required for the usb engines"; return 2; }
+  local dir; dir=$(usb_engine_dir)
+  if ! usb_engines_verify_dir "$dir"; then
+    [ "${USB_ENGINES_NO_FETCH:-0}" = "1" ] && return 3
+    info "Fetching signed usb engines into $dir ..."
+    usb_engines_fetch "$dir" || return 2
+    usb_engines_verify_dir "$dir" || { err "engine cache failed verification after download"; return 2; }
+  fi
+  USB_SECSCAN_ENGINE="$dir/usb-secscan.py"
+  USB_INTEGRITY_ENGINE="$dir/usb-integrity.py"
+  return 0
+}
+
+cmd_engines() {
+  local action="${1:-status}"
+  command -v python3 >/dev/null 2>&1 || { err "engines needs python3 in PATH"; exit 2; }
+  local dir; dir=$(usb_engine_dir)
+  case "$action" in
+    status)
+      if usb_engines_bundled; then
+        echo "engines: bundled with this install ($USB_SELF_DIR) - update them with npm"
+      elif usb_engines_verify_dir "$dir"; then
+        echo "engines: cached, signature + hashes OK"
+        echo "  dir:     $dir"
+        echo "  version: $(usb_engine_py version "$(secscan_to_native_path "$dir/engines.json")")"
+      else
+        echo "engines: not cached (fetched on first use of verify/secscan/diff)"
+        return 1
+      fi
+      ;;
+    update)
+      if usb_engines_bundled; then
+        echo "engines are bundled with this install; update with: npm install -g @peepsick/usb-cli"
+        return 0
+      fi
+      usb_engines_fetch "$dir" || exit 2
+      usb_engines_verify_dir "$dir" || { err "engine cache failed verification"; exit 2; }
+      ok "Engines updated to $(usb_engine_py version "$(secscan_to_native_path "$dir/engines.json")") in $dir"
+      ;;
+    *) err "usage: usb engines [status|update]"; exit 2 ;;
+  esac
 }
 
 secscan_fetch_repo() {
@@ -328,11 +528,7 @@ cmd_secscan() {
     err "secscan needs python3 in PATH — there is no fallback for security analysis"
     exit 2
   }
-  [ -f "$USB_SECSCAN_ENGINE" ] || {
-    err "secscan engine not found at $USB_SECSCAN_ENGINE"
-    err "the security engines ship with the npm package — npm install -g @peepsick/usb-cli"
-    exit 2
-  }
+  usb_engines_ensure || exit 2
 
   local py_args=() repos=()
   while [ $# -gt 0 ]; do
@@ -356,6 +552,12 @@ cmd_secscan() {
         else
           py_args+=("--write-baseline")
         fi
+        ;;
+      --sarif=*)      py_args+=("--sarif=${1#--sarif=}") ;;
+      --sarif)
+        shift
+        [ $# -gt 0 ] || { err "--sarif needs a file path to write"; exit 2; }
+        case "$1" in /*) py_args+=("--sarif" "$(secscan_to_native_path "$1")") ;; *) py_args+=("--sarif" "$1") ;; esac
         ;;
       --emit-contracts=*) py_args+=("--emit-contracts=${1#--emit-contracts=}") ;;
       --emit-contracts)
@@ -415,12 +617,18 @@ cmd_secscan() {
 # Exit codes: 0 clean/identical, 1 drift/differences, 2 operational error.
 cmd_integrity() {
   local sub="$1"; shift
-  command -v python3 >/dev/null 2>&1 || {
-    err "$sub needs python3 in PATH"; exit 2; }
-  [ -f "$USB_INTEGRITY_ENGINE" ] || {
-    err "integrity engine not found at $USB_INTEGRITY_ENGINE"
-    err "the engines ship with the npm package — npm install -g @peepsick/usb-cli"
-    exit 2; }
+  local a hook_mode=0
+  for a in "$@"; do [ "$a" = "--hook" ] && hook_mode=1; done
+  if [ "$hook_mode" = 1 ]; then
+    # Session hook: never fail, never prompt, never touch the network.
+    command -v python3 >/dev/null 2>&1 || exit 0
+    USB_ENGINES_NO_FETCH=1
+    usb_engines_ensure 2>/dev/null || exit 0
+  else
+    command -v python3 >/dev/null 2>&1 || {
+      err "$sub needs python3 in PATH"; exit 2; }
+    usb_engines_ensure || exit 2
+  fi
   local args=()
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -443,8 +651,7 @@ cmd_install_locked() {
   local lockfile="$1" target="$2"
   command -v python3 >/dev/null 2>&1 || {
     err "--locked needs python3 in PATH"; exit 2; }
-  [ -f "$USB_INTEGRITY_ENGINE" ] || {
-    err "integrity engine not found at $USB_INTEGRITY_ENGINE"; exit 2; }
+  usb_engines_ensure || exit 2
 
   local lockjson
   lockjson=$(python3 "$(secscan_to_native_path "$USB_INTEGRITY_ENGINE")" \
@@ -1375,6 +1582,109 @@ cmd_diff() {
   return "$rc"
 }
 
+# --- repair subcommand --------------------------------------------------------
+# Restores drifted skill files byte-for-byte. The installed manifest only knows
+# hashes, so the original bytes come from the catalog: each drifted skill is
+# staged in a sandbox and is only restored when the staged file's hash equals
+# the manifest hash - i.e. it is exactly what was installed. If the catalog has
+# moved on, repair refuses (that is an update: usb diff <slug>, usb install).
+# Pack/router files and unexpected files are reported, never rewritten.
+cmd_repair() {
+  local slug="" flags=() dry=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --dry-run) dry=1; flags+=("--dry-run") ;;
+      --json)    flags+=("--json") ;;
+      -h|--help) usage; exit 0 ;;
+      --*)       err "Unknown flag: $1"; exit 2 ;;
+      *)         [ -z "$slug" ] || { err "usage: usb repair [slug] [--dry-run] [--json]"; exit 2; }
+                 slug="$1" ;;
+    esac
+    shift
+  done
+  command -v python3 >/dev/null 2>&1 || { err "repair needs python3 in PATH"; exit 2; }
+  usb_engines_ensure || exit 2
+  local eng; eng=$(secscan_to_native_path "$USB_INTEGRITY_ENGINE")
+  local sargs=(); [ -n "$slug" ] && sargs=("$slug")
+
+  local plan rc=0
+  plan=$(python3 "$eng" repair ${sargs[@]+"${sargs[@]}"}) || rc=$?
+  if [ "$rc" != 0 ]; then
+    [ "$rc" = 2 ] && exit 2
+    exit "$rc"
+  fi
+  local slugs pack
+  slugs=$(printf '%s' "$plan" | python3 -c 'import json,sys
+d=json.load(sys.stdin)
+for p in d["packs"]:
+    for r in p["repairs"]: print(r["slug"])')
+  pack=$(printf '%s' "$plan" | python3 -c 'import json,sys
+d=json.load(sys.stdin)
+for p in d["packs"]:
+    if p["repairs"]: print(p["pack"]); break')
+  pack="${pack%$'\r'}"
+  if [ -z "$slugs" ]; then
+    ok "Nothing to repair - no restorable skill files drifted."
+    python3 "$eng" verify ${sargs[@]+"${sargs[@]}"} >/dev/null 2>&1 || \
+      info "Other drift exists (pack/router/unexpected files): see usb verify"
+    return 0
+  fi
+
+  local staging; staging=$(mktemp -d) || { err "Could not create a temp dir"; exit 2; }
+  mkdir -p "$staging/home"
+  local s sscript
+  while IFS= read -r s; do
+    s="${s%$'\r'}"
+    [ -n "$s" ] || continue
+    sscript=$(mktemp) || { rm -rf "$staging"; exit 2; }
+    if curl -fsSL "$USB_BASE_URL/api/install?target=generic&slug=$s" -o "$sscript"; then
+      usb_sandbox_install "$sscript" "$staging" "$staging/install.log" || \
+        warn "could not stage $s: $(tail -1 "$staging/install.log")"
+    else
+      warn "could not download the catalog copy of $s"
+    fi
+    rm -f "$sscript"
+  done <<<"$slugs"
+
+  rc=0
+  python3 "$eng" repair ${sargs[@]+"${sargs[@]}"} \
+    --staging "$(secscan_to_native_path "$staging/root/$pack")" ${flags[@]+"${flags[@]}"} || rc=$?
+  rm -rf "$staging"
+  [ "$dry" = 1 ] && return "$rc"
+  local vrc=0
+  python3 "$eng" verify ${sargs[@]+"${sargs[@]}"} >/dev/null 2>&1 || vrc=$?
+  if [ "$vrc" = 0 ]; then ok "verify is clean again."; else warn "verify still reports drift - see usb verify"; fi
+  return "$rc"
+}
+
+# --- hook subcommand ----------------------------------------------------------
+# `usb hook install` adds a Claude Code SessionStart hook that runs
+# `usb verify --hook`: silent when installed skills are intact, one warning
+# line when they drifted. It never blocks or slows a session (always exit 0,
+# local only - no network, even when engines are not cached yet).
+cmd_hook() {
+  local action="${1:-status}"; shift || true
+  local settings=()
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --settings=*) settings=("--settings" "${1#--settings=}") ;;
+      --settings) shift; [ $# -gt 0 ] || { err "--settings needs a path"; exit 2; }; settings=("--settings" "$1") ;;
+      *) err "Unknown argument: $1"; exit 2 ;;
+    esac
+    shift
+  done
+  command -v python3 >/dev/null 2>&1 || { err "hook needs python3 in PATH"; exit 2; }
+  usb_engines_ensure || exit 2
+  local cmd
+  if command -v usb >/dev/null 2>&1; then
+    cmd="usb verify --hook"
+  else
+    cmd="bash \"$(secscan_to_native_path "$USB_SELF_DIR/$(basename "$0")")\" verify --hook"
+  fi
+  python3 "$(secscan_to_native_path "$USB_INTEGRITY_ENGINE")" hook "$action" \
+    --command "$cmd" ${settings[@]+"${settings[@]}"}
+}
+
 # --- dispatcher --------------------------------------------------------------
 [ $# -eq 0 ] && { cmd_interactive; exit 0; }
 
@@ -1389,9 +1699,13 @@ case "${1:-}" in
   verify|lock|lock-show|lock-check)
                   integrity_cmd="$1"; shift; cmd_integrity "$integrity_cmd" "$@" ;;
   diff)           shift; cmd_diff "$@" ;;
+  repair)         shift; cmd_repair "$@" ;;
+  hook)           shift; cmd_hook "$@" ;;
+  engines)        shift; cmd_engines "$@" ;;
   mcprobe)        shift
     command -v python3 >/dev/null 2>&1 || {
       err "mcprobe needs python3 in PATH"; exit 2; }
+    usb_engines_ensure || exit 2
     MCP_DIR="$(cd "$(dirname "$USB_SECSCAN_ENGINE")" && pwd)"
     [ -f "$MCP_DIR/usb-mcprobe.py" ] || {
       err "mcprobe engine not found at $MCP_DIR/usb-mcprobe.py"
@@ -1401,6 +1715,7 @@ case "${1:-}" in
   mcp)            shift
     command -v python3 >/dev/null 2>&1 || {
       err "mcp server needs python3 in PATH"; exit 2; }
+    usb_engines_ensure || exit 2
     MCP_DIR="$(cd "$(dirname "$USB_SECSCAN_ENGINE")" && pwd)"
     [ -f "$MCP_DIR/usb-mcp.py" ] || {
       err "mcp server engine not found at $MCP_DIR/usb-mcp.py"

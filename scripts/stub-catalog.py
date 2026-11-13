@@ -5,7 +5,9 @@ Serves /api/install from pre-rendered fixture scripts (see
 render-fixture-install.mjs) and /api/version. Prints the bound port on
 stdout, then serves until killed. Never touches the real catalog.
 
-Usage: python3 stub-catalog.py SCRIPT_DIR
+Optionally serves /engines/<file> from ENGINES_DIR (signed engine bootstrap).
+
+Usage: python3 stub-catalog.py SCRIPT_DIR [ENGINES_DIR]
 """
 import json
 import sys
@@ -14,6 +16,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 SCRIPT_DIR = Path(sys.argv[1])
+ENGINES_DIR = Path(sys.argv[2]) if len(sys.argv) > 2 else None
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -43,6 +46,16 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
             return
+        if url.path.startswith("/engines/") and ENGINES_DIR is not None:
+            name = url.path[len("/engines/"):]
+            path = ENGINES_DIR / name
+            if "/" not in name and path.is_file():
+                body = path.read_bytes()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/octet-stream")
+                self.end_headers()
+                self.wfile.write(body)
+                return
         self.send_response(404)
         self.end_headers()
 

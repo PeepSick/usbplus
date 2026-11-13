@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Offline regression suite for the Trust Layer integrity commands:
-# `usb verify`, `usb lock`, `usb install --locked`, `usb diff`.
+# `usb verify`, `usb lock`, `usb install --locked`, `usb diff`, `usb repair`,
+# `usb hook`, `usb secscan --sarif` and the signed python-engine bootstrap.
 #
 # No network and no database: a node helper renders fixture installers
 # straight from src/lib/install-script.ts, and a python stub serves them as
@@ -72,6 +73,7 @@ WORK="$(mktemp -d)"
 SRV=""
 cleanup() {
   [ -n "$SRV" ] && kill "$SRV" 2>/dev/null
+  [ -n "${SRV2:-}" ] && kill "$SRV2" 2>/dev/null
   rm -rf "$WORK"
 }
 trap cleanup EXIT
@@ -86,14 +88,32 @@ MANY="fixture-01,fixture-02,fixture-03,fixture-04,fixture-05,fixture-06,fixture-
 node "$ROOT/scripts/render-fixture-install.mjs" "$WORK/many" claude "$MANY" >/dev/null \
   || { echo "FAIL many render"; exit 1; }
 
-python3 "$ROOT/scripts/stub-catalog.py" "$(native "$WORK/scripts")" >"$WORK/port" 2>/dev/null &
-SRV=$!
-for _ in $(seq 1 100); do [ -s "$WORK/port" ] && break; sleep 0.1; done
-PORT="$(cat "$WORK/port" 2>/dev/null)"
-PORT="${PORT%$'\r'}"
-if [ -z "$PORT" ]; then echo "FAIL stub catalog did not start"; exit 1; fi
+# Signed-engine fixtures: a throwaway keypair signs the real engines; a second
+# key proves wrong-key refusal; a copy with one engine swapped AFTER signing
+# proves the per-file hash check.
+gen_pub() { node "$ROOT/scripts/sign-engines.mjs" --gen-key "$(native "$1")" | sed -n 's/^public key (hex): *//p' | tr -d '\r'; }
+TEST_PUB="$(gen_pub "$WORK/test-key.pem")"
+OTHER_PUB="$(gen_pub "$WORK/other-key.pem")"
+[ -n "$TEST_PUB" ] && [ -n "$OTHER_PUB" ] || { echo "FAIL keygen"; exit 1; }
+node "$ROOT/scripts/sign-engines.mjs" --key "$(native "$WORK/test-key.pem")" \
+  --out "$(native "$WORK/engines")" >/dev/null || { echo "FAIL sign engines"; exit 1; }
+cp -r "$WORK/engines" "$WORK/engines-bad"
+echo "# swapped after signing" >> "$WORK/engines-bad/usb-integrity.py"
+
+start_stub() { # start_stub <portfile> <engines dir>; sets STUB_PID and STUB_PORT
+  python3 "$ROOT/scripts/stub-catalog.py" "$(native "$WORK/scripts")" "$(native "$2")" >"$1" 2>/dev/null &
+  STUB_PID=$!
+  for _ in $(seq 1 100); do [ -s "$1" ] && break; sleep 0.1; done
+  STUB_PORT="$(cat "$1" 2>/dev/null)"
+  STUB_PORT="${STUB_PORT%$'\r'}"
+  [ -n "$STUB_PORT" ] || { echo "FAIL stub catalog did not start"; exit 1; }
+}
+start_stub "$WORK/port" "$WORK/engines"
+SRV=$STUB_PID; PORT=$STUB_PORT
+start_stub "$WORK/port2" "$WORK/engines-bad"
+SRV2=$STUB_PID; PORT_BAD=$STUB_PORT
 export USB_BASE_URL="http://127.0.0.1:$PORT"
-echo "  stub catalog on :$PORT"
+echo "  stub catalog on :$PORT (tampered-engines stub on :$PORT_BAD)"
 
 A="$WORK/homeA"; B="$WORK/homeB"; C="$WORK/homeC"; D="$WORK/homeD"
 E="$WORK/homeE"; F="$WORK/homeF"; G="$WORK/homeG"
@@ -281,6 +301,177 @@ cp "$OLD" "$WORK/dirskill/SKILL.md"
 run 1 "D7 directory mode resolves SKILL.md" "${USB[@]}" diff "$WORK/dirskill" "$NEW"
 run 2 "D8 not-installed slug => exit 2" \
   env HOME="$C" USERPROFILE="$C" "${USB[@]}" diff intent-router
+
+echo "== R. repair =="
+H1="$WORK/homeR"; mkdir -p "$H1"
+run 0 "R0 install for repair" \
+  env HOME="$H1" USERPROFILE="$H1" "${USB[@]}" install --target claude
+run 0 "R1 clean => nothing to repair" \
+  env HOME="$H1" USERPROFILE="$H1" "${USB[@]}" repair
+contains "R1 says nothing to repair" "Nothing to repair"
+
+echo "tampered" >> "$H1/.claude/skills/docker-hardening/SKILL.md"
+rm "$H1/$PACK_REL/skills/postgres-expert.md"
+run 1 "R2 drift present" env HOME="$H1" USERPROFILE="$H1" "${USB[@]}" verify
+run 0 "R3 repair --dry-run reports without writing" \
+  env HOME="$H1" USERPROFILE="$H1" "${USB[@]}" repair --dry-run
+contains "R3 would restore modified" "would restore"
+run 1 "R3 dry-run left the drift in place" \
+  env HOME="$H1" USERPROFILE="$H1" "${USB[@]}" verify
+run 0 "R4 repair restores both skills" \
+  env HOME="$H1" USERPROFILE="$H1" "${USB[@]}" repair
+contains "R4 restored" "restored"
+run 0 "R4 verify clean after repair" \
+  env HOME="$H1" USERPROFILE="$H1" "${USB[@]}" verify
+if cmp -s "$H1/.claude/skills/docker-hardening/SKILL.md" "$H1/$PACK_REL/skills/docker-hardening.md"; then
+  printf '  ok   R4 restored bytes equal the pack copy\n'
+else printf '  FAIL R4 restored bytes differ\n'; FAILED=1; fi
+
+echo "rogue" > "$H1/$PACK_REL/skills/evil-skill.md"
+run 0 "R5 unexpected file is reported, never touched" \
+  env HOME="$H1" USERPROFILE="$H1" "${USB[@]}" repair
+present "$H1/$PACK_REL/skills/evil-skill.md"
+rm "$H1/$PACK_REL/skills/evil-skill.md"
+
+# catalog moved on: manifest hash no longer matches what the catalog serves
+python3 - "$H1/$PACK_REL/usb-manifest.json" <<'PY'
+import json, sys
+m = json.load(open(sys.argv[1]))
+m["files"]["skills/intent-router.md"] = "sha256:" + "1" * 64
+json.dump(m, open(sys.argv[1], "w"), indent=2)
+PY
+run 1 "R6 repair refuses when the catalog moved on" \
+  env HOME="$H1" USERPROFILE="$H1" "${USB[@]}" repair intent-router
+contains "R6 names the reason" "catalog content changed since install"
+run 2 "R7 repair rejects a bad slug" \
+  env HOME="$H1" USERPROFILE="$H1" "${USB[@]}" repair "Bad_Slug"
+
+echo "== H. SessionStart hook =="
+HS="$WORK/settings.json"
+cat > "$HS" <<'JSON'
+{"theme": "dark", "hooks": {"SessionStart": [{"hooks": [{"type": "command", "command": "echo hi"}]}]}}
+JSON
+run 1 "H1 status before install" "${USB[@]}" hook status --settings "$HS"
+run 0 "H2 install adds the hook" "${USB[@]}" hook install --settings "$HS"
+run 0 "H3 install is idempotent" "${USB[@]}" hook install --settings "$HS"
+contains "H3 says already installed" "already installed"
+python3 - "$HS" <<'PY' && printf '  ok   H4 settings keep other keys and hooks, one usb hook\n' || { printf '  FAIL H4 settings content\n'; FAILED=1; }
+import json, sys
+d = json.load(open(sys.argv[1]))
+assert d["theme"] == "dark"
+cmds = [h["command"] for g in d["hooks"]["SessionStart"] for h in g["hooks"]]
+assert "echo hi" in cmds, cmds
+assert sum("verify --hook" in c for c in cmds) == 1, cmds
+PY
+present "$HS.usb-bak"
+run 0 "H5 status after install" "${USB[@]}" hook status --settings "$HS"
+
+HK="$WORK/homeHook"; mkdir -p "$HK"
+run 0 "H6 hook is silent without a manifest" \
+  env HOME="$HK" USERPROFILE="$HK" "${USB[@]}" verify --hook
+[ -z "$LAST_OUT" ] && printf '  ok   H6 no output\n' || { printf '  FAIL H6 output: %s\n' "$LAST_OUT"; FAILED=1; }
+run 0 "H7 install for hook" \
+  env HOME="$HK" USERPROFILE="$HK" "${USB[@]}" install --target claude
+run 0 "H8 hook silent when clean" \
+  env HOME="$HK" USERPROFILE="$HK" "${USB[@]}" verify --hook
+[ -z "$LAST_OUT" ] && printf '  ok   H8 no output\n' || { printf '  FAIL H8 output: %s\n' "$LAST_OUT"; FAILED=1; }
+echo "tampered" >> "$HK/.claude/skills/intent-router/SKILL.md"
+run 0 "H9 hook exits 0 even on drift" \
+  env HOME="$HK" USERPROFILE="$HK" "${USB[@]}" verify --hook
+contains "H9 emits a systemMessage" "systemMessage"
+contains "H9 points at repair" "usb repair"
+run 0 "H10 uninstall removes only the usb hook" "${USB[@]}" hook uninstall --settings "$HS"
+python3 - "$HS" <<'PY' && printf '  ok   H10 other hook survived\n' || { printf '  FAIL H10 settings content\n'; FAILED=1; }
+import json, sys
+d = json.load(open(sys.argv[1]))
+cmds = [h["command"] for g in d["hooks"]["SessionStart"] for h in g["hooks"]]
+assert cmds == ["echo hi"], cmds
+PY
+echo '{ not json' > "$WORK/bad-settings.json"
+run 2 "H11 unparsable settings => exit 2, file untouched" \
+  "${USB[@]}" hook install --settings "$WORK/bad-settings.json"
+
+echo "== S. secscan --sarif =="
+run 1 "S1 risky skill gates and writes SARIF" \
+  "${USB[@]}" secscan "$NEW" --sarif "$WORK/out.sarif"
+python3 - "$WORK/out.sarif" <<'PY' && printf '  ok   S1 SARIF 2.1.0 structure\n' || { printf '  FAIL S1 SARIF structure\n'; FAILED=1; }
+import json, sys
+d = json.load(open(sys.argv[1]))
+assert d["version"] == "2.1.0"
+run = d["runs"][0]
+assert run["tool"]["driver"]["name"] == "usb-secscan"
+assert run["results"], "no results"
+rule_ids = {r["id"] for r in run["tool"]["driver"]["rules"]}
+for r in run["results"]:
+    assert r["ruleId"] in rule_ids
+    assert r["level"] in ("error", "warning", "note")
+    loc = r["locations"][0]["physicalLocation"]
+    assert loc["artifactLocation"]["uri"] and "\\" not in loc["artifactLocation"]["uri"]
+    assert loc["region"]["startLine"] >= 1
+    assert r["partialFingerprints"]["usbFindingFingerprint/v1"]
+PY
+run 1 "S2 second run" "${USB[@]}" secscan "$NEW" --sarif "$WORK/out2.sarif"
+cmp -s "$WORK/out.sarif" "$WORK/out2.sarif" && printf '  ok   S2 SARIF is deterministic\n' \
+  || { printf '  FAIL S2 SARIF differs between runs\n'; FAILED=1; }
+run 0 "S3 clean skill => empty results" "${USB[@]}" secscan "$OLD" --sarif "$WORK/clean.sarif"
+python3 -c 'import json,sys; assert json.load(open(sys.argv[1]))["runs"][0]["results"]==[]' "$WORK/clean.sarif" \
+  && printf '  ok   S3 no results\n' || { printf '  FAIL S3 results not empty\n'; FAILED=1; }
+run 2 "S4 --sarif without a value is a usage error" "${USB[@]}" secscan --sarif
+
+echo "== E. signed engine bootstrap (curl-install simulation) =="
+SOLO="$WORK/solo"; mkdir -p "$SOLO"
+cp "$USB_SH" "$SOLO/usb"
+SOLO_USB=(bash "$SOLO/usb")
+HE="$WORK/homeEng"; mkdir -p "$HE"
+export USB_SIGNING_PUBKEY="$TEST_PUB"
+run 0 "E1 install works with the lone script (no engines needed)" \
+  env HOME="$HE" USERPROFILE="$HE" "${SOLO_USB[@]}" install --target claude
+run 1 "E2 engines not cached yet" env HOME="$HE" USERPROFILE="$HE" "${SOLO_USB[@]}" engines status
+contains "E2 says not cached" "not cached"
+run 0 "E3 hook mode never fetches" \
+  env HOME="$HE" USERPROFILE="$HE" USB_BASE_URL="http://127.0.0.1:9" "${SOLO_USB[@]}" verify --hook
+[ ! -e "$HE/.ai-skills/engines" ] && printf '  ok   E3 nothing downloaded\n' || { printf '  FAIL E3 hook fetched engines\n'; FAILED=1; }
+run 0 "E4 verify fetches + verifies engines, then runs" \
+  env HOME="$HE" USERPROFILE="$HE" "${SOLO_USB[@]}" verify
+contains "E4 announces the fetch" "Fetching signed usb engines"
+present "$HE/.ai-skills/engines/usb-integrity.py"
+run 0 "E5 second run uses the cache" env HOME="$HE" USERPROFILE="$HE" "${SOLO_USB[@]}" verify
+lacks "E5 no refetch" "Fetching signed usb engines"
+run 0 "E6 engines status ok" env HOME="$HE" USERPROFILE="$HE" "${SOLO_USB[@]}" engines status
+contains "E6 cached + verified" "signature + hashes OK"
+
+echo "# tampered" >> "$HE/.ai-skills/engines/usb-integrity.py"
+run 0 "E7 tampered cache is detected and re-fetched" \
+  env HOME="$HE" USERPROFILE="$HE" "${SOLO_USB[@]}" verify
+contains "E7 refetched" "Fetching signed usb engines"
+run 0 "E7 cache healthy again" env HOME="$HE" USERPROFILE="$HE" "${SOLO_USB[@]}" engines status
+run 0 "E8 curl-installed usb can diff too" \
+  env HOME="$HE" USERPROFILE="$HE" "${SOLO_USB[@]}" diff intent-router
+run 0 "E9 engines update refreshes the cache" \
+  env HOME="$HE" USERPROFILE="$HE" "${SOLO_USB[@]}" engines update
+
+HW="$WORK/homeWrongKey"; mkdir -p "$HW"
+run 2 "E10 manifest signed by another key is refused" \
+  env HOME="$HW" USERPROFILE="$HW" USB_SIGNING_PUBKEY="$OTHER_PUB" "${SOLO_USB[@]}" verify
+contains "E10 says INVALID" "signature is INVALID"
+[ ! -e "$HW/.ai-skills/engines/usb-integrity.py" ] && printf '  ok   E10 nothing was cached\n' \
+  || { printf '  FAIL E10 engines cached despite bad signature\n'; FAILED=1; }
+
+HT="$WORK/homeTamperedServer"; mkdir -p "$HT"
+run 2 "E11 server swapped an engine after signing => refused" \
+  env HOME="$HT" USERPROFILE="$HT" USB_BASE_URL="http://127.0.0.1:$PORT_BAD" "${SOLO_USB[@]}" verify
+contains "E11 hash mismatch caught" "do not match the signed manifest"
+[ ! -e "$HT/.ai-skills/engines/usb-integrity.py" ] && printf '  ok   E11 nothing was cached\n' \
+  || { printf '  FAIL E11 tampered engine cached\n'; FAILED=1; }
+unset USB_SIGNING_PUBKEY
+
+run 0 "E12 npm-style layout needs no fetch" \
+  env HOME="$HE" USERPROFILE="$HE" USB_BASE_URL="http://127.0.0.1:9" "${USB[@]}" engines status
+contains "E12 reports bundled" "bundled"
+
+echo "== P. published engines match the signed manifest =="
+run 0 "P1 sign-engines --check against the embedded key" \
+  node "$ROOT/scripts/sign-engines.mjs" --check
 
 echo
 if [ "$FAILED" = "1" ]; then

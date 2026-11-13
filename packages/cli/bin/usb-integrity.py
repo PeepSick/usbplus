@@ -281,25 +281,31 @@ def unexpected_files(directory: Path, expected):
     return out
 
 
-def check_file(path: Path, expected, slug, issues):
+def check_file(path: Path, expected, slug, issues, target=None):
+    def issue(kind, actual):
+        i = {"kind": kind, "path": str(path), "expected": expected,
+             "actual": actual, "slug": slug}
+        if target is not None:
+            i["target"] = target
+        issues.append(i)
+
     if not path.exists():
-        issues.append({"kind": "missing", "path": str(path),
-                       "expected": expected, "actual": None, "slug": slug})
+        issue("missing", None)
         return
     try:
         actual = sha256_file(path)
     except OSError:
-        issues.append({"kind": "unreadable", "path": str(path),
-                       "expected": expected, "actual": None, "slug": slug})
+        issue("unreadable", None)
         return
     if actual != expected:
-        issues.append({"kind": "modified", "path": str(path),
-                       "expected": expected, "actual": actual, "slug": slug})
+        issue("modified", actual)
 
 
 # --- verify -----------------------------------------------------------------
 
 def cmd_verify(args):
+    if getattr(args, "hook", False):
+        return run_hook_verify(args)
     if args.slug and not SLUG_RE.match(args.slug):
         err(f"invalid slug: '{args.slug}' (only lowercase letters, digits and dashes)")
         return EXIT_ERROR
@@ -386,7 +392,7 @@ def cmd_verify(args):
                         h = fhashes[(target, rel)]
                     if not h:
                         continue
-                    check_file(p, h, None, issues)
+                    check_file(p, h, None, issues, target)
                 else:
                     if slug not in slugs_here:
                         continue
@@ -397,9 +403,9 @@ def cmd_verify(args):
                 existing = [(p, h) for p, h in cand if p.exists()]
                 if existing:
                     for p, h in existing:
-                        check_file(p, h, slug, issues)
+                        check_file(p, h, slug, issues, target)
                 else:
-                    check_file(cand[0][0], cand[0][1], slug, issues)
+                    check_file(cand[0][0], cand[0][1], slug, issues, target)
             if args.slug:
                 continue
             if target in ("leosis", "hermes"):
@@ -834,6 +840,241 @@ def human_diff(old, new, result, patch):
 
 # --- entry point -------------------------------------------------------------
 
+# --- hook (SessionStart) ----------------------------------------------------
+def run_hook_verify(args):
+    """Silent unless something drifted. Always exits 0: a hook must never
+    break or delay a session. Output is the JSON a Claude Code hook may print;
+    systemMessage is shown to the user."""
+    import contextlib
+    import io
+    try:
+        ns = argparse.Namespace(slug=None, all=True, json=True, target=None,
+                                pack_dir=None, hook=False)
+        buf, ebuf = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(ebuf):
+            rc = cmd_verify(ns)
+        if rc != EXIT_DRIFT:
+            return EXIT_OK
+        summary = json.loads(buf.getvalue())["summary"]
+        bad = []
+        for key, label in (("modified", "modified"), ("missing", "missing"),
+                           ("unexpected", "unexpected"),
+                           ("pack_issues", "pack issue(s)")):
+            if summary.get(key):
+                bad.append(f"{summary[key]} {label}")
+        msg = ("usb: installed skills differ from the install manifest ("
+               + ", ".join(bad) + ") - run `usb verify`, restore with "
+               "`usb repair`")
+        print(json.dumps({"systemMessage": msg}))
+    except Exception:
+        pass
+    return EXIT_OK
+
+
+HOOK_MARK = "verify --hook"
+
+
+def settings_path(args):
+    if args.settings:
+        return Path(args.settings).expanduser()
+    base = os.environ.get("CLAUDE_CONFIG_DIR")
+    root = Path(base).expanduser() if base else Path.home() / ".claude"
+    return root / "settings.json"
+
+
+def load_settings(path: Path):
+    if not path.exists():
+        return {}, None
+    try:
+        text = path.read_text(encoding="utf-8")
+        data = json.loads(text) if text.strip() else {}
+    except (OSError, ValueError) as e:
+        return None, f"cannot parse {path}: {e}"
+    if not isinstance(data, dict):
+        return None, f"{path} is not a JSON object"
+    return data, None
+
+
+def hook_entries(settings):
+    hooks = settings.get("hooks")
+    groups = hooks.get("SessionStart", []) if isinstance(hooks, dict) else []
+    found = []
+    for gi, g in enumerate(groups if isinstance(groups, list) else []):
+        inner = g.get("hooks", []) if isinstance(g, dict) else []
+        for hi, h in enumerate(inner if isinstance(inner, list) else []):
+            if isinstance(h, dict) and HOOK_MARK in str(h.get("command", "")):
+                found.append((gi, hi))
+    return found
+
+
+def write_settings(path: Path, data):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        backup = path.with_name(path.name + ".usb-bak")
+        if not backup.exists():
+            backup.write_bytes(path.read_bytes())
+    tmp = path.with_name(path.name + ".usb-tmp")
+    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+                   encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def cmd_hook(args):
+    path = settings_path(args)
+    settings, e = load_settings(path)
+    if e:
+        err(e)
+        return EXIT_ERROR
+    found = hook_entries(settings)
+    if args.action == "status":
+        if found:
+            gi, hi = found[0]
+            cmd = settings["hooks"]["SessionStart"][gi]["hooks"][hi]["command"]
+            print(f"installed: SessionStart hook in {path}\n  {cmd}")
+            return EXIT_OK
+        print(f"not installed ({path})")
+        return EXIT_DRIFT
+    if args.action == "install":
+        if not args.command:
+            err("hook install needs --command")
+            return EXIT_ERROR
+        if HOOK_MARK not in args.command:
+            err(f"hook command must contain '{HOOK_MARK}'")
+            return EXIT_ERROR
+        if found:
+            print(f"already installed in {path} - nothing changed")
+            return EXIT_OK
+        hooks = settings.setdefault("hooks", {})
+        if not isinstance(hooks, dict):
+            err(f"{path}: 'hooks' is not an object")
+            return EXIT_ERROR
+        groups = hooks.setdefault("SessionStart", [])
+        if not isinstance(groups, list):
+            err(f"{path}: hooks.SessionStart is not a list")
+            return EXIT_ERROR
+        groups.append({"matcher": "startup|resume", "hooks": [
+            {"type": "command", "command": args.command, "timeout": 20}]})
+        write_settings(path, settings)
+        print(f"installed SessionStart hook in {path}")
+        print("  runs `usb verify --hook` when a Claude Code session starts; "
+              "silent unless installed skills drifted")
+        return EXIT_OK
+    if not found:
+        print(f"not installed ({path}) - nothing to remove")
+        return EXIT_OK
+    groups = settings["hooks"]["SessionStart"]
+    for gi, hi in sorted(found, reverse=True):
+        del groups[gi]["hooks"][hi]
+    settings["hooks"]["SessionStart"] = [g for g in groups if g.get("hooks")]
+    if not settings["hooks"]["SessionStart"]:
+        del settings["hooks"]["SessionStart"]
+    if not settings["hooks"]:
+        del settings["hooks"]
+    write_settings(path, settings)
+    print(f"removed the usb SessionStart hook from {path}")
+    return EXIT_OK
+
+
+# --- repair -----------------------------------------------------------------
+def collect_verify(slug=None):
+    import contextlib
+    import io
+    ns = argparse.Namespace(slug=slug, all=True, json=True, target=None,
+                            pack_dir=None, hook=False)
+    buf, ebuf = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(ebuf):
+        rc = cmd_verify(ns)
+    if rc == EXIT_ERROR:
+        return None, ebuf.getvalue().strip() or "verify failed"
+    return json.loads(buf.getvalue()), None
+
+
+def repair_plan(slug_filter=None):
+    """Which drifted skill files can be restored byte-for-byte?
+    -> (plan, error). Only slug-level modified/missing files qualify; pack
+    files, router files and unexpected files are reported, never touched."""
+    report, e = collect_verify(slug_filter)
+    if e:
+        return None, e
+    plan = {"packs": []}
+    for pack in report["packs"]:
+        manifest, e = load_manifest(Path(pack["dir"]))
+        if e:
+            return None, e
+        expected = {s: h for s, _, h in skill_entries(manifest)}
+        repairs, manual = [], []
+        for sk in pack["skills"]:
+            files = []
+            for iss in sk["issues"]:
+                if iss["kind"] in ("modified", "missing", "unreadable") \
+                        and iss["expected"] == expected.get(sk["slug"]):
+                    files.append({"path": iss["path"], "kind": iss["kind"]})
+                else:
+                    manual.append(iss)
+            if files:
+                repairs.append({"slug": sk["slug"],
+                                "expected": expected[sk["slug"]],
+                                "files": files})
+        manual.extend(pack["pack_issues"])
+        plan["packs"].append({"pack": pack["pack"], "dir": pack["dir"],
+                              "repairs": repairs, "manual": manual})
+    return plan, None
+
+
+def cmd_repair(args):
+    if args.slug and not SLUG_RE.match(args.slug):
+        err(f"invalid slug: '{args.slug}'")
+        return EXIT_ERROR
+    plan, e = repair_plan(args.slug)
+    if e:
+        err(e)
+        return EXIT_ERROR
+    if not args.staging:
+        print(json.dumps(plan, sort_keys=True, indent=2))
+        return EXIT_OK
+    staging = Path(args.staging)
+    repaired, refused = [], []
+    for pack in plan["packs"]:
+        for r in pack["repairs"]:
+            staged = staging / "skills" / f"{r['slug']}.md"
+            if not staged.is_file():
+                refused.append({"slug": r["slug"],
+                                "reason": "not served by the catalog any more"})
+                continue
+            if sha256_file(staged) != r["expected"]:
+                refused.append({"slug": r["slug"],
+                                "reason": "catalog content changed since install"})
+                continue
+            data = staged.read_bytes()
+            for f in r["files"]:
+                if not args.dry_run:
+                    dest = Path(f["path"])
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    tmp = dest.with_name(dest.name + ".usb-tmp")
+                    tmp.write_bytes(data)
+                    os.replace(tmp, dest)
+                repaired.append({"slug": r["slug"], "path": f["path"],
+                                 "kind": f["kind"]})
+    manual = sum(len(p["manual"]) for p in plan["packs"])
+    out = {"dry_run": bool(args.dry_run), "repaired": repaired,
+           "refused": refused, "manual": manual}
+    verb = "would restore" if args.dry_run else "restored"
+    if args.json:
+        print(json.dumps(out, sort_keys=True, indent=2))
+    else:
+        for x in repaired:
+            print(f"  [{x['kind']}] {verb}: {x['path']}")
+        for x in refused:
+            print(f"  [refused] {x['slug']}: {x['reason']} - "
+                  f"review with `usb diff {x['slug']}`, update with "
+                  f"`usb install {x['slug']}`")
+        if manual:
+            print(f"  {manual} issue(s) need a manual fix (pack/router files "
+                  "or unexpected files): `usb install --target <t>` rewrites them")
+        print(f"{verb} {len(repaired)} file(s), refused {len(refused)} skill(s)")
+    return EXIT_DRIFT if refused else EXIT_OK
+
+
 def main(argv=None):
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
@@ -853,6 +1094,9 @@ def main(argv=None):
     p.add_argument("--json", action="store_true")
     p.add_argument("--target", help="restrict to one runtime target")
     p.add_argument("--pack-dir", help="verify a specific pack directory")
+    p.add_argument("--hook", action="store_true",
+                   help="session-hook mode: silent when clean, one JSON "
+                        "systemMessage on drift, always exit 0")
     p.set_defaults(fn=cmd_verify)
 
     p = sub.add_parser("lock", help="pin installed skills into a lock file")
@@ -877,6 +1121,20 @@ def main(argv=None):
     p.add_argument("--json", action="store_true")
     p.add_argument("--patch", action="store_true", help="include a unified diff")
     p.set_defaults(fn=cmd_diff)
+
+    p = sub.add_parser("repair", help="restore drifted skill files byte-for-byte")
+    p.add_argument("slug", nargs="?")
+    p.add_argument("--staging", help="pack dir of a staged catalog install "
+                                     "(without it: print the repair plan)")
+    p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(fn=cmd_repair)
+
+    p = sub.add_parser("hook", help="manage the Claude Code SessionStart hook")
+    p.add_argument("action", choices=["install", "uninstall", "status"])
+    p.add_argument("--command", help="hook command line (install)")
+    p.add_argument("--settings", help="settings.json path (default ~/.claude)")
+    p.set_defaults(fn=cmd_hook)
 
     args = parser.parse_args(argv)
     return args.fn(args)

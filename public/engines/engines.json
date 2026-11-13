@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "version": "1.0.8",
+  "files": {
+    "usb-secscan.py": "ea35eff834f1dbaa74c3f294c254d128e236cae7d90df2744c9087c905f2d56a",
+    "usb-integrity.py": "2d9ae0813b20b08e458cbe3881752011191f87202b9d1455cf2538253c7318c4",
+    "usb-mcprobe.py": "8853ae329e0848fbed8512091ab1e20d0f600052f81e0a540dd709cc657c356e",
+    "usb-mcp.py": "96889c8f4ee25ddb3f77df4e2337b7babc7b41d8df90843c8a5be46cc03a7979"
+  }
+}

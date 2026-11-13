@@ -2381,6 +2381,73 @@ def canonical_finding(f):
     return out
 
 
+SARIF_LEVEL = {"high": "error", "medium": "error", "low": "warning",
+               "info": "note"}
+SARIF_SECURITY_SEVERITY = {"high": "8.0", "medium": "5.5", "low": "3.0",
+                           "info": "1.0"}
+
+
+def emit_sarif(path: Path, results):
+    """Write findings as SARIF 2.1.0 (GitHub Code Scanning compatible).
+
+    Additive output like --emit-contracts: stdout and the exit code are
+    unchanged. Results are sorted and carry the stable fingerprint as
+    partialFingerprints so alerts survive line drift between runs.
+    """
+    rules = {}
+    sarif_results = []
+    for res in results:
+        uri = res["unit"].display_path.replace("\\", "/")
+        if uri.startswith("./"):
+            uri = uri[2:]
+        for f in res["findings"]:
+            rid = f["rule"]
+            rules.setdefault(rid, {
+                "id": rid,
+                "name": rid,
+                "shortDescription": {"text": f["title"]},
+                "properties": {
+                    "security-severity": SARIF_SECURITY_SEVERITY[f["severity"]],
+                    "tags": ["security", "agent-skill"],
+                },
+            })
+            region = {"startLine": max(int(f["line"] or 1), 1)}
+            sarif_results.append({
+                "ruleId": rid,
+                "level": SARIF_LEVEL[f["severity"]],
+                "message": {"text": f"{f['title']} - {f['quote']}"},
+                "locations": [{
+                    "physicalLocation": {
+                        "artifactLocation": {"uri": uri},
+                        "region": region,
+                    },
+                }],
+                "partialFingerprints": {
+                    "usbFindingFingerprint/v1": f["fingerprint"]},
+                "properties": {"severity": f["severity"],
+                               "verdict": res["verdict"]},
+            })
+    sarif_results.sort(key=lambda r: (
+        r["locations"][0]["physicalLocation"]["artifactLocation"]["uri"],
+        r["locations"][0]["physicalLocation"]["region"]["startLine"],
+        r["ruleId"], r["partialFingerprints"]["usbFindingFingerprint/v1"]))
+    doc = {
+        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [{
+            "tool": {"driver": {
+                "name": TOOL,
+                "version": VERSION,
+                "informationUri": "https://usbplus.peepsicklabs.com",
+                "rules": [rules[k] for k in sorted(rules)],
+            }},
+            "results": sarif_results,
+        }],
+    }
+    path.write_text(json.dumps(doc, ensure_ascii=False, indent=2,
+                               sort_keys=True) + "\n", encoding="utf-8")
+
+
 def emit_contracts(path: Path, results):
     """Write the four contract artifacts per unit as canonical JSON.
 
@@ -2486,6 +2553,10 @@ def main(argv=None):
                         help="write the four contract artifacts (declared / "
                              "observed / evidence / authority) as canonical "
                              "JSON; additive debug output, stdout unchanged")
+    parser.add_argument("--sarif", metavar="FILE",
+                        help="also write findings as SARIF 2.1.0 to FILE "
+                             "(GitHub Code Scanning); stdout and exit code "
+                             "are unchanged")
     parser.add_argument("--version", action="version", version=f"{TOOL} {VERSION}")
     args = parser.parse_args(argv)
 
@@ -2750,6 +2821,9 @@ def main(argv=None):
 
     if args.emit_contracts:
         emit_contracts(Path(args.emit_contracts).expanduser(), results)
+
+    if args.sarif:
+        emit_sarif(Path(args.sarif).expanduser(), results)
 
     if args.json:
         report = {

@@ -360,6 +360,52 @@ usb diff old.md new.md        # any two local skill files or directories
 usb diff old.md new.md --patch --json
 ```
 
+`usb repair` closes the loop: it restores drifted skill files **byte-for-byte**.
+The manifest only stores hashes, so the original bytes come from the catalog —
+each drifted skill is staged in a sandbox and restored only if the staged file's
+hash equals the manifest's, i.e. it is exactly what you installed. If the catalog
+has moved on, repair **refuses** (that is an update: `usb diff`, then
+`usb install`). Pack/router files and unexpected files are reported, never
+rewritten.
+
+```bash
+usb repair --dry-run          # what would be restored
+usb repair                    # restore, then re-verify
+usb repair intent-router      # one skill
+```
+
+**Catch drift without remembering to look.** `usb hook install` adds a Claude
+Code `SessionStart` hook that runs `usb verify --hook`: silent when everything
+is intact, one warning line when installed skills drifted. It is local-only (no
+network, even if the engines are not cached yet), always exits `0`, and never
+blocks a session. `usb hook status` / `usb hook uninstall` manage it; your other
+hooks and settings are preserved (a one-time `settings.json.usb-bak` is kept).
+
+**Signed engines for curl installs.** The python engines ship in the npm
+package. A single-file `curl … -o usb` install has no engines next to it, so
+`verify`, `lock`, `diff`, `repair`, `secscan` and `mcprobe` fetch them on first use
+from `/engines/` into `~/.ai-skills/engines/` — but only after an **Ed25519
+signature** over `engines.json` and a SHA-256 per file check out. The public key
+is embedded in `usb`; the private key never touches the server, so a compromised
+host or CDN cannot make `usb` run code it chose. The cache is re-verified on
+every use. `usb engines status|update` shows and refreshes it. Self-hosters sign
+with their own key (`node scripts/sign-engines.mjs`) and export
+`USB_SIGNING_PUBKEY=<hex>`.
+
+**GitHub Code Scanning.** `usb secscan --sarif out.sarif` writes findings as
+SARIF 2.1.0 (stable fingerprints, deterministic output); stdout and exit codes
+are unchanged. The repo root ships a ready-made Action:
+
+```yaml
+permissions: { contents: read, security-events: write }
+steps:
+  - uses: actions/checkout@v4
+  - uses: PeepSick/usbplus@main     # pin a tag or commit SHA once released
+    with:
+      path: .claude/skills
+      # baseline: .usb-secscan-baseline.json   # gate only on NEW findings
+```
+
 It reuses the secscan engine to name added/removed observed capabilities,
 declared categories and tools, plus frontmatter and verdict changes. Exit
 codes: `0` identical, `1` differences, `2` error.
