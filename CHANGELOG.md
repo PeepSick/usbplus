@@ -4,6 +4,18 @@ All notable changes to USB — Universal Systems Bridge will be documented in th
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+- **The Trust Layer gains an integrity half: `usb verify`, `usb lock`, `usb diff`.** secscan answers *what does this skill claim and do*; these answer *is the copy on disk still the one you installed, and what would an update change*. All three are local and never execute what they check.
+  - **Install-time manifest.** Every install now writes `usb-manifest.json` (schema 1: pack, source version, and a SHA-256 per installed file) plus an append-only `usb-targets.txt` ledger next to the pack, hashed from the files actually on disk *after* the target layout is written. Sequential and mixed-target installs accumulate correctly; the ledger records which targets own which skills so verify never flags a skill that was never copied to a given runtime. Hashing uses `sha256sum` → `shasum -a 256` → `python3`, and the installer degrades to a clear warning if none is present.
+  - **`usb verify [slug] [--all] [--json]`** re-hashes installed files and reports modified / missing / unexpected files per skill (`[OK]`/`[WARN]`/`[ERROR]`) with a summary; exit `0` clean, `1` drift, `2` error. Covers both claude layouts (small per-skill dirs and the catalog router), leosis/hermes flat, cursor and the adapter targets. **Integrity is not safety** — verify proves the bytes are unchanged, not that the content is benign; secscan stays the content gate.
+  - **`usb lock` / `usb lock-show` / `usb install --locked`.** `lock` pins installed versions into `usb.lock.json` (from the manifest, or trust-on-first-use when none exists). `install --locked` stages the current catalog into a sandboxed HOME, compares every locked hash, and installs only on a full match — on drift it refuses, installs nothing, and points at `usb diff` / `usb lock`. Subset locks install just the pinned slugs.
+  - **`usb diff <slug>` / `usb diff <old> <new> [--patch] [--json]`.** Reuses the secscan engine to name added/removed observed capabilities, declared categories and tools, plus frontmatter and verdict changes — so a version bump is a reviewed decision. Slug mode compares the installed copy against the latest catalog version; two-path mode compares any local files or directories. Exit `0` identical, `1` differences, `2` error.
+
+### Tests
+- New offline suite `scripts/check-integrity.sh` (69 assertions) exercises the whole installer → manifest → verify/lock/diff chain against sandboxed HOMEs, with no network or database: a node helper (`scripts/render-fixture-install.mjs`) renders fixture installers straight from `src/lib/install-script.ts` and a python stub (`scripts/stub-catalog.py`) serves them as `/api/install`. Covers clean/tampered/missing/unexpected verify, both claude layouts + router tamper, mixed-target accumulation, lock + TOFU, `--locked` full-match/subset/drift-refusal, and diff capability/frontmatter/verdict changes. Wired into the CI `cli` job.
+
 ## [1.0.8] — 2026-11-02
 
 ### Fixed

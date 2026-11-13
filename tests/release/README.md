@@ -19,8 +19,10 @@ engines and contracts in isolation; these verify the assembled product.
   the interactive picker over CRLF input, a **real install** into a fake
   `$HOME`, `secscan` over the installed tree (verdicts, `--json`, baseline
   acknowledge), `mcprobe` consent refusal **plus live observation** of a
-  stub stdio MCP server (handshake + tools, no tool call), and the stdio
-  MCP server (`usb mcp`) tool listing.
+  stub stdio MCP server (handshake + tools, no tool call), the stdio
+  MCP server (`usb mcp`) tool listing, and **integrity** over the installed
+  tree (`verify` clean/`--json`/tamper/restore, `lock` + `lock-show`,
+  `diff` installed-vs-latest).
 
 ## How to run
 

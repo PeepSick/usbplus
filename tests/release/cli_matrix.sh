@@ -222,6 +222,50 @@ else
   fail "H1 usb mcp tools/list -> usb_scan,usb_mcprobe" "got='$tools' driver-stderr=$(head -c 300 "$WORK/mcp.err")"
 fi
 
+echo "== I. integrity: verify / lock / diff over the installed tree =="
+# Reuses the fake HOME from section F (claude install of intent-router). The
+# installer wrote usb-manifest.json + usb-targets.txt next to the pack, so
+# verify/lock/diff run fully offline against what F actually placed on disk.
+PACK="$FAKE/.ai-skills/universal-skill-bridge-catalog"
+SKILL_MD="$FAKE/.claude/skills/intent-router/SKILL.md"
+
+out=$(HOME="$FAKE" USERPROFILE="$FAKE" "${USB[@]}" verify 2>&1); rc=$?
+if [ $rc -eq 0 ] && printf '%s' "$out" | grep -q '\[OK\]'; then
+  pass "I1 verify clean after install (exit 0)"
+else fail "I1 verify clean" "rc=$rc $(printf '%s' "$out" | tail -3)"; fi
+
+out=$(HOME="$FAKE" USERPROFILE="$FAKE" "${USB[@]}" verify --json 2>&1); rc=$?
+if [ $rc -eq 0 ] && printf '%s' "$out" | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d["summary"]["clean"]>=1, d["summary"]' 2>/dev/null; then
+  pass "I2 verify --json parses (summary.clean>=1)"
+else fail "I2 verify --json" "rc=$rc $(printf '%s' "$out" | head -2)"; fi
+
+out=$(HOME="$FAKE" USERPROFILE="$FAKE" "${USB[@]}" lock --file "$WORK/usb.lock.json" 2>&1); rc=$?
+if [ $rc -eq 0 ] && [ -f "$WORK/usb.lock.json" ]; then
+  pass "I3 lock pins the installed skill into usb.lock.json"
+else fail "I3 lock" "rc=$rc $(printf '%s' "$out" | tail -2)"; fi
+
+out=$(HOME="$FAKE" USERPROFILE="$FAKE" "${USB[@]}" lock-show --file "$WORK/usb.lock.json" 2>&1); rc=$?
+if [ $rc -eq 0 ] && printf '%s' "$out" | grep -q 'intent-router'; then
+  pass "I4 lock-show lists the pinned skill"
+else fail "I4 lock-show" "rc=$rc $(printf '%s' "$out" | tail -2)"; fi
+
+out=$(HOME="$FAKE" USERPROFILE="$FAKE" "${USB[@]}" diff intent-router 2>&1); rc=$?
+if [ $rc -eq 0 ] && printf '%s' "$out" | grep -qi 'identical'; then
+  pass "I5 diff installed vs latest -> identical (exit 0)"
+else fail "I5 diff identical" "rc=$rc $(printf '%s' "$out" | tail -3)"; fi
+
+printf '\n<!-- tampered -->\n' >> "$SKILL_MD"
+out=$(HOME="$FAKE" USERPROFILE="$FAKE" "${USB[@]}" verify 2>&1); rc=$?
+if [ $rc -eq 1 ] && printf '%s' "$out" | grep -q 'Modified'; then
+  pass "I6 tampered runtime copy -> verify exit 1 (Modified)"
+else fail "I6 verify tamper" "rc=$rc $(printf '%s' "$out" | tail -3)"; fi
+
+HOME="$FAKE" USERPROFILE="$FAKE" bash "$WORK/install.sh" >/dev/null 2>&1
+out=$(HOME="$FAKE" USERPROFILE="$FAKE" "${USB[@]}" verify 2>&1); rc=$?
+if [ $rc -eq 0 ]; then
+  pass "I7 reinstall restores integrity (verify exit 0)"
+else fail "I7 restore" "rc=$rc $(printf '%s' "$out" | tail -3)"; fi
+
 echo
 echo "CLI matrix: passed=$PASSED failed=$FAILED"
 [ "$FAILED" -eq 0 ] && echo "ALL CLI TESTS PASSED" || { echo "FAILURES PRESENT"; exit 1; }

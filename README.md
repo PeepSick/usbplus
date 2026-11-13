@@ -105,13 +105,14 @@ closes the second.
 
 ## The Trust Layer
 
-Installing a skill is easy; trusting one is not. The v1 series adds two
-commands that answer the two questions the install surface alone cannot:
+Installing a skill is easy; trusting one is not. The v1 series adds commands
+that answer the questions the install surface alone cannot:
 
 | | Question | Tool | Nature |
 |---|---|---|---|
 | **Contracts** | *Does this skill do what it declares?* | `usb secscan` | Static, deterministic — never executes what it scans |
 | **Runtime** | *What does this MCP server actually do when it starts?* | `usb mcprobe` | Live observation, explicit consent — never calls a tool |
+| **Integrity** | *Is the installed skill still exactly what was installed?* | `usb verify` · `usb lock` · `usb diff` | Local SHA-256 re-hash — no network, no execution |
 
 ### secscan — Skill Contract Verifier
 
@@ -320,6 +321,49 @@ deterministic and never runs anything; mcprobe runs, is consented, and is
 honestly non-deterministic. Design details and the full report contract
 are in [docs/mcprobe.md](docs/mcprobe.md).
 
+### verify / lock / diff — Integrity of what you installed
+
+secscan tells you what a skill *claims and does*; it cannot tell you whether
+the copy on your disk is still the one you installed. The integrity commands
+close that gap, entirely offline. At install time USB writes a SHA-256
+manifest (`usb-manifest.json`) plus a per-target ledger next to the pack;
+`usb verify` re-hashes the installed files and compares:
+
+```bash
+usb verify                    # every installed pack + target, [OK]/[WARN]/[ERROR] per skill
+usb verify intent-router      # one skill
+usb verify --all --json       # machine-readable (CI-friendly)
+```
+
+It reports **modified**, **missing** and **unexpected** files and exits `0`
+clean, `1` drift, `2` operational error. **Integrity is not safety:** verify
+proves the bytes did not change, not that the content is benign — that is
+still secscan's job. The two are complementary, not interchangeable.
+
+`usb lock` pins the installed versions into `usb.lock.json` so a team can
+reproduce the exact same install; `usb install --locked` re-downloads the
+catalog into a sandbox, compares every locked hash, and installs **only if
+nothing drifted** — otherwise it refuses and writes nothing:
+
+```bash
+usb lock                      # pin installed skills (from the manifest, or trust-on-first-use)
+usb lock-show                 # inspect what a lock pins
+usb install --locked          # reproducible install; drift => refuse, install nothing
+```
+
+`usb diff` shows what an update would change in **capabilities and
+permissions**, so a version bump is a reviewed decision, not a surprise:
+
+```bash
+usb diff intent-router        # installed copy vs. the latest catalog version
+usb diff old.md new.md        # any two local skill files or directories
+usb diff old.md new.md --patch --json
+```
+
+It reuses the secscan engine to name added/removed observed capabilities,
+declared categories and tools, plus frontmatter and verdict changes. Exit
+codes: `0` identical, `1` differences, `2` error.
+
 ## How it works
 
 Two lanes share one skill record: **verify** what a capability claims against
@@ -397,12 +441,16 @@ Already trust the publisher? One line, no review step: `curl -fsSL https://usbpl
 | `usb install` | Install the whole pack (529 skills) |
 | `usb install --target=<name>` | Force a specific provider target |
 | `usb install --dry-run` | Print the install script without executing it |
+| `usb install --locked` | Reproducible install from `usb.lock.json` — refuses and installs nothing on drift |
 | `usb uninstall <slug>` | Remove an installed skill from a runtime target — offline, frontmatter-verified, `--dry-run` supported |
 | `usb search <query>` | Search the skill catalog |
 | `usb list` | List every skill in the catalog |
 | `usb info <skill>` | Show details for one skill |
 | `usb secscan [paths\|--system\|--repo]` | Skill Contract Verifier — security-scan skills (see **The Trust Layer** above) |
 | `usb mcprobe [target]` | Runtime observation of MCP servers (interactive consent) |
+| `usb verify [slug\|--all\|--json]` | Re-hash installed skills against the install-time SHA-256 manifest (integrity, not safety) |
+| `usb lock` / `usb lock-show` | Pin installed skill versions into `usb.lock.json` / inspect a lock |
+| `usb diff <slug>` / `usb diff <old> <new>` | Capability & permission changes: installed vs latest, or two local versions |
 | `usb mcp` | Start the stdio MCP server for AI agents |
 | `usb version` | Print version, latest release, and update check (`/api/version`) |
 

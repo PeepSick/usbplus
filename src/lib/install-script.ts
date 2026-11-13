@@ -289,6 +289,7 @@ TARGET="$REQUESTED_TARGET"
 PACK_SLUG="${bundle.pack.slug}"
 PACK_VERSION="${bundle.pack.version}"
 SKILL_COUNT="${bundle.skills.length}"
+USB_INSTALLED_SLUGS=(${bundle.skills.map((skill) => safeSlug(skill.slug)).join(" ")})
 ROOT="${"${AI_SKILL_HOME:-$HOME/.ai-skills}"}"
 PACK_DIR="$ROOT/$PACK_SLUG"
 
@@ -463,6 +464,69 @@ ${heredoc('"$DEST/usb/SKILL.md"', markerFor("CLAUDE_ROUTER", claudeRouterSkill),
     DEST="$PACK_DIR"
     ;;
 esac
+
+# --- integrity manifest + target ledger for \`usb verify\` (local, no network) ---
+# Hashes are taken from the files on disk AFTER this install, so sequential
+# single-skill installs accumulate correctly: the manifest always describes
+# the whole pack. usb-targets.txt records which target received which skill,
+# plus per-target pack-level file hashes (those aggregates differ per run).
+usb_sha256() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | cut -d' ' -f1
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | cut -d' ' -f1
+  elif command -v python3 >/dev/null 2>&1; then
+    python3 -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$1"
+  else
+    return 1
+  fi
+}
+if [ "$USB_CHECK" != "1" ]; then
+  if usb_sha256 "$PACK_DIR/skillpack.json" >/dev/null 2>&1; then
+    {
+      printf '{\n  "schema": 1,\n  "pack": "%s",\n  "version": "%s",\n  "files": {\n' "$PACK_SLUG" "$PACK_VERSION"
+      __usb_first=1
+      for __usb_f in "$PACK_DIR/skillpack.json" "$PACK_DIR/adapter.bridge.json" "$PACK_DIR/cursor-rule.mdc" "$PACK_DIR/skills/"*.md; do
+        [ -e "$__usb_f" ] || continue
+        __usb_h=$(usb_sha256 "$__usb_f") || continue
+        [ "$__usb_first" = 1 ] || printf ',\n'
+        __usb_first=0
+        printf '    "%s": "sha256:%s"' "\${__usb_f#"$PACK_DIR"/}" "$__usb_h"
+      done
+      printf '\n  }\n}\n'
+    } > "$PACK_DIR/usb-manifest.json"
+    USB_TARGETS_LEDGER="$PACK_DIR/usb-targets.txt"
+    touch "$USB_TARGETS_LEDGER"
+    for __usb_slug in "\${USB_INSTALLED_SLUGS[@]}"; do
+      printf '%s:%s\n' "$TARGET" "$__usb_slug" >> "$USB_TARGETS_LEDGER"
+    done
+    case "$TARGET" in
+      leosis)
+        for __usb_f in skillpack.json adapter.bridge.json "$PACK_SLUG.mdc"; do
+          printf '%s:file:%s:sha256:%s\n' "$TARGET" "$__usb_f" "$(usb_sha256 "$DEST/$__usb_f")" >> "$USB_TARGETS_LEDGER"
+        done ;;
+      claude)
+        if [ "$SKILL_COUNT" -gt 10 ]; then
+          for __usb_f in usb/skillpack.json usb/SKILL.md; do
+            printf '%s:file:%s:sha256:%s\n' "$TARGET" "$__usb_f" "$(usb_sha256 "$DEST/$__usb_f")" >> "$USB_TARGETS_LEDGER"
+          done
+        fi ;;
+      hermes)
+        for __usb_f in hermes.skillpack.json adapter.bridge.json; do
+          printf '%s:file:%s:sha256:%s\n' "$TARGET" "$__usb_f" "$(usb_sha256 "$DEST/$__usb_f")" >> "$USB_TARGETS_LEDGER"
+        done ;;
+      cursor)
+        printf '%s:file:%s:sha256:%s\n' "$TARGET" "$PACK_SLUG.mdc" "$(usb_sha256 "$DEST/$PACK_SLUG.mdc")" >> "$USB_TARGETS_LEDGER" ;;
+      openai|anthropic|openrouter|groq|mistral|langchain|mcp|ollama|lm-studio|vllm)
+        for __usb_f in "$PACK_SLUG.json" skillpack.json; do
+          printf '%s:file:%s:sha256:%s\n' "$TARGET" "$__usb_f" "$(usb_sha256 "$DEST/$__usb_f")" >> "$USB_TARGETS_LEDGER"
+        done ;;
+    esac
+    echo "🔐 Integrity manifest: $PACK_DIR/usb-manifest.json — check anytime with: usb verify"
+  else
+    echo "⚠️  No SHA-256 tool (sha256sum, shasum or python3) — integrity manifest skipped"
+  fi
+fi
 
 # --- Local install registry (always-on, no network, no PII) ---
 INSTALL_RECORD="$PACK_DIR/installed.json"

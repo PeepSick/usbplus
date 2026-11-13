@@ -24,6 +24,14 @@
 #                                  ("usb scan" is a shorthand alias)
 #   usb mcprobe [paths...]         Runtime observation of MCP servers (LAUNCHES
 #                                  targets - opt-in via --yes; non-deterministic)
+#   usb verify [slug]              Verify installed skills against the install-time
+#                                  SHA-256 manifest (modified/missing/unexpected)
+#   usb verify --all --json        Verify every pack and target, machine-readable
+#   usb lock                       Pin installed skill versions into usb.lock.json
+#   usb lock-show                  Show what a usb.lock.json pins (read-only)
+#   usb install --locked           Install only if the catalog still matches the lock
+#   usb diff <slug>                Capability/permission changes: installed vs latest
+#   usb diff <old> <new>           Compare two local skill files or directories
 #   usb mcp                        Start the MCP stdio server (for AI agents)
 #   usb version                    Show USB pack version
 #   usb --help                     Show this help
@@ -195,6 +203,7 @@ for s in d["bundle"]["skills"]:
 # high findings, 2 = operational error (bad path, unreachable repo).
 
 USB_SECSCAN_ENGINE="$(cd "$(dirname "$0")" && pwd)/usb-secscan.py"
+USB_INTEGRITY_ENGINE="$(cd "$(dirname "$0")" && pwd)/usb-integrity.py"
 USB_SECSCAN_WORKDIR=""
 
 # Hand paths to the engine in native form. Under Git Bash/MSYS the engine
@@ -398,11 +407,140 @@ cmd_secscan() {
   return 0
 }
 
+# --- verify / lock / diff subcommands ---------------------------------------
+# Integrity pillar of the Trust Layer: the analysis lives in usb-integrity.py
+# (python3, stdlib only). verify re-hashes installed files against the
+# install-time SHA-256 manifest; lock pins versions for reproducible installs;
+# diff reuses secscan's capability analysis to show what an update changes.
+# Exit codes: 0 clean/identical, 1 drift/differences, 2 operational error.
+cmd_integrity() {
+  local sub="$1"; shift
+  command -v python3 >/dev/null 2>&1 || {
+    err "$sub needs python3 in PATH"; exit 2; }
+  [ -f "$USB_INTEGRITY_ENGINE" ] || {
+    err "integrity engine not found at $USB_INTEGRITY_ENGINE"
+    err "the engines ship with the npm package — npm install -g @peepsick/usb-cli"
+    exit 2; }
+  local args=()
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      /*) args+=("$(secscan_to_native_path "$1")") ;;
+      --file=*|--staging=*|--pack-dir=*)
+        args+=("${1%%=*}=$(secscan_to_native_path "${1#*=}")") ;;
+      *) args+=("$1") ;;
+    esac
+    shift
+  done
+  python3 "$(secscan_to_native_path "$USB_INTEGRITY_ENGINE")" "$sub" ${args[@]+"${args[@]}"}
+}
+
+# --- install --locked --------------------------------------------------------
+# Reproducible installs: stage the current catalog into a sandboxed HOME,
+# compare every locked skill hash, and only touch the real install locations
+# when the catalog still matches usb.lock.json. Drift => refuse, install
+# nothing, and point at `usb diff` / `usb lock` for review and re-pinning.
+cmd_install_locked() {
+  local lockfile="$1" target="$2"
+  command -v python3 >/dev/null 2>&1 || {
+    err "--locked needs python3 in PATH"; exit 2; }
+  [ -f "$USB_INTEGRITY_ENGINE" ] || {
+    err "integrity engine not found at $USB_INTEGRITY_ENGINE"; exit 2; }
+
+  local lockjson
+  lockjson=$(python3 "$(secscan_to_native_path "$USB_INTEGRITY_ENGINE")" \
+    lock-show --file "$(secscan_to_native_path "$lockfile")") || exit 2
+  local lock_target lock_pack lock_count
+  lock_target=$(printf '%s' "$lockjson" | python3 -c 'import json,sys;print(json.load(sys.stdin)["target"])')
+  lock_pack=$(printf '%s' "$lockjson" | python3 -c 'import json,sys;print(json.load(sys.stdin)["pack"])')
+  lock_count=$(printf '%s' "$lockjson" | python3 -c 'import json,sys;print(json.load(sys.stdin)["count"])')
+  [ "$target" = "auto" ] && target="$lock_target"
+  case "$target" in
+    claude|cursor|leosis|hermes|openai|anthropic|langchain|mcp|openrouter|groq|mistral|ollama|lm-studio|vllm|generic) ;;
+    *) err "lock file has unknown target: $target"; exit 2 ;;
+  esac
+  info "Locked install: $lock_count skill(s), pack $lock_pack, target $target"
+
+  local url="$USB_BASE_URL/api/install?target=$target"
+  local script
+  script=$(mktemp) || { err "Could not create a temp file"; exit 1; }
+  if ! curl -fsSL "$url" -o "$script"; then
+    rm -f "$script"
+    err "Could not download the installer from $url"
+    exit 1
+  fi
+
+  local staging
+  staging=$(mktemp -d) || { rm -f "$script"; err "Could not create a temp dir"; exit 1; }
+  mkdir -p "$staging/home"
+  info "Staging catalog content for lock comparison ..."
+  if ! usb_sandbox_install "$script" "$staging" "$staging/install.log"; then
+    err "staging install failed:"
+    tail -5 "$staging/install.log" >&2
+    rm -rf "$staging"
+    rm -f "$script"
+    exit 1
+  fi
+
+  local check="$staging/check.json" rc=0
+  python3 "$(secscan_to_native_path "$USB_INTEGRITY_ENGINE")" lock-check \
+    --staging "$(secscan_to_native_path "$staging/root/$lock_pack")" \
+    --file "$(secscan_to_native_path "$lockfile")" --json > "$check" || rc=$?
+  if [ "$rc" = "2" ]; then
+    rm -rf "$staging"
+    rm -f "$script"
+    exit 2
+  fi
+  if [ "$rc" = "1" ]; then
+    err "catalog content drifted from $lockfile — nothing installed."
+    python3 -c 'import json,sys
+d=json.load(open(sys.argv[1]))
+for x in d["drift"]: print("  ["+x["kind"]+"] "+x["slug"])' \
+      "$(secscan_to_native_path "$check")" >&2
+    err "review changes with: usb diff <slug>   re-pin with: usb lock"
+    rm -rf "$staging"
+    rm -f "$script"
+    exit 1
+  fi
+
+  local full_match irc=0
+  full_match=$(python3 -c 'import json,sys;print("1" if json.load(open(sys.argv[1]))["full_match"] else "0")' \
+    "$(secscan_to_native_path "$check")")
+  if [ "$full_match" = "1" ]; then
+    bash "$script" || irc=$?
+  else
+    info "Locked set is a subset of the catalog — installing per skill ..."
+    local slug sscript
+    while IFS= read -r slug; do
+      # Windows python emits CRLF; read keeps the \r and curl rejects it.
+      slug="${slug%$'\r'}"
+      sscript=$(mktemp) || { irc=1; break; }
+      if ! curl -fsSL "$USB_BASE_URL/api/install?target=$target&slug=$slug" -o "$sscript"; then
+        err "could not download the installer for $slug"
+        rm -f "$sscript"
+        irc=1
+        break
+      fi
+      bash "$sscript" || irc=$?
+      rm -f "$sscript"
+      [ "$irc" != 0 ] && break
+    done < <(printf '%s' "$lockjson" | python3 -c 'import json,sys;print("\n".join(json.load(sys.stdin)["slugs"]))')
+  fi
+  rm -rf "$staging"
+  rm -f "$script"
+  if [ "$irc" != 0 ]; then
+    exit "$irc"
+  fi
+  ok "Done (locked)."
+}
+
 # --- install subcommand ------------------------------------------------------
 cmd_install() {
   local filter_args=""
   local target="$USB_TARGET"
+  local target_set=0
   local show_script=0
+  local locked=0
+  local lockfile="usb.lock.json"
 
   # A while/shift loop rather than `for arg in "$@"`: the space form
   # (`--target claude`) has to consume the NEXT token, which a for-loop
@@ -410,13 +548,20 @@ cmd_install() {
   # into `slug=claude`, installing a skill nobody asked for.
   while [ $# -gt 0 ]; do
     case "$1" in
-      --target=*)  target="${1#--target=}" ;;
+      --target=*)  target="${1#--target=}"; target_set=1 ;;
       --target)
         shift
         [ $# -gt 0 ] || { err "--target needs a value (e.g. --target claude)"; exit 2; }
-        target="$1"
+        target="$1"; target_set=1
         ;;
       --dry-run)   show_script=1 ;;
+      --locked)    locked=1 ;;
+      --file=*)    lockfile="${1#--file=}" ;;
+      --file)
+        shift
+        [ $# -gt 0 ] || { err "--file needs a lock file path"; exit 2; }
+        lockfile="$1"
+        ;;
       --help|-h)   usage; exit 0 ;;
       --*)         warn "Unknown flag: $1" ;;
       *)
@@ -432,6 +577,21 @@ cmd_install() {
     esac
     shift
   done
+
+  if [ "$locked" = "1" ]; then
+    if [ -n "$filter_args" ]; then
+      err "--locked installs exactly the locked set — drop the slug/preset argument"
+      exit 2
+    fi
+    if [ "$show_script" = "1" ]; then
+      err "--dry-run cannot be combined with --locked"
+      exit 2
+    fi
+    # The lock pins the target; only an explicit --target overrides it.
+    [ "$target_set" = "1" ] || target="auto"
+    cmd_install_locked "$lockfile" "$target"
+    return $?
+  fi
 
   # The server maps an unknown target to `generic` and reports success, so a
   # typo (`--target=cluade`) would install into the wrong place unnoticed.
@@ -1127,6 +1287,94 @@ cmd_interactive() {
   done
 }
 
+# --- diff subcommand ----------------------------------------------------------
+# Two local paths go straight to the engine. One slug means "installed vs
+# latest catalog": the latest single-skill installer is staged in a sandbox
+# and compared against the installed canonical pack copy. The engine itself
+# never opens a network connection — fetching lives here, like secscan's
+# repo fetch.
+usb_sandbox_install() {
+  # Every location the installer could write is redirected into the sandbox,
+  # including the *_DIR overrides — a staging run must never touch real files.
+  local script="$1" staging="$2" log="$3"
+  HOME="$staging/home" USERPROFILE="$staging/home" \
+  AI_SKILL_HOME="$staging/root" \
+  CLAUDE_SKILLS_DIR="$staging/claude" \
+  LEOSIS_SKILLS_DIR="$staging/leosis" \
+  HERMES_SKILLS_DIR="$staging/hermes" \
+  CURSOR_RULES_DIR="$staging/cursor" \
+  OPENCODE_DIR="$staging/opencode" CODEX_HOME="$staging/codex" \
+  USB_TELEMETRY=off bash "$script" > "$log" 2>&1
+}
+
+cmd_diff() {
+  local paths=() flags=() slug=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --json|--patch) flags+=("$1") ;;
+      --help|-h) usage; exit 0 ;;
+      --*) err "Unknown flag: $1"; exit 2 ;;
+      *) paths+=("$1") ;;
+    esac
+    shift
+  done
+  local rc=0
+  if [ "${#paths[@]}" -eq 2 ]; then
+    cmd_integrity diff "${paths[@]}" ${flags[@]+"${flags[@]}"} || rc=$?
+    return "$rc"
+  fi
+  if [ "${#paths[@]}" -ne 1 ]; then
+    err "usage: usb diff <slug> | usb diff <old> <new> [--json] [--patch]"
+    exit 2
+  fi
+  slug="${paths[0]}"
+  case "$slug" in
+    ''|*[!a-z0-9-]*|-*) err "invalid slug: '$slug' (only lowercase letters, digits and dashes)"; exit 2 ;;
+  esac
+  command -v python3 >/dev/null 2>&1 || { err "diff needs python3 in PATH"; exit 2; }
+
+  local root="${AI_SKILL_HOME:-${HOME:-}/.ai-skills}"
+  local installed="" d
+  for d in "$root"/*/; do
+    if [ -f "${d}skills/$slug.md" ]; then installed="${d}skills/$slug.md"; break; fi
+  done
+  if [ -z "$installed" ]; then
+    err "'$slug' is not installed — nothing to diff against"
+    err "install it first: usb install $slug"
+    exit 2
+  fi
+
+  local staging script
+  staging=$(mktemp -d) || { err "Could not create a temp dir"; exit 2; }
+  mkdir -p "$staging/home"
+  script=$(mktemp) || { rm -rf "$staging"; err "Could not create a temp file"; exit 2; }
+  if ! curl -fsSL "$USB_BASE_URL/api/install?target=generic&slug=$slug" -o "$script"; then
+    err "could not download the latest installer for $slug"
+    rm -rf "$staging"
+    rm -f "$script"
+    exit 2
+  fi
+  info "Fetching latest '$slug' from $USB_BASE_URL ..."
+  if ! usb_sandbox_install "$script" "$staging" "$staging/install.log"; then
+    err "could not stage the latest version of $slug"
+    tail -3 "$staging/install.log" >&2
+    rm -rf "$staging"
+    rm -f "$script"
+    exit 2
+  fi
+  local latest="$staging/root/universal-skill-bridge-catalog/skills/$slug.md"
+  if [ ! -f "$latest" ]; then
+    err "the catalog no longer serves '$slug'"
+    rm -rf "$staging"
+    rm -f "$script"
+    exit 2
+  fi
+  cmd_integrity diff "$installed" "$latest" ${flags[@]+"${flags[@]}"} || rc=$?
+  rm -rf "$staging"
+  rm -f "$script"
+  return "$rc"
+}
+
 # --- dispatcher --------------------------------------------------------------
 [ $# -eq 0 ] && { cmd_interactive; exit 0; }
 
@@ -1138,6 +1386,9 @@ case "${1:-}" in
   info)           shift; cmd_info "$@" ;;
   list)           shift; cmd_list "$@" ;;
   secscan|scan)   shift; cmd_secscan "$@" ;;
+  verify|lock|lock-show|lock-check)
+                  integrity_cmd="$1"; shift; cmd_integrity "$integrity_cmd" "$@" ;;
+  diff)           shift; cmd_diff "$@" ;;
   mcprobe)        shift
     command -v python3 >/dev/null 2>&1 || {
       err "mcprobe needs python3 in PATH"; exit 2; }

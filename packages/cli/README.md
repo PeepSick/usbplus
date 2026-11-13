@@ -43,6 +43,9 @@ usb install core-only          # just the 9 core orchestration skills
 usb install --target=claude web-dev
 usb install --dry-run web-dev
 
+# Reproducible install from a lock file (refuses on drift, installs nothing)
+usb install --locked
+
 # Search the catalog
 usb search oauth
 
@@ -77,6 +80,30 @@ usb mcprobe --yes --timeout 10 .  # per-phase deadline (default 30s)
 `secscan`), performs the MCP handshake, records exposed tools, and reports
 results. It never calls a tool, and without `--yes` it contacts nothing. Requires `python3`. Non-deterministic by design — see `docs/mcprobe.md`.
 
+### Integrity (verify / lock / diff)
+
+```bash
+usb verify                    # re-hash installed skills vs the install-time manifest
+usb verify intent-router      # one skill
+usb verify --all --json       # machine-readable (CI-friendly)
+
+usb lock                      # pin installed versions into usb.lock.json
+usb lock-show                 # inspect what a lock pins
+usb install --locked          # reproducible install; refuses + installs nothing on drift
+
+usb diff intent-router        # installed copy vs latest catalog: capability/permission changes
+usb diff old.md new.md        # any two local skill files or directories
+usb diff old.md new.md --patch --json
+```
+
+Every install writes a SHA-256 manifest (`usb-manifest.json`) and a per-target
+ledger next to the pack; `verify` re-hashes and reports modified / missing /
+unexpected files (exit `0` clean, `1` drift, `2` error). **Integrity is not
+safety** — verify proves the bytes are unchanged, not that the content is
+benign; that stays `secscan`'s job. `diff` reuses the secscan engine to name
+added/removed capabilities, tools, frontmatter and verdict changes. All three
+are local and require `python3` (stdlib only).
+
 ### MCP Server
 
 ```bash
@@ -92,6 +119,7 @@ the `mcp` Python package.
 |---------|---------------|-------------------|
 | `usb secscan` | ✅ | None |
 | `usb mcprobe` | ✅ | None |
+| `usb verify` / `usb lock` / `usb diff` | ✅ | None |
 | `usb mcp` | ✅ | `mcp` |
 
 For the MCP server:
@@ -122,9 +150,10 @@ public [USB catalog](https://usbplus.peepsicklabs.com). Installs record what the
 placed in a local registry (`~/.ai-skills/.../installed.json`). No API keys, no telemetry
 by default.
 
-Python scripts (`usb-secscan.py`, `usb-mcprobe.py`, `usb-mcp.py`) handle
-security scanning and runtime observation. They use only Python 3 stdlib
-except for `usb-mcp.py` which requires the `mcp` package.
+Python scripts (`usb-secscan.py`, `usb-mcprobe.py`, `usb-integrity.py`,
+`usb-mcp.py`) handle security scanning, runtime observation and integrity
+verification. They use only Python 3 stdlib except for `usb-mcp.py` which
+requires the `mcp` package.
 
 ## License
 
