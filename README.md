@@ -5,6 +5,7 @@ USB is an open-source trust layer for AI capabilities.
 **Does this skill or MCP server actually do what it claims?** USB discovers skills,
 MCP servers, agents, and commands inside repositories, compares declared behavior
 with observable evidence using `secscan`, observes live MCP servers with `mcprobe`,
+keeps installed skills tamper-evident with `verify` / `lock` / `diff` / `repair`,
 and delivers inspectable artifacts across agent runtimes.
 
 <p align="center">
@@ -38,7 +39,7 @@ and delivers inspectable artifacts across agent runtimes.
 </p>
 
 <p align="center">
-  <sub>v1.1.0 · 529 skills · 16 runtime targets · Trust Layer: <code>secscan</code> + <code>mcprobe</code> · MIT</sub>
+  <sub>v1.1.0 · 529 skills · 16 runtime targets · Trust Layer: <code>secscan</code> + <code>mcprobe</code> + <code>verify</code>/<code>lock</code>/<code>diff</code>/<code>repair</code> · MIT</sub>
 </p>
 
 ---
@@ -80,6 +81,7 @@ you run is the next:
 ```bash
 usb secscan   # declared vs. observed — verdicts with file:line evidence, exit codes for CI
 usb mcprobe   # observe MCP servers at startup — consented, never calls a tool
+usb verify    # is what's on disk still what you installed? (+ usb repair, usb hook install)
 ```
 
 <p align="center">
@@ -112,7 +114,7 @@ that answer the questions the install surface alone cannot:
 |---|---|---|---|
 | **Contracts** | *Does this skill do what it declares?* | `usb secscan` | Static, deterministic — never executes what it scans |
 | **Runtime** | *What does this MCP server actually do when it starts?* | `usb mcprobe` | Live observation, explicit consent — never calls a tool |
-| **Integrity** | *Is the installed skill still exactly what was installed?* | `usb verify` · `usb lock` · `usb diff` | Local SHA-256 re-hash — no network, no execution |
+| **Integrity** | *Is the installed skill still exactly what was installed?* | `usb verify` · `usb lock` · `usb diff` · `usb repair` · `usb hook` | Local SHA-256 re-hash — no network, no execution |
 
 ### secscan — Skill Contract Verifier
 
@@ -493,10 +495,14 @@ Already trust the publisher? One line, no review step: `curl -fsSL https://usbpl
 | `usb list` | List every skill in the catalog |
 | `usb info <skill>` | Show details for one skill |
 | `usb secscan [paths\|--system\|--repo]` | Skill Contract Verifier — security-scan skills (see **The Trust Layer** above) |
+| `usb secscan --sarif <file>` | Also write findings as SARIF 2.1.0 for GitHub Code Scanning (root `action.yml` wraps it) |
 | `usb mcprobe [target]` | Runtime observation of MCP servers (interactive consent) |
 | `usb verify [slug\|--all\|--json]` | Re-hash installed skills against the install-time SHA-256 manifest (integrity, not safety) |
 | `usb lock` / `usb lock-show` | Pin installed skill versions into `usb.lock.json` / inspect a lock |
 | `usb diff <slug>` / `usb diff <old> <new>` | Capability & permission changes: installed vs latest, or two local versions |
+| `usb repair [slug] [--dry-run]` | Restore drifted skill files byte-for-byte; refuses when the catalog moved on (that is an update) |
+| `usb hook install\|uninstall\|status` | Claude Code `SessionStart` hook: one warning line when installed skills drift, silent otherwise |
+| `usb engines [status\|update]` | Signed python engines a single-file curl install fetches on first use (Ed25519 + SHA-256) |
 | `usb mcp` | Start the stdio MCP server for AI agents |
 | `usb version` | Print version, latest release, and update check (`/api/version`) |
 
