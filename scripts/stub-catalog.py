@@ -11,6 +11,7 @@ Usage: python3 stub-catalog.py SCRIPT_DIR [ENGINES_DIR]
 """
 import json
 import os
+import socketserver
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -70,6 +71,17 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
 
-server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+class QuickServer(ThreadingHTTPServer):
+    # http.server.HTTPServer.server_bind() resolves the bind address with
+    # socket.getfqdn(), a reverse-DNS lookup that can hang for many seconds on
+    # macOS CI runners - the port was never printed and the suite gave up.
+    def server_bind(self):
+        socketserver.TCPServer.server_bind(self)
+        host, port = self.server_address[:2]
+        self.server_name = host
+        self.server_port = port
+
+
+server = QuickServer(("127.0.0.1", 0), Handler)
 print(server.server_address[1], flush=True)
 server.serve_forever()
