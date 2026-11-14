@@ -10,6 +10,7 @@ Optionally serves /engines/<file> from ENGINES_DIR (signed engine bootstrap).
 Usage: python3 stub-catalog.py SCRIPT_DIR [ENGINES_DIR]
 """
 import json
+import os
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -41,8 +42,14 @@ class Handler(BaseHTTPRequestHandler):
                 self.end_headers()
                 return
             body = path.read_bytes()
+            sigfile = Path(str(path) + ".sig")
+            sig = sigfile.read_text().strip() if sigfile.is_file() else None
+            if os.environ.get("STUB_TAMPER") == "1":
+                body += b"\n# tampered in transit\n"  # signature no longer matches
             self.send_response(200)
             self.send_header("Content-Type", "text/x-shellscript")
+            if sig:
+                self.send_header("X-USB-Signature", sig)
             self.end_headers()
             self.wfile.write(body)
             return

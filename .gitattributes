@@ -15,3 +15,7 @@ bin/usb text eol=lf
 # Engines are hashed and signed byte-for-byte (scripts/sign-engines.mjs); never let git rewrite line endings.
 packages/cli/bin/*.py -text
 public/engines/* -text
+# Every shell script runs under bash on Windows runners too: a CRLF checkout
+# (core.autocrlf) turns `set -u` / heredocs into syntax errors.
+*.sh text eol=lf
+scripts/*.mjs text eol=lf

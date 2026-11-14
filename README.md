@@ -406,8 +406,32 @@ weaken a policy.
   "deny_capabilities": ["secrets-access", "destructive-commands", "persistence-hooks"],
   "block_verdicts": ["purpose-mismatch"],
   "deny_undeclared": false,
+  "require_signed_catalog": false,
   "allow": { "web-research": ["network-egress"] }
 }
+```
+
+**Signed installers.** The catalog server signs every installer it generates
+(Ed25519 over the exact bytes, sent as `X-USB-Signature`); `usb` verifies it
+before running anything. A **bad signature is always refused** — a CDN, cache or
+proxy altered the script, or a different server answered. An *unsigned* installer
+(self-hosted or older server) still works by default; set
+`USB_REQUIRE_SIGNATURE=1` or `"require_signed_catalog": true` in `usb.policy.json`
+to refuse those too. This protects the delivery path; it cannot help if the
+server itself is compromised (that key necessarily lives there — the engine key
+does not). Self-hosters sign with their own key (`USB_CATALOG_SIGNING_KEY_FILE`
+on the server, `USB_CATALOG_PUBKEY=<hex>` on the client).
+
+**SBOM.** `usb sbom` emits a software bill of materials for what is installed —
+CycloneDX 1.5 (default) or SPDX 2.3 JSON, offline: SHA-256 per skill from the
+install manifest, the targets it lives in, and (unless `--no-analysis`) the
+secscan verdict and observed/declared capabilities as properties.
+`SOURCE_DATE_EPOCH` makes the document reproducible.
+
+```bash
+usb sbom --out usb.cdx.json
+usb sbom --format spdx --out usb.spdx.json
+usb sbom --no-analysis        # hashes only (fast)
 ```
 
 **Catch drift without remembering to look.** `usb hook install` adds a Claude
@@ -534,6 +558,7 @@ Already trust the publisher? One line, no review step: `curl -fsSL https://usbpl
 | `usb verify [slug\|--all\|--json]` | Re-hash installed skills against the install-time SHA-256 manifest (integrity, not safety) |
 | `usb lock` / `usb lock-show` | Pin installed skill versions into `usb.lock.json` / inspect a lock |
 | `usb diff <slug>` / `usb diff <old> <new>` | Capability & permission changes: installed vs latest, or two local versions |
+| `usb sbom [--format spdx] [--out F]` | SBOM of installed skills (CycloneDX 1.5 or SPDX 2.3): hashes, targets, capabilities — offline |
 | `usb update [slug...] [--dry-run\|--yes]` | Update installed skills: SAFE applied, REVIEW (new capabilities) needs `--yes`, BLOCKED by policy never; re-pins `usb.lock.json` |
 | `usb policy init\|show` | Create/inspect `usb.policy.json` — enforced by install, `install --locked` and update (`--ignore-policy` skips) |
 | `usb repair [slug] [--dry-run]` | Restore drifted skill files byte-for-byte; refuses when the catalog moved on (that is an update) |

@@ -2,7 +2,8 @@
 # Offline regression suite for the Trust Layer integrity commands:
 # `usb verify`, `usb lock`, `usb install --locked`, `usb diff`, `usb repair`,
 # `usb hook`, `usb secscan --sarif`, the signed python-engine bootstrap,
-# `usb.policy.json` enforcement and `usb update`.
+# `usb.policy.json` enforcement, `usb update`, signed catalog installers and
+# `usb sbom`.
 #
 # No network and no database: a node helper renders fixture installers
 # straight from src/lib/install-script.ts, and a python stub serves them as
@@ -25,6 +26,13 @@ USB_SH="$ROOT/packages/cli/bin/usb.sh"
 USB=(bash "$USB_SH")
 FAILED=0
 LAST_OUT=""
+
+sha() { # sha <file>: portable sha256 (sha256sum | shasum -a 256 | python3)
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1
+  elif command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" | cut -d' ' -f1
+  else python3 -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$1"
+  fi
+}
 
 native() {
   if command -v cygpath >/dev/null 2>&1; then cygpath -m -- "$1"; else printf '%s\n' "$1"; fi
@@ -76,6 +84,8 @@ cleanup() {
   [ -n "$SRV" ] && kill "$SRV" 2>/dev/null
   [ -n "${SRV2:-}" ] && kill "$SRV2" 2>/dev/null
   [ -n "${SRV3:-}" ] && kill "$SRV3" 2>/dev/null
+  [ -n "${SRV4:-}" ] && kill "$SRV4" 2>/dev/null
+  [ -n "${SRV5:-}" ] && kill "$SRV5" 2>/dev/null
   rm -rf "$WORK"
 }
 trap cleanup EXIT
@@ -83,6 +93,13 @@ trap cleanup EXIT
 export NO_COLOR=1
 
 echo "== setup: render fixtures + stub catalog =="
+# The stub catalog signs its installers like the real server does (a throwaway
+# key); the CLI is pointed at the matching public key for the whole suite.
+gen_pub() { node "$ROOT/scripts/sign-engines.mjs" --gen-key "$(native "$1")" | sed -n 's/^public key (hex): *//p' | tr -d '\r'; }
+CAT_PUB="$(gen_pub "$WORK/catalog-key.pem")"
+[ -n "$CAT_PUB" ] || { echo "FAIL catalog keygen"; exit 1; }
+export USB_FIXTURE_SIGN_KEY="$(native "$WORK/catalog-key.pem")"
+export USB_CATALOG_PUBKEY="$CAT_PUB"
 node "$ROOT/scripts/render-fixture-install.mjs" "$WORK/scripts" \
   claude,generic,leosis,openai intent-router,postgres-expert,docker-hardening >/dev/null \
   || { echo "FAIL fixture render"; exit 1; }
@@ -132,6 +149,11 @@ start_stub "$WORK/port2" "$WORK/engines-bad"
 SRV2=$STUB_PID; PORT_BAD=$STUB_PORT
 start_stub "$WORK/port3" "$WORK/engines" "$WORK/scripts2"
 SRV3=$STUB_PID; PORT_UPD=$STUB_PORT
+cp -r "$WORK/scripts" "$WORK/scripts-unsigned"; rm -f "$WORK"/scripts-unsigned/*.sig
+start_stub "$WORK/port4" "$WORK/engines" "$WORK/scripts-unsigned"
+SRV4=$STUB_PID; PORT_UNSIGNED=$STUB_PORT
+STUB_TAMPER=1 start_stub "$WORK/port5" "$WORK/engines" "$WORK/scripts"
+SRV5=$STUB_PID; PORT_TAMPER=$STUB_PORT
 export USB_BASE_URL="http://127.0.0.1:$PORT"
 echo "  stub catalog on :$PORT (tampered-engines stub on :$PORT_BAD)"
 
@@ -557,11 +579,11 @@ contains "U1 secrets access is REVIEW" "[REVIEW ] docker-hardening"
 contains "U1 dry run applies nothing" "Dry run"
 run 0 "U1 nothing changed on disk" env HOME="$HU" USERPROFILE="$HU" "${USB[@]}" verify
 
-OLD_ROUTER_HASH="$(sha256sum "$HU/$PACK_REL/skills/intent-router.md" | cut -d' ' -f1)"
+OLD_ROUTER_HASH="$(sha "$HU/$PACK_REL/skills/intent-router.md")"
 run 1 "U2 update without --yes applies only SAFE, leaves REVIEW pending" \
   env HOME="$HU" USERPROFILE="$HU" USB_BASE_URL="$UPD" "${USB[@]}" update </dev/null
 contains "U2 needs review message" "need review"
-NEW_ROUTER_HASH="$(sha256sum "$HU/$PACK_REL/skills/intent-router.md" | cut -d' ' -f1)"
+NEW_ROUTER_HASH="$(sha "$HU/$PACK_REL/skills/intent-router.md")"
 [ "$OLD_ROUTER_HASH" != "$NEW_ROUTER_HASH" ] && printf '  ok   U2 safe skill was updated\n' \
   || { printf '  FAIL U2 safe skill unchanged\n'; FAILED=1; }
 grep -q "curl https://example.com/x" "$HU/.claude/skills/postgres-expert/SKILL.md" \
@@ -586,7 +608,7 @@ contains "U5 BLOCKED label" "[BLOCKED] postgres-expert"
 contains "U5 policy reason" "policy:"
 grep -q "curl https://example.com/x" "$HU2/.claude/skills/postgres-expert/SKILL.md" \
   && { printf '  FAIL U5 blocked update was applied\n'; FAILED=1; } || printf '  ok   U5 blocked update not applied\n'
-[ "$(sha256sum "$HU2/$PACK_REL/skills/intent-router.md" | cut -d' ' -f1)" = "$NEW_ROUTER_HASH" ] \
+[ "$(sha "$HU2/$PACK_REL/skills/intent-router.md")" = "$NEW_ROUTER_HASH" ] \
   && printf '  ok   U5 safe update applied despite the policy\n' \
   || { printf '  FAIL U5 safe update missing\n'; FAILED=1; }
 run 0 "U5 verify clean" env HOME="$HU2" USERPROFILE="$HU2" "${USB[@]}" verify
@@ -617,6 +639,78 @@ run 2 "U9 nothing installed => exit 2" \
   env HOME="$C" USERPROFILE="$C" USB_BASE_URL="$UPD" "${USB[@]}" update
 run 2 "U10 unknown flag is a usage error" \
   env HOME="$HU" USERPROFILE="$HU" "${USB[@]}" update --bogus
+
+echo "== C. signed catalog installers =="
+HC1="$WORK/homeSig1"; mkdir -p "$HC1"
+run 0 "C1 signed installer verifies and installs" \
+  env HOME="$HC1" USERPROFILE="$HC1" "${USB[@]}" install intent-router --target claude
+contains "C1 announces the verified signature" "Installer signature verified"
+HC2="$WORK/homeSig2"; mkdir -p "$HC2"
+run 1 "C2 installer signed by another key is refused" \
+  env HOME="$HC2" USERPROFILE="$HC2" USB_CATALOG_PUBKEY="$OTHER_PUB" "${USB[@]}" install intent-router --target claude
+contains "C2 says INVALID" "signature is INVALID"
+[ ! -e "$HC2/.claude/skills/intent-router" ] && printf '  ok   C2 nothing installed\n' \
+  || { printf '  FAIL C2 installed despite a bad signature\n'; FAILED=1; }
+HC3="$WORK/homeSig3"; mkdir -p "$HC3"
+run 1 "C3 body altered in transit (signature kept) is refused" \
+  env HOME="$HC3" USERPROFILE="$HC3" USB_BASE_URL="http://127.0.0.1:$PORT_TAMPER" "${USB[@]}" install intent-router --target claude
+contains "C3 says INVALID" "signature is INVALID"
+[ ! -e "$HC3/.claude/skills/intent-router" ] && printf '  ok   C3 nothing installed\n' \
+  || { printf '  FAIL C3 installed a tampered installer\n'; FAILED=1; }
+HC4="$WORK/homeSig4"; mkdir -p "$HC4"
+run 0 "C4 unsigned server (self-hosted/older) still works by default" \
+  env HOME="$HC4" USERPROFILE="$HC4" USB_BASE_URL="http://127.0.0.1:$PORT_UNSIGNED" "${USB[@]}" install intent-router --target claude
+lacks "C4 no verified message without a signature" "Installer signature verified"
+HC5="$WORK/homeSig5"; mkdir -p "$HC5"
+run 1 "C5 USB_REQUIRE_SIGNATURE=1 refuses an unsigned installer" \
+  env HOME="$HC5" USERPROFILE="$HC5" USB_REQUIRE_SIGNATURE=1 USB_BASE_URL="http://127.0.0.1:$PORT_UNSIGNED" "${USB[@]}" install intent-router --target claude
+contains "C5 explains why" "signature is required"
+echo '{"schema": 1, "require_signed_catalog": true}' > "$WORK/signed-policy.json"
+run 1 "C6 policy require_signed_catalog refuses an unsigned installer" \
+  env HOME="$HC5" USERPROFILE="$HC5" USB_BASE_URL="http://127.0.0.1:$PORT_UNSIGNED" "${USB[@]}" install intent-router --target claude --policy "$WORK/signed-policy.json"
+contains "C6 explains why" "signature is required"
+run 0 "C6 the same policy accepts a signed installer" \
+  env HOME="$HC5" USERPROFILE="$HC5" "${USB[@]}" install intent-router --target claude --policy "$WORK/signed-policy.json"
+run 2 "C7 diff refuses a tampered installer too" \
+  env HOME="$HC1" USERPROFILE="$HC1" USB_BASE_URL="http://127.0.0.1:$PORT_TAMPER" "${USB[@]}" diff intent-router
+contains "C7 says INVALID" "signature is INVALID"
+run 2 "C8 update refuses a tampered catalog" \
+  env HOME="$HC1" USERPROFILE="$HC1" USB_BASE_URL="http://127.0.0.1:$PORT_TAMPER" "${USB[@]}" update --dry-run
+echo '{"schema": 1, "require_signed_catalog": "yes"}' > "$WORK/bad-signed.json"
+run 2 "C9 non-boolean require_signed_catalog is a policy error" "${USB[@]}" policy show --file "$WORK/bad-signed.json"
+
+echo "== M. sbom =="
+SBOM="$WORK/sbom.cdx.json"
+run 0 "M1 cyclonedx sbom of the installed skills" \
+  env HOME="$HU" USERPROFILE="$HU" SOURCE_DATE_EPOCH=1700000000 "${USB[@]}" sbom --out "$SBOM"
+python3 - "$SBOM" "$HU/$PACK_REL/skills/intent-router.md" <<'PY' && printf '  ok   M1 CycloneDX 1.5 structure, hashes match the files\n' || { printf '  FAIL M1 sbom structure\n'; FAILED=1; }
+import hashlib, json, sys
+d = json.load(open(sys.argv[1]))
+assert d["bomFormat"] == "CycloneDX" and d["specVersion"] == "1.5"
+assert d["metadata"]["timestamp"] == "2023-11-14T22:13:20Z", d["metadata"]["timestamp"]
+names = {c["name"]: c for c in d["components"]}
+assert set(names) == {"intent-router", "postgres-expert", "docker-hardening"}, set(names)
+c = names["intent-router"]
+assert c["purl"].startswith("pkg:generic/universal-skill-bridge-catalog/intent-router@")
+want = hashlib.sha256(open(sys.argv[2], "rb").read()).hexdigest()
+assert c["hashes"][0] == {"alg": "SHA-256", "content": want}, (c["hashes"], want)
+props = {p["name"]: p["value"] for p in c["properties"]}
+assert props["usb:targets"] == "claude" and props["usb:verdict"]
+PY
+run 0 "M2 sbom is reproducible with SOURCE_DATE_EPOCH" \
+  env HOME="$HU" USERPROFILE="$HU" SOURCE_DATE_EPOCH=1700000000 "${USB[@]}" sbom --out "$WORK/sbom2.json"
+cmp -s "$SBOM" "$WORK/sbom2.json" && printf '  ok   M2 byte-identical\n' || { printf '  FAIL M2 differs\n'; FAILED=1; }
+run 0 "M3 spdx sbom (stdout)" \
+  env HOME="$HU" USERPROFILE="$HU" "${USB[@]}" sbom --format spdx --no-analysis
+printf '%s' "$LAST_OUT" | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+assert d["spdxVersion"] == "SPDX-2.3" and len(d["packages"]) == 3
+assert all(p["checksums"][0]["algorithm"] == "SHA256" for p in d["packages"])
+assert len(d["relationships"]) == 3' \
+  && printf '  ok   M3 SPDX 2.3 structure\n' || { printf '  FAIL M3 spdx structure\n'; FAILED=1; }
+run 2 "M4 nothing installed => exit 2" env HOME="$C" USERPROFILE="$C" "${USB[@]}" sbom
+run 2 "M5 unknown format is a usage error" env HOME="$HU" USERPROFILE="$HU" "${USB[@]}" sbom --format xml
 
 echo "== P. published engines match the signed manifest =="
 run 0 "P1 sign-engines --check against the embedded key" \

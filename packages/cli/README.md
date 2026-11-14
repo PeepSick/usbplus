@@ -95,6 +95,7 @@ usb diff intent-router        # installed copy vs latest catalog: capability/per
 usb diff old.md new.md        # any two local skill files or directories
 usb diff old.md new.md --patch --json
 
+usb sbom --out usb.cdx.json   # CycloneDX 1.5 SBOM of installed skills (--format spdx for SPDX 2.3)
 usb update --dry-run          # classify updates for installed skills (SAFE / REVIEW / BLOCKED)
 usb update                    # apply SAFE ones; --yes also applies REVIEW (never BLOCKED)
 usb policy init               # sample usb.policy.json; enforced by install, install --locked, update

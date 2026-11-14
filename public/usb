@@ -36,12 +36,17 @@
 #                                  needs --yes, BLOCKED (usb.policy.json) never; --dry-run
 #   usb policy init|show           Create/inspect usb.policy.json (deny capabilities/verdicts);
 #                                  enforced by install, install --locked and update
+#   usb sbom [--format spdx] [--out F]
+#                                  SBOM of installed skills (CycloneDX 1.5 default, or SPDX 2.3):
+#                                  SHA-256, targets, observed/declared capabilities; offline
 #   usb repair [slug] [--dry-run]  Restore drifted skill files byte-for-byte (refuses
 #                                  when the catalog moved on - that is an update)
 #   usb hook install|uninstall|status
 #                                  Claude Code SessionStart hook: warn when installed
 #                                  skills drift from the manifest (local, silent if clean)
 #   usb secscan --sarif FILE       Also write findings as SARIF 2.1.0 (GitHub Code Scanning)
+#   (installers are Ed25519-signed by the catalog; a bad signature is always refused,
+#    USB_REQUIRE_SIGNATURE=1 / policy require_signed_catalog also refuses unsigned ones)
 #   usb engines [status|update]    Show/refresh the signed python engines a curl install
 #                                  fetches on first use (npm installs bundle them)
 #   usb mcp                        Start the MCP stdio server (for AI agents)
@@ -236,6 +241,9 @@ secscan_cleanup() {
 }
 
 USB_SIGNING_PUBKEY_DEFAULT="e3745914bda4d27a1eda573dc58b2b2a02eb398be828ade515f34f30448ef3df"
+# Public key of the catalog server that signs generated installers (the
+# private half lives on that server, separate from the engine key above).
+USB_CATALOG_PUBKEY_DEFAULT="ad31ec19aff5ac68a5241192273dc9f56df8e018a4e0840c9ee9a16c3d825ac5"
 USB_SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
 USB_SECSCAN_ENGINE="$USB_SELF_DIR/usb-secscan.py"
 USB_INTEGRITY_ENGINE="$USB_SELF_DIR/usb-integrity.py"
@@ -324,6 +332,66 @@ sys.exit(2)
 USB_ENGINE_PY_EOF
 
 usb_engine_py() { python3 -c "$USB_ENGINE_PY" "$@"; }
+
+# --- signed installers ----------------------------------------------------------
+# The catalog server signs every installer it generates (Ed25519 over the exact
+# body, sent as X-USB-Signature). usb_fetch_installer downloads one and:
+#   - signature present and valid      -> proceed (USB_LAST_SIG=verified)
+#   - signature present but INVALID    -> refuse, always (the body or the
+#     signature was altered in transit, by a cache, or by a different server)
+#   - no signature (self-hosted/older) -> proceed (USB_LAST_SIG=unsigned),
+#     unless USB_REQUIRE_SIGNATURE=1 or the policy sets require_signed_catalog.
+# Self-hosters sign with their own key and export USB_CATALOG_PUBKEY=<hex>.
+USB_LAST_SIG="unsigned"
+
+usb_signature_required() {
+  [ "${USB_REQUIRE_SIGNATURE:-0}" = "1" ] && return 0
+  local pol
+  pol=$(usb_policy_path 2>/dev/null) || return 1
+  command -v python3 >/dev/null 2>&1 || return 1
+  python3 -c 'import json,sys
+try:
+    sys.exit(0 if json.load(open(sys.argv[1])).get("require_signed_catalog") is True else 1)
+except Exception:
+    sys.exit(1)' "$(secscan_to_native_path "$pol")"
+}
+
+usb_fetch_installer() { # usb_fetch_installer <url> <outfile>
+  local url="$1" out="$2" hdr sig pub="${USB_CATALOG_PUBKEY:-$USB_CATALOG_PUBKEY_DEFAULT}"
+  USB_LAST_SIG="unsigned"
+  hdr=$(mktemp) || { err "Could not create a temp file"; return 1; }
+  if ! curl -fsSL -D "$hdr" "$url" -o "$out"; then
+    rm -f "$hdr"
+    return 1
+  fi
+  sig=$(grep -i '^x-usb-signature:' "$hdr" | tail -1 | sed 's/^[^:]*:[[:space:]]*//' | tr -d '\r\n')
+  rm -f "$hdr"
+  if [ -z "$sig" ]; then
+    if usb_signature_required; then
+      err "the catalog did not sign this installer, but a signature is required"
+      err "(USB_REQUIRE_SIGNATURE=1 or require_signed_catalog in the policy)"
+      return 1
+    fi
+    return 0
+  fi
+  if ! command -v python3 >/dev/null 2>&1; then
+    if usb_signature_required; then err "verifying installer signatures needs python3"; return 1; fi
+    warn "installer is signed but python3 is missing - signature not checked"
+    return 0
+  fi
+  local sigfile; sigfile=$(mktemp) || return 1
+  printf '%s\n' "$sig" > "$sigfile"
+  if usb_engine_py verify "$(secscan_to_native_path "$out")" \
+       "$(secscan_to_native_path "$sigfile")" "$pub"; then
+    rm -f "$sigfile"
+    USB_LAST_SIG="verified"
+    return 0
+  fi
+  rm -f "$sigfile"
+  err "installer signature is INVALID - refusing to use it"
+  err "(downloaded from $url; expected a signature by key ${pub:0:16}...)"
+  return 1
+}
 
 usb_engine_dir() {
   printf '%s\n' "${USB_ENGINE_DIR:-${AI_SKILL_HOME:-${HOME:-}/.ai-skills}/engines}"
@@ -674,7 +742,7 @@ cmd_install_locked() {
   local url="$USB_BASE_URL/api/install?target=$target"
   local script
   script=$(mktemp) || { err "Could not create a temp file"; exit 1; }
-  if ! curl -fsSL "$url" -o "$script"; then
+  if ! usb_fetch_installer "$url" "$script"; then
     rm -f "$script"
     err "Could not download the installer from $url"
     exit 1
@@ -739,7 +807,7 @@ for x in d["drift"]: print("  ["+x["kind"]+"] "+x["slug"])' \
       # Windows python emits CRLF; read keeps the \r and curl rejects it.
       slug="${slug%$'\r'}"
       sscript=$(mktemp) || { irc=1; break; }
-      if ! curl -fsSL "$USB_BASE_URL/api/install?target=$target&slug=$slug" -o "$sscript"; then
+      if ! usb_fetch_installer "$USB_BASE_URL/api/install?target=$target&slug=$slug" "$sscript"; then
         err "could not download the installer for $slug"
         rm -f "$sscript"
         irc=1
@@ -857,11 +925,12 @@ cmd_install() {
   # for the user. Running it as a file argument leaves stdin on the terminal.
   local script
   script=$(mktemp) || { err "Could not create a temp file"; exit 1; }
-  if ! curl -fsSL "$url" -o "$script"; then
+  if ! usb_fetch_installer "$url" "$script"; then
     rm -f "$script"
     err "Could not download the installer from $url"
     exit 1
   fi
+  [ "$USB_LAST_SIG" = "verified" ] && info "Installer signature verified"
   # An unknown slug/preset yields a valid installer for zero skills, which
   # would otherwise die on a raw `cp: cannot stat` — say what happened instead.
   if grep -qE '^# skills:[[:space:]]+0[[:space:]]*$' "$script"; then
@@ -1591,7 +1660,7 @@ cmd_diff() {
   staging=$(mktemp -d) || { err "Could not create a temp dir"; exit 2; }
   mkdir -p "$staging/home"
   script=$(mktemp) || { rm -rf "$staging"; err "Could not create a temp file"; exit 2; }
-  if ! curl -fsSL "$USB_BASE_URL/api/install?target=generic&slug=$slug" -o "$script"; then
+  if ! usb_fetch_installer "$USB_BASE_URL/api/install?target=generic&slug=$slug" "$script"; then
     err "could not download the latest installer for $slug"
     rm -rf "$staging"
     rm -f "$script"
@@ -1668,19 +1737,24 @@ for p in d["packs"]:
 
   local staging; staging=$(mktemp -d) || { err "Could not create a temp dir"; exit 2; }
   mkdir -p "$staging/home"
-  local s sscript
+  local s sscript stage_failed=0
   while IFS= read -r s; do
     s="${s%$'\r'}"
     [ -n "$s" ] || continue
     sscript=$(mktemp) || { rm -rf "$staging"; exit 2; }
-    if curl -fsSL "$USB_BASE_URL/api/install?target=generic&slug=$s" -o "$sscript"; then
+    if usb_fetch_installer "$USB_BASE_URL/api/install?target=generic&slug=$s" "$sscript"; then
       usb_sandbox_install "$sscript" "$staging" "$staging/install.log" || \
         warn "could not stage $s: $(tail -1 "$staging/install.log")"
     else
-      warn "could not download the catalog copy of $s"
+      stage_failed=1
     fi
     rm -f "$sscript"
   done <<<"$slugs"
+  if [ "$stage_failed" = 1 ]; then
+    rm -rf "$staging"
+    err "could not fetch a trustworthy catalog copy - nothing repaired"
+    exit 2
+  fi
 
   rc=0
   python3 "$eng" repair ${sargs[@]+"${sargs[@]}"} \
@@ -1855,17 +1929,17 @@ for p in d["packs"]:
     for s in p["skills"]: print(s["slug"])')
   count=$(printf '%s\n' "$installed" | grep -c . || true)
   if [ "$count" = 0 ]; then
-    err "nothing to update - no matching installed skill${slugs[*]:+ (${slugs[*]})}"
+    err "nothing to update - no matching installed skill"
     exit 2
   fi
 
   local staging; staging=$(mktemp -d) || { err "Could not create a temp dir"; exit 2; }
   mkdir -p "$staging/home"
   info "Checking $count installed skill(s) against the latest catalog ..."
-  local sscript
+  local sscript stage_failed=0
   if [ "$count" -gt 20 ]; then
     sscript=$(mktemp) || { rm -rf "$staging"; exit 2; }
-    if curl -fsSL "$USB_BASE_URL/api/install?target=generic" -o "$sscript"; then
+    if usb_fetch_installer "$USB_BASE_URL/api/install?target=generic" "$sscript"; then
       usb_sandbox_install "$sscript" "$staging" "$staging/install.log" || \
         warn "could not stage the catalog: $(tail -1 "$staging/install.log")"
     else
@@ -1877,14 +1951,19 @@ for p in d["packs"]:
     while IFS= read -r s; do
       s="${s%$'\r'}"; [ -n "$s" ] || continue
       sscript=$(mktemp) || { rm -rf "$staging"; exit 2; }
-      if curl -fsSL "$USB_BASE_URL/api/install?target=generic&slug=$s" -o "$sscript"; then
+      if usb_fetch_installer "$USB_BASE_URL/api/install?target=generic&slug=$s" "$sscript"; then
         usb_sandbox_install "$sscript" "$staging" "$staging/install.log" || \
           warn "could not stage $s: $(tail -1 "$staging/install.log")"
       else
-        warn "could not download the catalog copy of $s"
+        stage_failed=1
       fi
       rm -f "$sscript"
     done <<<"$installed"
+  fi
+  if [ "$stage_failed" = 1 ]; then
+    rm -rf "$staging"
+    err "could not fetch a trustworthy catalog copy - nothing checked, nothing updated"
+    exit 2
   fi
 
   local pack
@@ -1951,7 +2030,7 @@ for p in d["packs"]:
     for t in "${tlist[@]}"; do
       [ -n "$tfilter" ] && [ "$t" != "$tfilter" ] && continue
       iscript=$(mktemp) || { irc=1; break; }
-      if curl -fsSL "$USB_BASE_URL/api/install?target=$t&slug=$slug" -o "$iscript"; then
+      if usb_fetch_installer "$USB_BASE_URL/api/install?target=$t&slug=$slug" "$iscript"; then
         bash "$iscript" >/dev/null 2>&1 || { warn "update of $slug ($t) failed"; irc=1; pending=1; }
         [ "$irc" = 0 ] && info "updated $slug ($t)"
       else
@@ -1990,7 +2069,7 @@ case "${1:-}" in
   info)           shift; cmd_info "$@" ;;
   list)           shift; cmd_list "$@" ;;
   secscan|scan)   shift; cmd_secscan "$@" ;;
-  verify|lock|lock-show|lock-check)
+  verify|lock|lock-show|lock-check|sbom)
                   integrity_cmd="$1"; shift; cmd_integrity "$integrity_cmd" "$@" ;;
   diff)           shift; cmd_diff "$@" ;;
   repair)         shift; cmd_repair "$@" ;;

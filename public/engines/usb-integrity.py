@@ -1078,7 +1078,7 @@ def cmd_repair(args):
 # --- policy -----------------------------------------------------------------
 POLICY_NAME = "usb.policy.json"
 POLICY_KEYS = {"schema", "deny_capabilities", "block_verdicts",
-               "deny_undeclared", "allow"}
+               "deny_undeclared", "allow", "require_signed_catalog"}
 POLICY_CATEGORIES = ("secrets-access", "network-egress",
                      "destructive-commands", "process-execution",
                      "persistence-hooks")
@@ -1093,6 +1093,7 @@ POLICY_SAMPLE = {
                           "persistence-hooks"],
     "block_verdicts": ["purpose-mismatch"],
     "deny_undeclared": False,
+    "require_signed_catalog": False,
     "allow": {},
 }
 
@@ -1130,6 +1131,9 @@ def load_policy(path: Path):
     undeclared = data.get("deny_undeclared", False)
     if not isinstance(undeclared, bool):
         return None, f"{path}: 'deny_undeclared' must be true or false"
+    signed = data.get("require_signed_catalog", False)
+    if not isinstance(signed, bool):
+        return None, f"{path}: 'require_signed_catalog' must be true or false"
     allow = data.get("allow", {})
     if not isinstance(allow, dict):
         return None, f"{path}: 'allow' must map skill slugs to category lists"
@@ -1142,7 +1146,7 @@ def load_policy(path: Path):
         if bad:
             return None, f"{path}: unknown category in allow[{slug}]: {', '.join(bad)}"
     return {"deny": set(deny), "verdicts": set(verdicts),
-            "undeclared": undeclared,
+            "undeclared": undeclared, "signed": signed,
             "allow": {k: set(v) for k, v in allow.items()},
             "path": str(path)}, None
 
@@ -1176,6 +1180,7 @@ def cmd_policy_init(args):
           f"({', '.join(POLICY_CATEGORIES)})")
     print("  block_verdicts:    secscan verdicts that block an install/update")
     print("  deny_undeclared:   block observed capabilities a skill does not declare")
+    print("  require_signed_catalog: refuse installers the catalog did not sign")
     print("  allow:             per-skill exceptions, e.g. "
           '{"web-research": ["network-egress"]}')
     return EXIT_OK
@@ -1191,6 +1196,7 @@ def cmd_policy_show(args):
         "deny_capabilities": sorted(policy["deny"]),
         "block_verdicts": sorted(policy["verdicts"]),
         "deny_undeclared": policy["undeclared"],
+        "require_signed_catalog": policy["signed"],
         "allow": {k: sorted(v) for k, v in sorted(policy["allow"].items())},
     }, indent=2, sort_keys=True))
     return EXIT_OK
@@ -1386,6 +1392,139 @@ def human_update_plan(out):
           f"{s['unavailable']} unavailable")
 
 
+# --- sbom -------------------------------------------------------------------
+def sbom_timestamp():
+    """RFC 3339 UTC. SOURCE_DATE_EPOCH makes the document reproducible."""
+    epoch = os.environ.get("SOURCE_DATE_EPOCH")
+    try:
+        dt = datetime.fromtimestamp(int(epoch), tz=timezone.utc) if epoch \
+            else datetime.now(timezone.utc)
+    except (ValueError, OverflowError, OSError):
+        dt = datetime.now(timezone.utc)
+    return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def collect_sbom_components(analyze):
+    """-> (components, error). One entry per installed skill, from the
+    install-time manifest (hashes) plus the layouts that really exist."""
+    packs = discover_packs(require_manifest=True)
+    if not packs:
+        return None, (f"no integrity manifest found under {ai_root()} - "
+                      "install something first (usb install <slug>)")
+    secscan = load_secscan() if analyze else None
+    if analyze and secscan is None:
+        return None, "usb-secscan.py must sit next to usb-integrity.py (or use --no-analysis)"
+    comps = []
+    for pack_dir in packs:
+        manifest, e = load_manifest(pack_dir)
+        if e:
+            return None, e
+        tmap = installed_slug_map(pack_dir, manifest)
+        for slug, rel, h in skill_entries(manifest):
+            c = {"pack": manifest["pack"], "version": manifest["version"],
+                 "slug": slug, "sha256": h.split(":", 1)[1],
+                 "targets": sorted(tmap.get(slug, {}))}
+            path = pack_dir / rel
+            if analyze and path.is_file():
+                try:
+                    a = analyze_version(secscan, path)
+                except ValueError as ex:
+                    return None, str(ex)
+                c.update(verdict=a["verdict"], observed=sorted(a["observed"]),
+                         declared=a["declared"], tools=a["tools"])
+            comps.append(c)
+    comps.sort(key=lambda c: (c["pack"], c["slug"]))
+    return comps, None
+
+
+def sbom_cyclonedx(comps):
+    pack = comps[0]["pack"] if comps else "usb"
+    version = comps[0]["version"] if comps else "0"
+    out = []
+    for c in comps:
+        purl = f"pkg:generic/{c['pack']}/{c['slug']}@{c['version']}"
+        props = [("usb:targets", ",".join(c["targets"]))]
+        if "verdict" in c:
+            props += [("usb:verdict", c["verdict"]),
+                      ("usb:observed-capabilities", ",".join(c["observed"])),
+                      ("usb:declared-capabilities", ",".join(c["declared"])),
+                      ("usb:declared-tools", ",".join(c["tools"]))]
+        out.append({
+            "type": "file",
+            "bom-ref": purl,
+            "name": c["slug"],
+            "version": c["version"],
+            "purl": purl,
+            "hashes": [{"alg": "SHA-256", "content": c["sha256"]}],
+            "properties": [{"name": k, "value": v} for k, v in props if v],
+        })
+    return {
+        "bomFormat": "CycloneDX",
+        "specVersion": "1.5",
+        "version": 1,
+        "metadata": {
+            "timestamp": sbom_timestamp(),
+            "tools": {"components": [{"type": "application", "name": TOOL,
+                                      "version": VERSION}]},
+            "component": {"type": "application", "name": pack,
+                          "version": version},
+        },
+        "components": out,
+    }
+
+
+def sbom_spdx(comps):
+    import hashlib
+    pkgs, rels = [], []
+    for c in comps:
+        ref = f"SPDXRef-skill-{c['slug']}"
+        pkgs.append({
+            "SPDXID": ref,
+            "name": c["slug"],
+            "versionInfo": c["version"],
+            "downloadLocation": "NOASSERTION",
+            "filesAnalyzed": False,
+            "checksums": [{"algorithm": "SHA256", "checksumValue": c["sha256"]}],
+            "licenseConcluded": "NOASSERTION",
+            "licenseDeclared": "NOASSERTION",
+            "copyrightText": "NOASSERTION",
+            "externalRefs": [{
+                "referenceCategory": "PACKAGE-MANAGER", "referenceType": "purl",
+                "referenceLocator":
+                    f"pkg:generic/{c['pack']}/{c['slug']}@{c['version']}"}],
+        })
+        rels.append({"spdxElementId": "SPDXRef-DOCUMENT",
+                     "relationshipType": "DESCRIBES", "relatedSpdxElement": ref})
+    digest = hashlib.sha256(
+        "".join(sorted(c["sha256"] for c in comps)).encode()).hexdigest()
+    return {
+        "spdxVersion": "SPDX-2.3",
+        "dataLicense": "CC0-1.0",
+        "SPDXID": "SPDXRef-DOCUMENT",
+        "name": "usb-installed-skills",
+        "documentNamespace": f"https://usbplus.peepsicklabs.com/sbom/{digest}",
+        "creationInfo": {"created": sbom_timestamp(),
+                         "creators": [f"Tool: {TOOL}-{VERSION}"]},
+        "packages": pkgs,
+        "relationships": rels,
+    }
+
+
+def cmd_sbom(args):
+    comps, e = collect_sbom_components(not args.no_analysis)
+    if e:
+        err(e)
+        return EXIT_ERROR
+    doc = sbom_cyclonedx(comps) if args.format == "cyclonedx" else sbom_spdx(comps)
+    text = json.dumps(doc, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+    if args.out:
+        Path(args.out).write_text(text, encoding="utf-8")
+        print(f"wrote {args.format} SBOM ({len(comps)} skill(s)): {args.out}")
+    else:
+        sys.stdout.write(text)
+    return EXIT_OK
+
+
 def main(argv=None):
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
@@ -1472,6 +1611,13 @@ def main(argv=None):
                    help="list installed skills and their targets (no staging needed)")
     p.add_argument("--json", action="store_true")
     p.set_defaults(fn=cmd_update_plan)
+
+    p = sub.add_parser("sbom", help="emit an SBOM of the installed skills")
+    p.add_argument("--format", choices=["cyclonedx", "spdx"], default="cyclonedx")
+    p.add_argument("--out", help="write to FILE instead of stdout")
+    p.add_argument("--no-analysis", action="store_true",
+                   help="skip the secscan capability analysis (hashes only)")
+    p.set_defaults(fn=cmd_sbom)
 
     args = parser.parse_args(argv)
     return args.fn(args)

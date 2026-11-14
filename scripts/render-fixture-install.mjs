@@ -14,6 +14,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import crypto from "node:crypto";
 import ts from "typescript";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -47,6 +48,20 @@ const baseSkill = (slug) => ({
 
 const skill = (slug) => ({ ...baseSkill(slug), ...(overrides[slug] ?? {}) });
 
+// USB_FIXTURE_SIGN_KEY=<pem path>: also write <script>.sig, the detached
+// Ed25519 signature the stub catalog serves as X-USB-Signature (mirrors what
+// src/lib/catalog-signing.ts does on the real server).
+const signKey = process.env.USB_FIXTURE_SIGN_KEY
+  ? crypto.createPrivateKey(readFileSync(process.env.USB_FIXTURE_SIGN_KEY))
+  : null;
+const emit = (file, text) => {
+  writeFileSync(file, text);
+  if (signKey) {
+    writeFileSync(file + ".sig",
+      crypto.sign(null, Buffer.from(text, "utf8"), signKey).toString("base64") + "\n");
+  }
+};
+
 const slugs = slugsArg.split(",").filter(Boolean);
 mkdirSync(outdir, { recursive: true });
 for (const target of targetsArg.split(",").filter(Boolean)) {
@@ -67,10 +82,10 @@ for (const target of targetsArg.split(",").filter(Boolean)) {
     adapters: [],
     skills: slugs.map(skill),
   };
-  writeFileSync(join(outdir, `install-${target}-full.sh`),
+  emit(join(outdir, `install-${target}-full.sh`),
     mod.renderInstallScript(bundle));
   for (const slug of slugs) {
-    writeFileSync(join(outdir, `install-${target}-${slug}.sh`),
+    emit(join(outdir, `install-${target}-${slug}.sh`),
       mod.renderInstallScript({ ...bundle, skills: [skill(slug)] }));
   }
 }

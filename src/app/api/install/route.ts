@@ -1,4 +1,5 @@
 import { renderFinalInstallScript } from "@/lib/install-script";
+import { signatureHeaders } from "@/lib/catalog-signing";
 import { applyFilter, filterSummary, parseFilterFromUrl, type FilterableSkill } from "@/lib/filter";
 import {
   getOriginFromRequest,
@@ -37,6 +38,7 @@ export async function GET(request: Request) {
       headers: {
         "Content-Type": "text/x-shellscript; charset=utf-8",
         "Cache-Control": "no-store",
+        ...signatureHeaders(script),
       },
     });
   } catch (error) {
