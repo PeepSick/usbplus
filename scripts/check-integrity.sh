@@ -145,6 +145,12 @@ start_stub() { # start_stub <portfile> <engines dir> [scripts dir]; sets STUB_PI
     echo "FAIL stub catalog did not start"
     echo "  python3: $(command -v python3) ($(python3 --version 2>&1))"
     sed 's/^/  stub stderr: /' "$1.err" 2>/dev/null | head -20
+    echo "  stub pid $STUB_PID alive: $(kill -0 "$STUB_PID" 2>&1 && echo yes || echo no)"
+    echo "  portfile: $(ls -la "$1" 2>&1)"
+    echo "  retry in the foreground for 3s:"
+    python3 -u "$ROOT/scripts/stub-catalog.py" "$(native "${3:-$WORK/scripts}")" "$(native "$2")" >"$1.dbg" 2>&1 &
+    _dbg=$!; sleep 3; kill "$_dbg" 2>/dev/null
+    sed 's/^/    | /' "$1.dbg" | head -20
     exit 1
   }
 }
