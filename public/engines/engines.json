@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "1.1.0",
+  "version": "1.2.0",
   "files": {
     "usb-secscan.py": "ea35eff834f1dbaa74c3f294c254d128e236cae7d90df2744c9087c905f2d56a",
     "usb-integrity.py": "0f6d078393cb14086b958107b2a7efb8b909335f840ba6b7592e11a8d26bc380",

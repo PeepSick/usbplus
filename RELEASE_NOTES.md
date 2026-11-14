@@ -1,6 +1,17 @@
-# Release Notes — USB v1.1.0
+# Release Notes — USB v1.2.0
 
-**Release date:** 2026-11-13
+**Release date:** 2026-11-14
+
+## What's new in v1.2.0
+
+**Reviewed updates, your own rules, and a trustworthy delivery path.**
+
+- **`usb update`.** Stages the latest catalog copy of every installed skill in a sandbox and classifies each change with the diff + secscan engines: **SAFE** (no new capability or tool) is applied; **REVIEW** (new capability/tool, worse verdict, local edits to overwrite) needs `--yes`; **BLOCKED** (policy) is never applied. Re-pins `usb.lock.json` and re-verifies afterwards. Claude's catalog/router layout is reported, never half-updated.
+- **`usb.policy.json` + `usb policy init|show`.** A rulebook you own (`deny_capabilities`, `block_verdicts`, `deny_undeclared`, per-skill `allow`, `require_signed_catalog`) enforced by `install`, `install --locked` and `update`. Unknown keys are errors, so a typo cannot weaken it.
+- **Signed catalog installers.** The server signs every generated installer (Ed25519, `X-USB-Signature`); every download in `install`, `--locked`, `diff`, `repair` and `update` is verified. A bad signature is always refused; unsigned installers (self-hosted) still work unless you require signatures. `update`/`repair` now fail with exit 2 instead of reporting "everything is current" when the catalog cannot be trusted.
+- **`usb sbom`.** CycloneDX 1.5 (default) or SPDX 2.3 of the installed skills: SHA-256, targets, secscan verdict and capabilities. Reproducible with `SOURCE_DATE_EPOCH`.
+- **CI on Ubuntu, macOS and Windows.** The CLI suite (215 assertions) now runs on all three; shell scripts are forced to LF.
+- npm: `@peepsick/usb-cli` 1.2.0 (`@peepsick/usb-sdk` unchanged at 1.0.5)
 
 ## What's new in v1.1.0
 
@@ -121,7 +132,7 @@ usb install --target=<your-runtime>
 
 | Package | Version | Where |
 |---------|---------|-------|
-| `@peepsick/usb-cli` | 1.1.0 | [npm](https://www.npmjs.com/package/@peepsick/usb-cli) |
+| `@peepsick/usb-cli` | 1.2.0 | [npm](https://www.npmjs.com/package/@peepsick/usb-cli) |
 | `@peepsick/usb-sdk` | 1.0.5 | [npm](https://www.npmjs.com/package/@peepsick/usb-sdk) |
 | Community agents (`packages/community/*`) | source | this repo — publish to npm yourself |
 

@@ -4,7 +4,7 @@ All notable changes to USB — Universal Systems Bridge will be documented in th
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [1.2.0] — 2026-11-14
 
 ### Added
 - **`usb update [slug...] [--dry-run] [--yes] [--no-lock] [--file LOCK] [--target T]`.** Stages the latest catalog copy of every installed skill in a sandbox and classifies each change with the diff + secscan engines: SAFE (no new capability/tool, verdict not worse) is applied; REVIEW (new observed/declared capability or tool, worse verdict, local edits to be overwritten) needs `--yes` or an interactive confirm; BLOCKED (policy) is never applied. Applied through the supported per-skill installer path, then `usb.lock.json` is re-pinned if present and `verify` re-run. Skills in claude's catalog/router layout are reported, never half-updated (a stale copy would show as drift).
