@@ -376,6 +376,40 @@ usb repair                    # restore, then re-verify
 usb repair intent-router      # one skill
 ```
 
+`usb update` is the reviewed way to move forward. It stages the latest catalog
+copy of every installed skill in a sandbox and classifies each change with the
+diff + secscan engines: **SAFE** (content changed, no new capability or tool, verdict
+not worse) is applied; **REVIEW** (a new observed/declared capability or tool, a
+worse verdict, or local edits that would be overwritten) is applied only with
+`--yes` or an interactive confirm; **BLOCKED** (violates your policy) is never
+applied. Skills living in claude's catalog/router layout are reported, not
+half-updated. An existing `usb.lock.json` is re-pinned after an update.
+
+```bash
+usb update --dry-run          # classified plan, nothing written
+usb update                    # apply SAFE, list what needs review
+usb update --yes              # also apply REVIEW (never BLOCKED)
+usb update intent-router      # one skill
+```
+
+**Your own rulebook: `usb.policy.json`.** `usb policy init` writes a sample; the
+policy is enforced by `usb install`, `usb install --locked` and `usb update`
+(found via `--policy FILE`, `$USB_POLICY`, `./usb.policy.json`, then
+`~/.ai-skills/usb.policy.json` — no file, no change). Candidates are staged,
+analyzed by the secscan engine and refused on a violation; `--ignore-policy`
+skips it. Unknown keys or categories are errors, so a typo can never silently
+weaken a policy.
+
+```json
+{
+  "schema": 1,
+  "deny_capabilities": ["secrets-access", "destructive-commands", "persistence-hooks"],
+  "block_verdicts": ["purpose-mismatch"],
+  "deny_undeclared": false,
+  "allow": { "web-research": ["network-egress"] }
+}
+```
+
 **Catch drift without remembering to look.** `usb hook install` adds a Claude
 Code `SessionStart` hook that runs `usb verify --hook`: silent when everything
 is intact, one warning line when installed skills drifted. It is local-only (no
@@ -500,6 +534,8 @@ Already trust the publisher? One line, no review step: `curl -fsSL https://usbpl
 | `usb verify [slug\|--all\|--json]` | Re-hash installed skills against the install-time SHA-256 manifest (integrity, not safety) |
 | `usb lock` / `usb lock-show` | Pin installed skill versions into `usb.lock.json` / inspect a lock |
 | `usb diff <slug>` / `usb diff <old> <new>` | Capability & permission changes: installed vs latest, or two local versions |
+| `usb update [slug...] [--dry-run\|--yes]` | Update installed skills: SAFE applied, REVIEW (new capabilities) needs `--yes`, BLOCKED by policy never; re-pins `usb.lock.json` |
+| `usb policy init\|show` | Create/inspect `usb.policy.json` — enforced by install, `install --locked` and update (`--ignore-policy` skips) |
 | `usb repair [slug] [--dry-run]` | Restore drifted skill files byte-for-byte; refuses when the catalog moved on (that is an update) |
 | `usb hook install\|uninstall\|status` | Claude Code `SessionStart` hook: one warning line when installed skills drift, silent otherwise |
 | `usb engines [status\|update]` | Signed python engines a single-file curl install fetches on first use (Ed25519 + SHA-256) |

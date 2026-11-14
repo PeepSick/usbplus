@@ -3,7 +3,10 @@
 // without a running server or database. Used by scripts/check-integrity.sh
 // to exercise the installer -> manifest -> verify/lock/diff chain offline.
 //
-// Usage: node scripts/render-fixture-install.mjs OUTDIR TARGETS SLUGS
+// Usage: node scripts/render-fixture-install.mjs OUTDIR TARGETS SLUGS [OVERRIDES.json]
+//   OVERRIDES  optional JSON {slug: {field: value}} merged over the fixture
+//              skill (e.g. a changed promptTemplate) to render an "updated
+//              catalog" for usb update / policy tests
 //   TARGETS  comma list, e.g. generic,claude
 //   SLUGS    comma list of fixture skill slugs (3 => claude small layout,
 //            >10 => claude router layout)
@@ -14,7 +17,10 @@ import { dirname, join } from "node:path";
 import ts from "typescript";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const [outdir, targetsArg, slugsArg] = process.argv.slice(2);
+const [outdir, targetsArg, slugsArg, overridesArg] = process.argv.slice(2);
+const overrides = overridesArg
+  ? JSON.parse(readFileSync(overridesArg, "utf8"))
+  : {};
 if (!outdir || !targetsArg || !slugsArg) {
   console.error("usage: render-fixture-install.mjs OUTDIR TARGETS SLUGS");
   process.exit(2);
@@ -26,7 +32,7 @@ const js = ts.transpileModule(src, {
 }).outputText;
 const mod = await import("data:text/javascript," + encodeURIComponent(js));
 
-const skill = (slug) => ({
+const baseSkill = (slug) => ({
   slug,
   name: `Fixture ${slug}`,
   category: "Testing",
@@ -38,6 +44,8 @@ const skill = (slug) => ({
   examples: ["fixture example"],
   metadata: { risk: "low", modelAgnostic: true, agentAgnostic: true, tags: ["test"] },
 });
+
+const skill = (slug) => ({ ...baseSkill(slug), ...(overrides[slug] ?? {}) });
 
 const slugs = slugsArg.split(",").filter(Boolean);
 mkdirSync(outdir, { recursive: true });

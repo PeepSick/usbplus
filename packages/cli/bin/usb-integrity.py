@@ -1075,6 +1075,317 @@ def cmd_repair(args):
     return EXIT_DRIFT if refused else EXIT_OK
 
 
+# --- policy -----------------------------------------------------------------
+POLICY_NAME = "usb.policy.json"
+POLICY_KEYS = {"schema", "deny_capabilities", "block_verdicts",
+               "deny_undeclared", "allow"}
+POLICY_CATEGORIES = ("secrets-access", "network-egress",
+                     "destructive-commands", "process-execution",
+                     "persistence-hooks")
+POLICY_VERDICTS = ("matches-declaration", "excessive-authority",
+                   "structural-issues", "purpose-mismatch", "unverifiable")
+VERDICT_RANK = {"matches-declaration": 0, "excessive-authority": 1,
+                "structural-issues": 2, "unverifiable": 2,
+                "purpose-mismatch": 3}
+POLICY_SAMPLE = {
+    "schema": 1,
+    "deny_capabilities": ["secrets-access", "destructive-commands",
+                          "persistence-hooks"],
+    "block_verdicts": ["purpose-mismatch"],
+    "deny_undeclared": False,
+    "allow": {},
+}
+
+
+def load_policy(path: Path):
+    """-> (policy, error). Unknown keys/values are errors: a typo must never
+    silently weaken a policy."""
+    data, e = read_json(path)
+    if e:
+        return None, e
+    if not isinstance(data, dict):
+        return None, f"{path}: policy must be a JSON object"
+    unknown = sorted(set(data) - POLICY_KEYS)
+    if unknown:
+        return None, f"{path}: unknown policy key(s): {', '.join(unknown)}"
+    if data.get("schema") != 1:
+        return None, f"{path}: unsupported policy schema (expected 1)"
+
+    def str_list(key, allowed):
+        v = data.get(key, [])
+        if not isinstance(v, list) or not all(isinstance(x, str) for x in v):
+            return None, f"{path}: '{key}' must be a list of strings"
+        bad = sorted(set(v) - set(allowed))
+        if bad:
+            return None, (f"{path}: unknown value(s) in '{key}': "
+                          f"{', '.join(bad)} (valid: {', '.join(allowed)})")
+        return v, None
+
+    deny, e = str_list("deny_capabilities", POLICY_CATEGORIES)
+    if e:
+        return None, e
+    verdicts, e = str_list("block_verdicts", POLICY_VERDICTS)
+    if e:
+        return None, e
+    undeclared = data.get("deny_undeclared", False)
+    if not isinstance(undeclared, bool):
+        return None, f"{path}: 'deny_undeclared' must be true or false"
+    allow = data.get("allow", {})
+    if not isinstance(allow, dict):
+        return None, f"{path}: 'allow' must map skill slugs to category lists"
+    for slug, cats in allow.items():
+        if not SLUG_RE.match(slug):
+            return None, f"{path}: invalid slug in 'allow': {slug}"
+        if not isinstance(cats, list) or not all(isinstance(c, str) for c in cats):
+            return None, f"{path}: allow[{slug}] must be a list of categories"
+        bad = sorted(set(cats) - set(POLICY_CATEGORIES))
+        if bad:
+            return None, f"{path}: unknown category in allow[{slug}]: {', '.join(bad)}"
+    return {"deny": set(deny), "verdicts": set(verdicts),
+            "undeclared": undeclared,
+            "allow": {k: set(v) for k, v in allow.items()},
+            "path": str(path)}, None
+
+
+def eval_policy(policy, slug, analysis):
+    """-> [violation] for one analyzed skill."""
+    allowed = policy["allow"].get(slug, set())
+    observed = set(analysis["observed"])
+    out = []
+    for cat in sorted((observed & policy["deny"]) - allowed):
+        out.append({"rule": "deny_capabilities",
+                    "detail": f"observed capability '{cat}' is denied by policy"})
+    if policy["undeclared"]:
+        for cat in sorted(observed - set(analysis["declared"]) - allowed):
+            out.append({"rule": "deny_undeclared",
+                        "detail": f"observed '{cat}' but the skill does not declare it"})
+    if analysis["verdict"] in policy["verdicts"]:
+        out.append({"rule": "block_verdicts",
+                    "detail": f"secscan verdict '{analysis['verdict']}' is blocked by policy"})
+    return out
+
+
+def cmd_policy_init(args):
+    path = Path(args.file or POLICY_NAME)
+    if path.exists():
+        err(f"{path} already exists - not overwriting")
+        return EXIT_ERROR
+    path.write_text(json.dumps(POLICY_SAMPLE, indent=2) + "\n", encoding="utf-8")
+    print(f"wrote {path}")
+    print("  deny_capabilities: categories skills may not exercise "
+          f"({', '.join(POLICY_CATEGORIES)})")
+    print("  block_verdicts:    secscan verdicts that block an install/update")
+    print("  deny_undeclared:   block observed capabilities a skill does not declare")
+    print("  allow:             per-skill exceptions, e.g. "
+          '{"web-research": ["network-egress"]}')
+    return EXIT_OK
+
+
+def cmd_policy_show(args):
+    policy, e = load_policy(Path(args.file))
+    if e:
+        err(e)
+        return EXIT_ERROR
+    print(json.dumps({
+        "path": policy["path"],
+        "deny_capabilities": sorted(policy["deny"]),
+        "block_verdicts": sorted(policy["verdicts"]),
+        "deny_undeclared": policy["undeclared"],
+        "allow": {k: sorted(v) for k, v in sorted(policy["allow"].items())},
+    }, indent=2, sort_keys=True))
+    return EXIT_OK
+
+
+def staged_skill_files(staging: Path, slugs):
+    skills = staging / "skills"
+    if not skills.is_dir():
+        return []
+    files = sorted(f for f in skills.iterdir()
+                   if f.is_file() and f.suffix == ".md" and SLUG_RE.match(f.stem))
+    if slugs:
+        files = [f for f in files if f.stem in set(slugs)]
+    return files
+
+
+def cmd_policy_check(args):
+    policy, e = load_policy(Path(args.policy))
+    if e:
+        err(e)
+        return EXIT_ERROR
+    secscan = load_secscan()
+    if secscan is None:
+        err("usb-secscan.py must sit next to usb-integrity.py for policy checks")
+        return EXIT_ERROR
+    results, violations = [], []
+    for f in staged_skill_files(Path(args.staging), args.slug):
+        try:
+            analysis = analyze_version(secscan, f)
+        except ValueError as ex:
+            err(str(ex))
+            return EXIT_ERROR
+        v = eval_policy(policy, f.stem, analysis)
+        results.append({"slug": f.stem, "verdict": analysis["verdict"],
+                        "observed": sorted(analysis["observed"]),
+                        "violations": v})
+        violations.extend({"slug": f.stem, **x} for x in v)
+    if args.json:
+        print(json.dumps({"policy": policy["path"], "checked": len(results),
+                          "violations": violations, "skills": results},
+                         sort_keys=True, indent=2))
+    else:
+        for x in violations:
+            print(f"  [policy] {x['slug']}: {x['detail']}")
+        print(f"policy {policy['path']}: {len(results)} skill(s) checked, "
+              f"{len(violations)} violation(s)")
+    return EXIT_DRIFT if violations else EXIT_OK
+
+
+# --- update -----------------------------------------------------------------
+def installed_slug_map(pack_dir: Path, manifest):
+    """slug -> {target: [existing paths]} from every per-skill layout."""
+    out = {}
+    for target, _dest, entries in target_layouts(manifest):
+        for p, _h, slug, _rel in entries:
+            if slug is not None and Path(p).exists():
+                out.setdefault(slug, {}).setdefault(target, []).append(Path(p))
+    return out
+
+
+def update_targets(slug, tmap):
+    """-> (targets safe to refresh via the installer, manual notes)."""
+    targets, manual = [], []
+    for target, paths in sorted(tmap.get(slug, {}).items()):
+        if target == "claude":
+            small = any(p.name == "SKILL.md" and p.parent.name == slug
+                        for p in paths)
+            if not small:
+                manual.append({"target": "claude",
+                               "reason": "catalog (router) layout: re-run "
+                                         "`usb install --target claude` to refresh"})
+                continue
+        targets.append(target)
+    return targets, manual
+
+
+def cmd_update_plan(args):
+    packs = discover_packs(require_manifest=True)
+    if not packs:
+        err(f"no integrity manifest found under {ai_root()}")
+        err("install something first (usb install <slug>)")
+        return EXIT_ERROR
+    secscan = None if args.list else load_secscan()
+    if not args.list and secscan is None:
+        err("usb-secscan.py must sit next to usb-integrity.py")
+        return EXIT_ERROR
+    policy = None
+    if args.policy:
+        policy, e = load_policy(Path(args.policy))
+        if e:
+            err(e)
+            return EXIT_ERROR
+    wanted = set(args.slug)
+    out = {"packs": [], "summary": {"current": 0, "safe": 0, "review": 0,
+                                    "blocked": 0, "unavailable": 0}}
+    for pack_dir in packs:
+        manifest, e = load_manifest(pack_dir)
+        if e:
+            err(e)
+            return EXIT_ERROR
+        tmap = installed_slug_map(pack_dir, manifest)
+        skills = []
+        for slug, rel, h in skill_entries(manifest):
+            if wanted and slug not in wanted:
+                continue
+            targets, manual = update_targets(slug, tmap)
+            # A slug that also lives in a layout the installer cannot refresh
+            # in place (claude router copy) is never half-updated: the stale
+            # copy would then show up as drift against the new manifest.
+            if not targets and not manual:
+                targets = ["generic"]
+            entry = {"slug": slug, "old_hash": h, "targets": targets,
+                     "manual": manual, "applicable": not manual}
+            if args.list:
+                skills.append(entry)
+                continue
+            staged = Path(args.staging) / "skills" / f"{slug}.md"
+            inst = pack_dir / rel
+            if not staged.is_file():
+                entry.update(status="unavailable", cls="unavailable",
+                             reasons=["not served by the catalog"], violations=[])
+                out["summary"]["unavailable"] += 1
+                skills.append(entry)
+                continue
+            new_hash = sha256_file(staged)
+            entry["new_hash"] = new_hash
+            if new_hash == h:
+                entry.update(status="current", cls="current", reasons=[],
+                             violations=[])
+                out["summary"]["current"] += 1
+                skills.append(entry)
+                continue
+            reasons, violations = [], []
+            local_mod = inst.exists() and sha256_file(inst) != h
+            if local_mod:
+                reasons.append("installed copy has local edits that an update would overwrite")
+            try:
+                new = analyze_version(secscan, staged)
+                old = analyze_version(secscan, inst) if inst.exists() else None
+            except ValueError as ex:
+                err(str(ex))
+                return EXIT_ERROR
+            if old is None:
+                reasons.append("installed copy is missing - cannot diff")
+            else:
+                d = diff_versions(old, new)
+                cap = d["capabilities"]
+                for c in cap["observed_added"]:
+                    reasons.append(f"new observed capability: {c}")
+                for c in cap["declared_added"]:
+                    reasons.append(f"new declared capability: {c}")
+                for t in cap["tools_added"]:
+                    reasons.append(f"new declared tool: {t}")
+                if VERDICT_RANK.get(new["verdict"], 2) > VERDICT_RANK.get(old["verdict"], 2):
+                    reasons.append(f"verdict worsened: {old['verdict']} -> {new['verdict']}")
+                entry["capabilities"] = cap
+            if policy is not None:
+                violations = eval_policy(policy, slug, new)
+            cls = "blocked" if violations else ("review" if reasons else "safe")
+            entry.update(status="changed", cls=cls, reasons=reasons,
+                         violations=violations, verdict=new["verdict"])
+            out["summary"][cls] += 1
+            skills.append(entry)
+        out["packs"].append({"pack": manifest["pack"], "dir": str(pack_dir),
+                             "skills": skills})
+    if args.json or args.list:
+        print(json.dumps(out, sort_keys=True, indent=2))
+    else:
+        human_update_plan(out)
+    s = out["summary"]
+    return EXIT_DRIFT if (s["safe"] or s["review"] or s["blocked"]) else EXIT_OK
+
+
+def human_update_plan(out):
+    labels = {"safe": "SAFE   ", "review": "REVIEW ", "blocked": "BLOCKED",
+              "unavailable": "N/A    "}
+    for pack in out["packs"]:
+        for sk in pack["skills"]:
+            if sk["cls"] == "current":
+                continue
+            print(f"  [{labels[sk['cls']]}] {sk['slug']}  "
+                  f"{short_hash(sk['old_hash'])} -> {short_hash(sk.get('new_hash'))}"
+                  f"  ({', '.join(sk['targets'])})")
+            for r in sk["reasons"]:
+                print(f"             - {r}")
+            for v in sk["violations"]:
+                print(f"             ! policy: {v['detail']}")
+            for m in sk["manual"]:
+                print(f"             ~ {m['target']}: {m['reason']}")
+    s = out["summary"]
+    print(f"update plan: {s['current']} current, {s['safe']} safe, "
+          f"{s['review']} need review, {s['blocked']} blocked by policy, "
+          f"{s['unavailable']} unavailable")
+
+
 def main(argv=None):
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
@@ -1135,6 +1446,32 @@ def main(argv=None):
     p.add_argument("--command", help="hook command line (install)")
     p.add_argument("--settings", help="settings.json path (default ~/.claude)")
     p.set_defaults(fn=cmd_hook)
+
+    p = sub.add_parser("policy-init", help="write a sample usb.policy.json")
+    p.add_argument("--file", help=f"path (default ./{POLICY_NAME})")
+    p.set_defaults(fn=cmd_policy_init)
+
+    p = sub.add_parser("policy-show", help="validate and print a policy file")
+    p.add_argument("--file", required=True)
+    p.set_defaults(fn=cmd_policy_show)
+
+    p = sub.add_parser("policy-check", help="check staged skills against a policy")
+    p.add_argument("--policy", required=True)
+    p.add_argument("--staging", required=True,
+                   help="pack dir of a staged install (contains skills/)")
+    p.add_argument("--slug", action="append", default=[],
+                   help="only check this skill (repeatable)")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(fn=cmd_policy_check)
+
+    p = sub.add_parser("update-plan", help="classify catalog updates for installed skills")
+    p.add_argument("slug", nargs="*", help="only these skills")
+    p.add_argument("--staging", help="pack dir of a staged latest-catalog install")
+    p.add_argument("--policy")
+    p.add_argument("--list", action="store_true",
+                   help="list installed skills and their targets (no staging needed)")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(fn=cmd_update_plan)
 
     args = parser.parse_args(argv)
     return args.fn(args)

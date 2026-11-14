@@ -4,6 +4,15 @@ All notable changes to USB — Universal Systems Bridge will be documented in th
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+- **`usb update [slug...] [--dry-run] [--yes] [--no-lock] [--file LOCK] [--target T]`.** Stages the latest catalog copy of every installed skill in a sandbox and classifies each change with the diff + secscan engines: SAFE (no new capability/tool, verdict not worse) is applied; REVIEW (new observed/declared capability or tool, worse verdict, local edits to be overwritten) needs `--yes` or an interactive confirm; BLOCKED (policy) is never applied. Applied through the supported per-skill installer path, then `usb.lock.json` is re-pinned if present and `verify` re-run. Skills in claude's catalog/router layout are reported, never half-updated (a stale copy would show as drift).
+- **`usb.policy.json` + `usb policy init|show`.** A user-owned rulebook (`deny_capabilities`, `block_verdicts`, `deny_undeclared`, per-skill `allow`) enforced by `install`, `install --locked` and `update`: candidates are staged, analyzed by the secscan engine and refused on a violation. Discovery: `--policy FILE`, `$USB_POLICY`, `./usb.policy.json`, `~/.ai-skills/usb.policy.json`; no file means no change; `--ignore-policy` skips it. Unknown keys/categories are hard errors so a typo cannot weaken a policy.
+
+### Tests
+- Integrity suite grew to 188 assertions: policy validation and enforcement (install, `--locked`, implicit `./usb.policy.json`, allow exceptions, `--ignore-policy`) and update classification, safe-only application, `--yes`, policy-blocked updates, lock re-pin, local-edit warning and the router-layout guard. `render-fixture-install.mjs` gained an overrides file to render an "updated catalog".
+
 ## [1.1.0] — 2026-11-13
 
 ### Added

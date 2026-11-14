@@ -95,6 +95,10 @@ usb diff intent-router        # installed copy vs latest catalog: capability/per
 usb diff old.md new.md        # any two local skill files or directories
 usb diff old.md new.md --patch --json
 
+usb update --dry-run          # classify updates for installed skills (SAFE / REVIEW / BLOCKED)
+usb update                    # apply SAFE ones; --yes also applies REVIEW (never BLOCKED)
+usb policy init               # sample usb.policy.json; enforced by install, install --locked, update
+usb install postgres-expert --policy usb.policy.json   # --ignore-policy skips the check
 usb repair --dry-run          # restore drifted skill files byte-for-byte (refuses if the catalog moved on)
 usb repair                    # restore, then re-verify
 usb hook install              # Claude Code SessionStart hook: warn when installed skills drift

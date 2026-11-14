@@ -32,6 +32,10 @@
 #   usb install --locked           Install only if the catalog still matches the lock
 #   usb diff <slug>                Capability/permission changes: installed vs latest
 #   usb diff <old> <new>           Compare two local skill files or directories
+#   usb update [slug...]           Update installed skills: SAFE applied, REVIEW (new capabilities)
+#                                  needs --yes, BLOCKED (usb.policy.json) never; --dry-run
+#   usb policy init|show           Create/inspect usb.policy.json (deny capabilities/verdicts);
+#                                  enforced by install, install --locked and update
 #   usb repair [slug] [--dry-run]  Restore drifted skill files byte-for-byte (refuses
 #                                  when the catalog moved on - that is an update)
 #   usb hook install|uninstall|status
@@ -712,6 +716,20 @@ for x in d["drift"]: print("  ["+x["kind"]+"] "+x["slug"])' \
   local full_match irc=0
   full_match=$(python3 -c 'import json,sys;print("1" if json.load(open(sys.argv[1]))["full_match"] else "0")' \
     "$(secscan_to_native_path "$check")")
+  if usb_policy_path >/dev/null; then
+    local pslugs=() ps prc=0
+    if [ "$full_match" != "1" ]; then
+      while IFS= read -r ps; do
+        ps="${ps%$'\r'}"; [ -n "$ps" ] && pslugs+=("$ps")
+      done < <(printf '%s' "$lockjson" | python3 -c 'import json,sys;print("\n".join(json.load(sys.stdin)["slugs"]))')
+    fi
+    info "Policy: $(usb_policy_path)"
+    usb_policy_check_dir "$staging/root/$lock_pack" ${pslugs[@]+"${pslugs[@]}"} || prc=$?
+    if [ "$prc" != 0 ]; then
+      rm -rf "$staging"; rm -f "$script"; exit "$prc"
+    fi
+  fi
+
   if [ "$full_match" = "1" ]; then
     bash "$script" || irc=$?
   else
@@ -762,6 +780,13 @@ cmd_install() {
         target="$1"; target_set=1
         ;;
       --dry-run)   show_script=1 ;;
+      --ignore-policy) USB_IGNORE_POLICY=1 ;;
+      --policy=*)  USB_POLICY_FILE="${1#--policy=}" ;;
+      --policy)
+        shift
+        [ $# -gt 0 ] || { err "--policy needs a policy file path"; exit 2; }
+        USB_POLICY_FILE="$1"
+        ;;
       --locked)    locked=1 ;;
       --file=*)    lockfile="${1#--file=}" ;;
       --file)
@@ -843,6 +868,17 @@ cmd_install() {
     rm -f "$script"
     err "no skill matches '${filter_args#*=}' — try: usb search <keyword>"
     exit 1
+  fi
+  if [ -n "$USB_POLICY_FILE" ] && [ ! -f "$USB_POLICY_FILE" ]; then
+    rm -f "$script"
+    err "policy file not found: $USB_POLICY_FILE"
+    exit 2
+  fi
+  local prc=0
+  usb_policy_gate "$script" || prc=$?
+  if [ "$prc" != 0 ]; then
+    rm -f "$script"
+    exit "$prc"
   fi
   bash "$script"
   local rc=$?
@@ -1685,6 +1721,264 @@ cmd_hook() {
     --command "$cmd" ${settings[@]+"${settings[@]}"}
 }
 
+# --- policy + update ----------------------------------------------------------
+# usb.policy.json is the user's own rulebook for what skills may do. It is found
+# via --policy FILE, $USB_POLICY, ./usb.policy.json, then
+# ~/.ai-skills/usb.policy.json; when none exists nothing changes. install,
+# install --locked and update stage the candidate skills in a sandbox, run the
+# secscan engine over them and refuse on a violation (--ignore-policy skips).
+USB_POLICY_FILE=""
+USB_IGNORE_POLICY=0
+
+usb_policy_path() {
+  [ "$USB_IGNORE_POLICY" = "1" ] && return 1
+  local f
+  for f in "$USB_POLICY_FILE" "${USB_POLICY:-}" "./usb.policy.json" \
+           "${AI_SKILL_HOME:-${HOME:-}/.ai-skills}/usb.policy.json"; do
+    if [ -n "$f" ] && [ -f "$f" ]; then printf '%s\n' "$f"; return 0; fi
+  done
+  return 1
+}
+
+# usb_policy_check_dir <staged pack dir> [slug...] -> 0 ok, 1 violations, 2 error
+usb_policy_check_dir() {
+  local dir="$1"; shift
+  local policy; policy=$(usb_policy_path) || return 0
+  local sargs=() s
+  for s in "$@"; do [ -n "$s" ] && sargs+=(--slug "$s"); done
+  local rc=0
+  python3 "$(secscan_to_native_path "$USB_INTEGRITY_ENGINE")" policy-check \
+    --policy "$(secscan_to_native_path "$policy")" \
+    --staging "$(secscan_to_native_path "$dir")" ${sargs[@]+"${sargs[@]}"} || rc=$?
+  if [ "$rc" = 1 ]; then
+    err "policy violations - nothing installed (inspect: usb policy show; skip: --ignore-policy)"
+  fi
+  return "$rc"
+}
+
+# usb_policy_gate <installer script>: stage it, check the staged skills.
+usb_policy_gate() {
+  local script="$1"
+  local policy; policy=$(usb_policy_path) || return 0
+  command -v python3 >/dev/null 2>&1 || { err "a policy is active ($policy) but python3 is missing"; return 2; }
+  usb_engines_ensure || return 2
+  info "Policy: $policy"
+  local staging pack rc=0
+  staging=$(mktemp -d) || { err "Could not create a temp dir"; return 2; }
+  mkdir -p "$staging/home"
+  if ! usb_sandbox_install "$script" "$staging" "$staging/install.log"; then
+    err "could not stage the installer for the policy check:"
+    tail -3 "$staging/install.log" >&2
+    rm -rf "$staging"; return 2
+  fi
+  pack=$(grep -m1 '^PACK_SLUG=' "$script" | cut -d'"' -f2)
+  pack="${pack%$'\r'}"
+  usb_policy_check_dir "$staging/root/$pack" || rc=$?
+  rm -rf "$staging"
+  return "$rc"
+}
+
+cmd_policy() {
+  local action="${1:-show}"; shift || true
+  local file=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --file=*) file="${1#--file=}" ;;
+      --file)   shift; [ $# -gt 0 ] || { err "--file needs a path"; exit 2; }; file="$1" ;;
+      *) err "Unknown argument: $1"; exit 2 ;;
+    esac
+    shift
+  done
+  command -v python3 >/dev/null 2>&1 || { err "policy needs python3 in PATH"; exit 2; }
+  usb_engines_ensure || exit 2
+  local eng; eng=$(secscan_to_native_path "$USB_INTEGRITY_ENGINE")
+  case "$action" in
+    init)
+      python3 "$eng" policy-init ${file:+--file "$(secscan_to_native_path "$file")"} ;;
+    show)
+      [ -n "$file" ] && USB_POLICY_FILE="$file"
+      local p; p=$(usb_policy_path) || { err "no policy found (create one with: usb policy init)"; exit 2; }
+      python3 "$eng" policy-show --file "$(secscan_to_native_path "$p")" ;;
+    *) err "usage: usb policy [init|show] [--file PATH]"; exit 2 ;;
+  esac
+}
+
+# --- update subcommand --------------------------------------------------------
+# usb update [slug...] [--dry-run] [--yes] [--no-lock] [--file LOCK]
+#             [--policy FILE] [--ignore-policy]
+# Stages the latest catalog copy of every installed skill in a sandbox and
+# classifies what changed (the diff engine + secscan):
+#   SAFE     content changed, no new capability/tool, verdict not worse
+#   REVIEW   new observed/declared capability or tool, worse verdict, or local
+#            edits that would be overwritten - applied only with --yes (or an
+#            interactive confirm)
+#   BLOCKED  violates usb.policy.json - never applied
+# Applied updates reuse the supported installer path (usb install <slug>
+# --target T), then usb.lock.json is re-pinned if one exists.
+# Exit: 0 nothing left to do, 1 updates pending/blocked/manual, 2 error.
+cmd_update() {
+  local slugs=() dry=0 yes=0 nolock=0 lockfile="usb.lock.json" tfilter="" s
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --dry-run) dry=1 ;;
+      --yes|-y)  yes=1 ;;
+      --no-lock) nolock=1 ;;
+      --ignore-policy) USB_IGNORE_POLICY=1 ;;
+      --file=*)  lockfile="${1#--file=}" ;;
+      --file)    shift; [ $# -gt 0 ] || { err "--file needs a lock file path"; exit 2; }; lockfile="$1" ;;
+      --policy=*) USB_POLICY_FILE="${1#--policy=}" ;;
+      --policy)  shift; [ $# -gt 0 ] || { err "--policy needs a path"; exit 2; }; USB_POLICY_FILE="$1" ;;
+      --target=*) tfilter="${1#--target=}" ;;
+      --target)  shift; [ $# -gt 0 ] || { err "--target needs a value"; exit 2; }; tfilter="$1" ;;
+      -h|--help) usage; exit 0 ;;
+      --*)       err "Unknown flag: $1"; exit 2 ;;
+      *)
+        case "$1" in ''|*[!a-z0-9-]*|-*) err "invalid slug: '$1'"; exit 2 ;; esac
+        slugs+=("$1") ;;
+    esac
+    shift
+  done
+  if [ -n "$USB_POLICY_FILE" ] && [ ! -f "$USB_POLICY_FILE" ]; then
+    err "policy file not found: $USB_POLICY_FILE"; exit 2
+  fi
+  command -v python3 >/dev/null 2>&1 || { err "update needs python3 in PATH"; exit 2; }
+  usb_engines_ensure || exit 2
+  local eng; eng=$(secscan_to_native_path "$USB_INTEGRITY_ENGINE")
+
+  local list rc=0
+  list=$(python3 "$eng" update-plan --list ${slugs[@]+"${slugs[@]}"}) || rc=$?
+  [ "$rc" = 0 ] || exit 2
+  local installed count
+  installed=$(printf '%s' "$list" | python3 -c 'import json,sys
+d=json.load(sys.stdin)
+for p in d["packs"]:
+    for s in p["skills"]: print(s["slug"])')
+  count=$(printf '%s\n' "$installed" | grep -c . || true)
+  if [ "$count" = 0 ]; then
+    err "nothing to update - no matching installed skill${slugs[*]:+ (${slugs[*]})}"
+    exit 2
+  fi
+
+  local staging; staging=$(mktemp -d) || { err "Could not create a temp dir"; exit 2; }
+  mkdir -p "$staging/home"
+  info "Checking $count installed skill(s) against the latest catalog ..."
+  local sscript
+  if [ "$count" -gt 20 ]; then
+    sscript=$(mktemp) || { rm -rf "$staging"; exit 2; }
+    if curl -fsSL "$USB_BASE_URL/api/install?target=generic" -o "$sscript"; then
+      usb_sandbox_install "$sscript" "$staging" "$staging/install.log" || \
+        warn "could not stage the catalog: $(tail -1 "$staging/install.log")"
+    else
+      rm -rf "$staging"; rm -f "$sscript"
+      err "could not download the catalog installer"; exit 2
+    fi
+    rm -f "$sscript"
+  else
+    while IFS= read -r s; do
+      s="${s%$'\r'}"; [ -n "$s" ] || continue
+      sscript=$(mktemp) || { rm -rf "$staging"; exit 2; }
+      if curl -fsSL "$USB_BASE_URL/api/install?target=generic&slug=$s" -o "$sscript"; then
+        usb_sandbox_install "$sscript" "$staging" "$staging/install.log" || \
+          warn "could not stage $s: $(tail -1 "$staging/install.log")"
+      else
+        warn "could not download the catalog copy of $s"
+      fi
+      rm -f "$sscript"
+    done <<<"$installed"
+  fi
+
+  local pack
+  pack=$(printf '%s' "$list" | python3 -c 'import json,sys
+print(json.load(sys.stdin)["packs"][0]["pack"])')
+  pack="${pack%$'\r'}"
+  local policy_args=() policy
+  if policy=$(usb_policy_path); then
+    info "Policy: $policy"
+    policy_args=(--policy "$(secscan_to_native_path "$policy")")
+  fi
+  local stage_native; stage_native=$(secscan_to_native_path "$staging/root/$pack")
+  local plan="$staging/plan.json"
+  rc=0
+  python3 "$eng" update-plan ${slugs[@]+"${slugs[@]}"} --staging "$stage_native" \
+    ${policy_args[@]+"${policy_args[@]}"} --json > "$plan" || rc=$?
+  if [ "$rc" = 2 ] || [ ! -s "$plan" ]; then
+    err "could not compute the update plan"; rm -rf "$staging"; exit 2
+  fi
+  python3 "$eng" update-plan ${slugs[@]+"${slugs[@]}"} --staging "$stage_native" \
+    ${policy_args[@]+"${policy_args[@]}"} || true
+
+  local apply_lines pending=0
+  apply_lines=$(python3 -c 'import json,sys
+d=json.load(open(sys.argv[1]))
+for p in d["packs"]:
+    for s in p["skills"]:
+        if s["cls"] in ("safe","review","blocked"):
+            print("%s|%s|%d|%s" % (s["cls"], s["slug"], 1 if s.get("applicable", True) else 0, ",".join(s["targets"])))' \
+    "$(secscan_to_native_path "$plan")")
+  if [ -z "$apply_lines" ]; then
+    rm -rf "$staging"
+    ok "Everything is current."
+    return 0
+  fi
+  if [ "$dry" = 1 ]; then
+    rm -rf "$staging"
+    info "Dry run - nothing applied."
+    return 1
+  fi
+
+  local reviews
+  reviews=$(printf '%s\n' "$apply_lines" | grep -c '^review|.*|1|' || true)
+  local accept_review="$yes"
+  if [ "$reviews" -gt 0 ] && [ "$yes" != 1 ]; then
+    if [ -t 0 ] && [ -t 1 ]; then
+      local ans=""
+      printf 'Apply %s update(s) that need review? [y/N] ' "$reviews"
+      read -r ans || true
+      case "$ans" in y|Y|yes|YES) accept_review=1 ;; esac
+    else
+      warn "$reviews update(s) need review - re-run with --yes to apply them"
+    fi
+  fi
+
+  local applied=0 line cls slug app targets t iscript irc=0
+  while IFS= read -r line; do
+    line="${line%$'\r'}"; [ -n "$line" ] || continue
+    IFS='|' read -r cls slug app targets <<<"$line"
+    if [ "$cls" = blocked ]; then pending=1; continue; fi
+    if [ "$app" != 1 ]; then pending=1; continue; fi
+    if [ "$cls" = review ] && [ "$accept_review" != 1 ]; then pending=1; continue; fi
+    IFS=',' read -ra tlist <<<"$targets"
+    for t in "${tlist[@]}"; do
+      [ -n "$tfilter" ] && [ "$t" != "$tfilter" ] && continue
+      iscript=$(mktemp) || { irc=1; break; }
+      if curl -fsSL "$USB_BASE_URL/api/install?target=$t&slug=$slug" -o "$iscript"; then
+        bash "$iscript" >/dev/null 2>&1 || { warn "update of $slug ($t) failed"; irc=1; pending=1; }
+        [ "$irc" = 0 ] && info "updated $slug ($t)"
+      else
+        warn "could not download the installer for $slug ($t)"; irc=1; pending=1
+      fi
+      rm -f "$iscript"
+    done
+    applied=$((applied+1))
+  done <<<"$apply_lines"
+  rm -rf "$staging"
+
+  if [ "$applied" -gt 0 ] && [ "$nolock" != 1 ] && [ -f "$lockfile" ]; then
+    if python3 "$eng" lock --file "$(secscan_to_native_path "$lockfile")" >/dev/null 2>&1; then
+      info "re-pinned $lockfile"
+    else
+      warn "could not re-pin $lockfile - run: usb lock"
+    fi
+  fi
+  if [ "$applied" -gt 0 ]; then
+    if python3 "$eng" verify >/dev/null 2>&1; then ok "verify is clean after the update."
+    else warn "verify reports drift - see usb verify"; fi
+  fi
+  [ "$irc" = 0 ] || exit 1
+  [ "$pending" = 0 ] || return 1
+  ok "Updated $applied skill(s)."
+}
+
 # --- dispatcher --------------------------------------------------------------
 [ $# -eq 0 ] && { cmd_interactive; exit 0; }
 
@@ -1700,6 +1994,8 @@ case "${1:-}" in
                   integrity_cmd="$1"; shift; cmd_integrity "$integrity_cmd" "$@" ;;
   diff)           shift; cmd_diff "$@" ;;
   repair)         shift; cmd_repair "$@" ;;
+  update)         shift; cmd_update "$@" ;;
+  policy)         shift; cmd_policy "$@" ;;
   hook)           shift; cmd_hook "$@" ;;
   engines)        shift; cmd_engines "$@" ;;
   mcprobe)        shift
