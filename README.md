@@ -576,7 +576,7 @@ less <(usb install --dry-run web-dev)  # dry-run a preset and pipe to less
 
 | Endpoint | Purpose |
 |---|---|
-| `/api/install?target=<name>` | Render the install script for a target |
+| `/api/install?target=<name>` | Render the install script for a target. When the server has a signing key it adds `X-USB-Signature` (Ed25519 over the exact body) and `X-USB-Key-Id`; the CLI verifies it |
 | `/api/install-sha256?target=<name>` | sha256 of the above, for verification |
 | `/api/skills` | Browse the skill catalog |
 | `/api/audit/<slug>` | Audit a single skill definition |
@@ -620,6 +620,14 @@ On first boot a one-shot `migrate` service waits for Postgres and runs
 `drizzle-kit push`, so the schema and the 529-skill catalog are in place before
 the app starts — `/api/install` works straight away. Re-bootstrap from scratch
 with `docker compose down -v`.
+
+**Signing your own catalog.** The public instance signs installers with a key the
+CLI has embedded. A self-hosted instance is unsigned by default (the CLI accepts
+that unless told otherwise). To sign: generate a key with
+`node scripts/sign-engines.mjs --gen-key ./catalog.pem`, run the app with
+`USB_CATALOG_SIGNING_KEY_FILE=./catalog.pem` (or `USB_CATALOG_SIGNING_KEY` with the
+PEM text), and point clients at it with `USB_BASE_URL=<your host>` and
+`USB_CATALOG_PUBKEY=<the printed public key>`.
 
 If 5433 (Postgres) or 3000 (web) are already taken on your machine, override
 the host ports: `USB_PG_HOST_PORT=5544 USB_WEB_PORT=3001 docker compose up -d`.

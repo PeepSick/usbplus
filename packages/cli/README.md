@@ -125,6 +125,23 @@ usb mcp    # start the MCP stdio server (for AI agents)
 Exposes `usb_scan` and `usb_mcprobe` as MCP tools. Requires `python3` and
 the `mcp` Python package.
 
+### Update, policy, signed installers
+
+`usb update` stages the latest catalog copy of what you installed and classifies
+each change: **SAFE** is applied, **REVIEW** (new capability/tool, worse secscan
+verdict, local edits) needs `--yes`, **BLOCKED** by your policy is never applied.
+`usb.policy.json` (`usb policy init`) is enforced by `install`, `install --locked`
+and `update`; use `--ignore-policy` to skip it.
+
+Every installer the catalog serves is Ed25519-signed and verified before it runs;
+a bad signature is always refused. Unsigned installers (self-hosted servers) are
+accepted unless you set `USB_REQUIRE_SIGNATURE=1` or `"require_signed_catalog": true`
+in the policy. Self-hosters sign with their own key and export
+`USB_CATALOG_PUBKEY=<hex>`.
+
+In CI, `secscan` has a ready-made GitHub Action (`PeepSick/usbplus@main`, repo-root
+`action.yml`) that uploads SARIF to Code Scanning.
+
 ## Python Dependencies
 
 | Command | Python 3 only | Extra pip package |
