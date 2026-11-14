@@ -136,12 +136,17 @@ cp -r "$WORK/engines" "$WORK/engines-bad"
 echo "# swapped after signing" >> "$WORK/engines-bad/usb-integrity.py"
 
 start_stub() { # start_stub <portfile> <engines dir> [scripts dir]; sets STUB_PID and STUB_PORT
-  python3 "$ROOT/scripts/stub-catalog.py" "$(native "${3:-$WORK/scripts}")" "$(native "$2")" >"$1" 2>/dev/null &
+  python3 "$ROOT/scripts/stub-catalog.py" "$(native "${3:-$WORK/scripts}")" "$(native "$2")" >"$1" 2>"$1.err" &
   STUB_PID=$!
   for _ in $(seq 1 100); do [ -s "$1" ] && break; sleep 0.1; done
   STUB_PORT="$(cat "$1" 2>/dev/null)"
   STUB_PORT="${STUB_PORT%$'\r'}"
-  [ -n "$STUB_PORT" ] || { echo "FAIL stub catalog did not start"; exit 1; }
+  [ -n "$STUB_PORT" ] || {
+    echo "FAIL stub catalog did not start"
+    echo "  python3: $(command -v python3) ($(python3 --version 2>&1))"
+    sed 's/^/  stub stderr: /' "$1.err" 2>/dev/null | head -20
+    exit 1
+  }
 }
 start_stub "$WORK/port" "$WORK/engines"
 SRV=$STUB_PID; PORT=$STUB_PORT
