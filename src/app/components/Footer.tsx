@@ -30,7 +30,9 @@ export function Footer() {
                 alt="PeepSick Labs"
                 className="h-5 w-auto rounded opacity-80"
               />
-              <span>· A PeepSick Labs product.</span>
+              <span>
+                · A PeepSick Labs product — operated by Peepsick Limited (UK).
+              </span>
             </div>
           </div>
 
@@ -46,6 +48,26 @@ export function Footer() {
                   className="hover:text-cyan-300"
                 >
                   info@peepsicklabs.com
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://www.peepsicklabs.com"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:text-cyan-300"
+                >
+                  peepsicklabs.com
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://peepsick.com"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:text-cyan-300"
+                >
+                  peepsick.com
                 </a>
               </li>
             </ul>
@@ -99,7 +121,7 @@ export function Footer() {
             </h4>
             <ul className="mt-4 space-y-3 text-sm text-slate-300">
               <li>License: MIT</li>
-              <li>© 2026 PeepSick Labs</li>
+              <li>© 2026 PeepSick Labs · Peepsick Limited (UK)</li>
               <li>Catalog v{DEFAULT_PACK.version} · 529 skills</li>
               <li className="text-xs text-slate-500">
                 All skill content original. Inspired by{" "}
@@ -120,7 +142,7 @@ export function Footer() {
         <div className="mt-12 flex flex-col items-center gap-2 border-t border-white/5 pt-6 text-center text-xs text-slate-500 sm:flex-row sm:justify-between">
           <span>
             Built in public · Universal Systems Bridge is a PeepSick Labs
-            product.
+            product — operated by Peepsick Limited (UK).
           </span>
           <span className="font-mono">
             16 provider targets · 1 portable pack

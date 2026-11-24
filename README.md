@@ -737,28 +737,33 @@ Parts of the conceptual design of portable "AI skills" were inspired by emerging
 
 ### PeepSick Labs ecosystem
 
-PeepSick Labs is an early-stage AI infrastructure studio, currently pre-incorporation, building in public.
+PeepSick Labs is the technology and product development division of **Peepsick
+Limited**, a company registered in the United Kingdom — building in public.
 
 | Layer | Role |
 |---|---|
-| **USB** | Bridges capabilities — discover, verify, install (this project) |
+| **USB+** | Bridges capabilities — discover, verify, install (this project) |
 | **Foundry** | Builds agents (multi-agent orchestration & cognitive runtime) |
 | **Leosis** | Powers intelligence (OpenAI-compatible LLM provider) |
 
 ### Contact
 
 - Web: [usbplus.peepsicklabs.com](https://usbplus.peepsicklabs.com)
+- Labs: [peepsicklabs.com](https://www.peepsicklabs.com)
+- Studio: [peepsick.com](https://peepsick.com)
 - Email: [info@peepsicklabs.com](mailto:info@peepsicklabs.com)
+- Corporate: [info@peepsick.com](mailto:info@peepsick.com)
 - GitHub: [github.com/PeepSick](https://github.com/PeepSick)
 
 ### License
 
 MIT — free to use, modify, and redistribute, including commercially.
 
-The MIT license covers the code only. The "USB" / "Universal Systems
-Bridge" name and PeepSick Labs branding are **not** covered — rebranded
-forks must use a different name. See [TRADEMARK.md](./TRADEMARK.md).
+The MIT license covers the code only. The "USB" / "USB+" / "Universal
+Systems Bridge" name, the PeepSick name and branding, and the "LeoSis"
+name are **not** covered — rebranded forks must use a different name. See
+[TRADEMARK.md](./TRADEMARK.md).
 
 </details>
 
-<sub>USB · Universal Systems Bridge v1.2.0 · Building in public · Pre-incorporation · No legal entity formed yet · 2026</sub>
+<sub>USB · Universal Systems Bridge v1.2.0 · Building in public · Operated by Peepsick Limited (UK) · 2026</sub>

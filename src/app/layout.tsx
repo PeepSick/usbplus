@@ -10,6 +10,7 @@ export const metadata: Metadata = {
     "One portable capability format for AI agents — installed with sha256-verified installers into 16 runtimes and verified by secscan, a deterministic skill contract verifier. 529 skills from a 65-domain × 8-workflow matrix.",
   applicationName: "USB — Universal Systems Bridge",
   authors: [{ name: "PeepSick Labs" }],
+  other: { publisher: "Peepsick Limited (UK)" },
   keywords: [
     "AI skills",
     "agent skills",
